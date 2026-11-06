@@ -1,5 +1,6 @@
 package app.folio.folio
 
-import io.flutter.embedding.android.FlutterActivity
+// local_auth (biometric app lock) needs a FragmentActivity on Android.
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity()
+class MainActivity : FlutterFragmentActivity()
