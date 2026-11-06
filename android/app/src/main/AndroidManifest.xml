@@ -5,6 +5,10 @@
     <!-- Planner reminders: re-schedule after a reboot/app update, and post notifications (Android 13+). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Exact reminder times. USE_EXACT_ALARM is granted automatically on Android 13+ to calendar/alarm-style apps;
+         SCHEDULE_EXACT_ALARM covers Android 12. (Play Store review may ask to justify USE_EXACT_ALARM.) -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32"/>
     <application
         android:label="Folio"
         android:name="${applicationName}"

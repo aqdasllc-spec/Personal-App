@@ -34,6 +34,27 @@ class FakeScheduler implements ReminderScheduler {
     replaceCalls++;
     last = reminders;
   }
+
+  int testNow = 0;
+  int testLater = 0;
+  @override
+  Future<ReminderDiagnostics> diagnostics() async => ReminderDiagnostics(
+      supported: true,
+      permissionGranted: granted,
+      exactAlarms: true,
+      pendingCount: last.length,
+      lastMode: 'exact');
+  @override
+  Future<bool> sendTestNow() async {
+    testNow++;
+    return true;
+  }
+
+  @override
+  Future<bool> scheduleTest(Duration after) async {
+    testLater++;
+    return true;
+  }
 }
 
 void _size(WidgetTester t, double w, double h) {
@@ -480,6 +501,27 @@ void main() {
       await t.binding.handlePopRoute();
       await settleP(t);
       expect(find.text('Command Center'), findsOneWidget);
+      await dispose(t);
+    });
+  });
+
+  group('notifications panel', () {
+    testWidgets('Settings shows status and the test buttons call the scheduler', (t) async {
+      final (_, sch) = await openPlanner(t);
+      await t.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('Settings')));
+      await settleP(t);
+      final scroll = find.byType(Scrollable).first;
+      await t.scrollUntilVisible(find.byKey(const Key('notif-test-now')), 300, scrollable: scroll);
+      await t.ensureVisible(find.byKey(const Key('notif-test-now')));
+      await t.pump();
+      await t.tap(find.byKey(const Key('notif-test-now')), warnIfMissed: false);
+      await settleP(t);
+      expect(sch.testNow, 1);
+      await t.ensureVisible(find.byKey(const Key('notif-test-later')));
+      await t.pump();
+      await t.tap(find.byKey(const Key('notif-test-later')), warnIfMissed: false);
+      await settleP(t);
+      expect(sch.testLater, 1);
       await dispose(t);
     });
   });

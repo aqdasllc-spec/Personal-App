@@ -6,6 +6,7 @@ import '../../app/providers.dart';
 import '../../design_system/components.dart';
 import '../../design_system/tokens.dart';
 import '../auth/auth_repository.dart';
+import 'notifications_tiles.dart';
 import 'rotation.dart';
 
 /// Phase 1 settings: only what actually works today (account, sync, app lock).
@@ -67,6 +68,7 @@ class SettingsPage extends ConsumerWidget {
             ]),
           ),
         ]),
+      _Section('Notifications', const [NotificationsTiles()]),
       _Section('Security', [
         SwitchListTile(
           title: const Text('App lock'),

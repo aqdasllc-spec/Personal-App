@@ -200,6 +200,7 @@ class PlannerController extends AsyncNotifier<PlannerState> {
         }
       });
       await refresh();
+      _explainReminder('task', saved, input.remindMinutes);
       await _maybeAskForNotifications(input.remindMinutes != null);
       return true;
     } catch (e) {
@@ -220,6 +221,7 @@ class PlannerController extends AsyncNotifier<PlannerState> {
         }
       });
       await refresh();
+      _explainReminder('event', saved, input.remindMinutes);
       await _maybeAskForNotifications(input.remindMinutes != null);
       return true;
     } catch (e) {
@@ -241,6 +243,30 @@ class PlannerController extends AsyncNotifier<PlannerState> {
   }
 
   // ----------------------------------------------------------------- reminders
+  /// A reminder that can never fire is the commonest reason "nothing came", so say so at save time.
+  void _explainReminder(String kind, String id, int? remind) {
+    if (remind == null) return;
+    final now = _now();
+    final picked = pickReminders(now, _s.tasks, _s.events);
+    if (picked.any((r) => r.payload == '$kind:$id')) return;
+    DateTime? base;
+    if (kind == 'task') {
+      final t = _s.tasks.where((x) => x.id == id).firstOrNull;
+      final target = t?.planned ?? t?.due;
+      if (t != null && target != null) base = (t.planned != null || t.dueHasTime) ? target : DateTime(target.year, target.month, target.day, allDayReminderHour);
+    } else {
+      final e = _s.events.where((x) => x.id == id).firstOrNull;
+      if (e != null) base = e.allDay ? DateTime(e.start.year, e.start.month, e.start.day, allDayReminderHour) : e.start;
+    }
+    if (base == null) return;
+    final fire = base.subtract(Duration(minutes: remind));
+    if (!fire.isAfter(now)) {
+      _say('That reminder time has already passed (${fire.year}-${fire.month.toString().padLeft(2, '0')}-${fire.day.toString().padLeft(2, '0')} ${fire.hour.toString().padLeft(2, '0')}:${fire.minute.toString().padLeft(2, '0')}), so it won\'t fire. Items without a time remind you at 09:00 — give it a time, or pick a later one.');
+    } else {
+      _say('Saved. This reminder is more than 60 days away; it will be scheduled automatically as the date gets closer.');
+    }
+  }
+
   Future<void> _maybeAskForNotifications(bool wanted) async {
     if (!wanted) return;
     final ok = await _scheduler.hasPermission() || await _scheduler.requestPermission();
@@ -263,3 +289,11 @@ class PlannerController extends AsyncNotifier<PlannerState> {
 }
 
 final plannerControllerProvider = AsyncNotifierProvider<PlannerController, PlannerState>(PlannerController.new);
+
+/// Reminders that will fire next (for Settings → Notifications).
+final upcomingRemindersProvider = FutureProvider.autoDispose<List<Reminder>>((ref) async {
+  final repo = ref.watch(plannerRepositoryProvider);
+  return pickReminders(DateTime.now(), await repo.tasks(), await repo.events());
+});
+
+final reminderDiagnosticsProvider = FutureProvider.autoDispose<ReminderDiagnostics>((ref) => ref.watch(reminderSchedulerProvider).diagnostics());
