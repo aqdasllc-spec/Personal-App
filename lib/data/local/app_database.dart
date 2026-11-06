@@ -79,6 +79,10 @@ class Books extends Table {
   TextColumn get shelfId => text().nullable()();
   IntColumn get favorite => integer().withDefault(const Constant(0))();
 
+  /// 'local' (only on this device) or 'synced' (a copy also lives in the user's cloud). An upload in
+  /// progress is tracked in memory only, so a crash can never leave a book stuck "syncing".
+  TextColumn get cloudState => text().withDefault(const Constant('local'))();
+
   /// Last page read (1-based; 0 = never opened).
   IntColumn get lastPage => integer().withDefault(const Constant(0))();
   IntColumn get lastOpenedAt => integer().nullable()();
@@ -155,7 +159,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -207,6 +211,10 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(schema.shelves);
             await m.createIndex(schema.booksShelf);
             await m.createIndex(schema.booksHash);
+          },
+          from5To6: (m, schema) async {
+            // v6: per-book cloud copy state.
+            await m.addColumn(schema.books, schema.books.cloudState);
           },
         ),
         beforeOpen: (details) async {

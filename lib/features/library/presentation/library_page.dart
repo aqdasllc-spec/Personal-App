@@ -6,6 +6,7 @@ import '../../../app/router.dart';
 import '../../../data/local/app_database.dart';
 import '../../../design_system/components.dart';
 import '../../../design_system/tokens.dart';
+import '../application/book_sync.dart';
 import '../application/library_controller.dart';
 import '../data/library_repository.dart';
 import 'book_visuals.dart';
@@ -83,6 +84,44 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     ref.read(libraryUiProvider.notifier).setFilter(ShelfFilter(s.id));
   }
 
+  Future<void> _cloudTap(BookRow b) async {
+    final ctl = ref.read(bookSyncProvider.notifier);
+    if (!ref.read(canCloudSyncProvider)) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Sign in to sync'),
+          content: const Text('Cloud sync needs an account. Go to Settings → Account → Sign in to sync.'),
+          actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+        ),
+      );
+      return;
+    }
+    final synced = b.cloudState == 'synced';
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: Key(synced ? 'unsync-dialog' : 'sync-dialog'),
+        title: Text(synced ? 'Remove from cloud?' : 'Sync to cloud?'),
+        content: Text(synced
+            ? '"${b.title}" is saved in your cloud. Unsync deletes the cloud copy to free space. The book stays on this phone.'
+            : 'Upload "${b.title}" (${_size(b.sizeBytes)}) to your private cloud so it is backed up and available on your other devices.'),
+        actions: [
+          TextButton(key: const Key('cloud-cancel'), onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(key: const Key('cloud-confirm'), onPressed: () => Navigator.pop(ctx, true), child: Text(synced ? 'Unsync' : 'Sync')),
+        ],
+      ),
+    );
+    if (go != true || !mounted) return;
+    final ok = synced ? await ctl.unsync(b) : await ctl.sync(b);
+    if (!mounted) return;
+    final err = ref.read(bookSyncProvider).message;
+    if (!ok && err != null) {
+      _say(err);
+      ctl.clearMessage();
+    }
+  }
+
   void _open(BookRow b) => context.push('${Routes.library}/read/${b.id}');
 
   Future<void> _details(BookRow b) async {
@@ -103,6 +142,10 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     final visible = ref.watch(visibleBooksProvider);
     final shelves = ref.watch(shelvesProvider).value ?? const <ShelfRow>[];
     final c = context.colors;
+    final cloudOn = ref.watch(cloudBooksProvider) != null;
+    final busyIds = ref.watch(bookSyncProvider).busy;
+    // The cloud dot is shown only in builds that have cloud sync at all.
+    Widget? dotOf(BookRow b) => cloudOn ? CloudDot(book: b, busy: busyIds.contains(b.id), onTap: () => _cloudTap(b)) : null;
     final compact = MediaQuery.sizeOf(context).width < 600;
 
     return Scaffold(
@@ -243,6 +286,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                 ],
               ),
             ),
+            const _CloudBanner(),
             Expanded(
               child: books.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
@@ -278,16 +322,19 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                       books: list,
                       onOpen: _open,
                       onMenu: _details,
+                      dotOf: dotOf,
                     ),
                     LibraryView.grid => _GridView(
                       books: list,
                       onOpen: _open,
                       onMenu: _details,
+                      dotOf: dotOf,
                     ),
                     LibraryView.list => _ListView(
                       books: list,
                       onOpen: _open,
                       onMenu: _details,
+                      dotOf: dotOf,
                     ),
                   };
                 },
@@ -362,7 +409,9 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
 }
 
 class _ShelfView extends StatelessWidget {
+  final Widget? Function(BookRow) dotOf;
   const _ShelfView({
+    required this.dotOf,
     required this.books,
     required this.onOpen,
     required this.onMenu,
@@ -409,6 +458,7 @@ class _ShelfView extends StatelessWidget {
                             book: b,
                             onTap: () => onOpen(b),
                             onLongPress: () => onMenu(b),
+                            dot: dotOf(b),
                           ),
                         ),
                     ],
@@ -441,7 +491,9 @@ class _ShelfView extends StatelessWidget {
 }
 
 class _GridView extends StatelessWidget {
+  final Widget? Function(BookRow) dotOf;
   const _GridView({
+    required this.dotOf,
     required this.books,
     required this.onOpen,
     required this.onMenu,
@@ -471,7 +523,7 @@ class _GridView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Center(child: CoverTile(book: b, size: 120)),
+                child: Center(child: CoverTile(book: b, size: 120, dot: dotOf(b))),
               ),
               const SizedBox(height: Space.s8),
               Text(
@@ -504,7 +556,9 @@ class _GridView extends StatelessWidget {
 }
 
 class _ListView extends StatelessWidget {
+  final Widget? Function(BookRow) dotOf;
   const _ListView({
+    required this.dotOf,
     required this.books,
     required this.onOpen,
     required this.onMenu,
@@ -520,7 +574,7 @@ class _ListView extends StatelessWidget {
       final pct = (readingProgress(b) * 100).round();
       return ListTile(
         key: Key('book-${b.id}'),
-        leading: CoverTile(book: b, size: 48),
+        leading: CoverTile(book: b, size: 48, dot: dotOf(b)),
         title: Text(b.title, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(
           [
@@ -658,9 +712,26 @@ class _BookSheet extends ConsumerWidget {
               icon: const Icon(Icons.delete_outline),
               label: const Text('Remove from library'),
               onPressed: () async {
-                await repo.remove(b.id);
-                if (context.mounted) Navigator.pop(context);
                 final m = ScaffoldMessenger.maybeOf(context);
+                final removed = await ref.read(bookSyncProvider.notifier).removeBook(b);
+                if (!removed) {
+                  // the cloud copy could not be deleted, so the book stays (nothing is left behind in the cloud).
+                  // A dialog, not a snackbar: a snackbar would cover this sheet's buttons.
+                  final err = ref.read(bookSyncProvider).message;
+                  ref.read(bookSyncProvider.notifier).clearMessage();
+                  if (err != null && context.mounted) {
+                    await showDialog<void>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Can\'t remove it yet'),
+                        content: Text(err),
+                        actions: [FilledButton(key: const Key('remove-error-ok'), onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+                      ),
+                    );
+                  }
+                  return;
+                }
+                if (context.mounted) Navigator.pop(context);
                 m?.hideCurrentSnackBar();
                 m?.showSnackBar(
                   SnackBar(
@@ -777,4 +848,42 @@ class _DetailsDialogState extends State<_DetailsDialog> {
       ),
     ],
   );
+}
+
+
+/// "N books are in your cloud but not on this phone" with a Download button.
+class _CloudBanner extends ConsumerWidget {
+  const _CloudBanner();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final n = ref.watch(cloudOnlyCountProvider).value ?? 0;
+    final busy = ref.watch(bookSyncProvider).busy.contains('*download');
+    if (n == 0) return const SizedBox.shrink();
+    return Container(
+      key: const Key('cloud-banner'),
+      margin: const EdgeInsets.fromLTRB(Space.s16, Space.s4, Space.s16, Space.s8),
+      padding: const EdgeInsets.all(Space.s12),
+      decoration: BoxDecoration(color: context.colors.accentSoft, borderRadius: BorderRadius.circular(Radii.card)),
+      child: Row(children: [
+        const Icon(Icons.cloud_download_outlined),
+        const SizedBox(width: Space.s12),
+        Expanded(child: Text('$n ${n == 1 ? 'book is' : 'books are'} in your cloud but not on this phone.')),
+        TextButton(
+          key: const Key('cloud-download'),
+          onPressed: busy
+              ? null
+              : () async {
+                  final ctl = ref.read(bookSyncProvider.notifier);
+                  await ctl.downloadAll();
+                  final m = ref.read(bookSyncProvider).message;
+                  if (m != null && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+                    ctl.clearMessage();
+                  }
+                },
+          child: Text(busy ? 'Downloading…' : 'Download'),
+        ),
+      ]),
+    );
+  }
 }

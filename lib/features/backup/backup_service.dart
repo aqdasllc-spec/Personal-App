@@ -220,7 +220,7 @@ class BackupService {
     final haveHash = {for (final b in existing) if (b.deletedAt == null && b.sha256.isNotEmpty) b.sha256};
     await libraryDir.create(recursive: true);
     for (final j in list('books')) {
-      final b = BookRow.fromJson(j);
+      final b = BookRow.fromJson({'cloudState': 'local', ...j}); // backups from before cloud sync lack the field
       if (haveBook.contains(b.id) || (b.sha256.isNotEmpty && haveHash.contains(b.sha256))) {
         skipped++;
         continue;
@@ -242,7 +242,7 @@ class BackupService {
         problems.add('"${b.title}": the PDF in the backup is damaged');
         continue;
       }
-      await _db.into(_db.books).insert(b.copyWith(shelfId: Value(haveShelf.contains(b.shelfId) ? b.shelfId : null)));
+      await _db.into(_db.books).insert(b.copyWith(shelfId: Value(haveShelf.contains(b.shelfId) ? b.shelfId : null), cloudState: 'local'));
       books++;
     }
     return RestoreResult(tasks: tasks, events: events, books: books, shelves: shelves, skipped: skipped, problems: problems);

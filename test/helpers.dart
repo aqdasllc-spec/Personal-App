@@ -3,7 +3,9 @@ import 'package:drift/drift.dart' show driftRuntimeOptions;
 import 'dart:io';
 import 'package:folio/features/backup/backup_service.dart';
 import 'package:flutter/material.dart';
+import 'package:folio/features/library/application/book_sync.dart';
 import 'package:folio/features/library/application/library_controller.dart';
+import 'package:folio/features/library/data/cloud_books.dart';
 import 'package:folio/features/library/data/library_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,6 +29,50 @@ class FakePdfInspector implements PdfInspector {
     final text = await File(path).readAsString();
     final m = RegExp(r'pages=(\d+)').firstMatch(text);
     return m == null ? null : PdfInfo(pageCount: int.parse(m.group(1)!));
+  }
+}
+
+/// In-memory cloud shelf. Hold uploads with [gate]; make the next call fail with [failWith].
+class FakeCloudBooks implements CloudBooks {
+  final files = <String, List<int>>{};
+  final meta = <String, CloudBook>{};
+  Completer<void>? gate;
+  String? failWith;
+  int uploads = 0, removes = 0;
+
+  Future<void> _maybeFail() async {
+    final g = gate;
+    if (g != null) await g.future;
+    final f = failWith;
+    if (f != null) {
+      failWith = null;
+      throw CloudException(f);
+    }
+  }
+
+  @override
+  Future<void> upload(CloudBook book, File file) async {
+    await _maybeFail();
+    uploads++;
+    files[book.id] = await file.readAsBytes();
+    meta[book.id] = book;
+  }
+
+  @override
+  Future<void> remove(String bookId) async {
+    await _maybeFail();
+    removes++;
+    files.remove(bookId);
+    meta.remove(bookId);
+  }
+
+  @override
+  Future<List<CloudBook>> list() async => meta.values.toList();
+
+  @override
+  Future<void> download(String bookId, File destination) async {
+    await _maybeFail();
+    await destination.writeAsBytes(files[bookId]!);
   }
 }
 
@@ -117,6 +163,9 @@ class TestEnv {
   late final Directory libraryDir = Directory.systemTemp.createTempSync('folio_lib');
   List<String> picked = [];
 
+  /// Set to a [FakeCloudBooks] to give the build a cloud shelf (null = build without cloud sync).
+  FakeCloudBooks? cloud;
+
   /// Writes a fake PDF (the fake inspector reads the page count from its text).
   Future<String> writePdf(String name, int pages) async {
     final dir = await Directory.systemTemp.createTemp('pdf');
@@ -137,6 +186,7 @@ class TestEnv {
         appLockProvider.overrideWith(() => AppLockController(authenticator: authenticator, startEnabled: _lockEnabled)),
         syncControllerProvider.overrideWith(syncControllerFactory ?? () => SyncController(sync, interval: const Duration(days: 1))),
         libraryDirectoryProvider.overrideWithValue(libraryDir),
+        cloudBooksProvider.overrideWithValue(cloud),
         pdfInspectorProvider.overrideWithValue(FakePdfInspector()),
         pdfPickerProvider.overrideWithValue(() async => picked),
         pdfViewBuilderProvider.overrideWithValue((context, file, initial, onPage) => Column(children: [

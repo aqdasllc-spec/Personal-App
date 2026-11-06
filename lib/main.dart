@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'features/library/application/library_controller.dart';
+import 'features/library/application/book_sync.dart';
+import 'features/library/data/cloud_books.dart';
 import 'features/library/data/library_repository.dart';
 import 'features/library/data/pdf_inspector.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -87,6 +89,7 @@ Future<void> main() async {
       rotationProvider.overrideWith(() => RotationController(rotation)),
       reminderSchedulerProvider.overrideWithValue(createReminderScheduler()),
       libraryDirectoryProvider.overrideWithValue(libraryDir),
+      cloudBooksProvider.overrideWithValue(_supabaseUrl.isNotEmpty && _supabaseKey.isNotEmpty ? SupabaseCloudBooks(Supabase.instance.client) : null),
     ],
     child: const FolioApp(),
   ));

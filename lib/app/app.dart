@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design_system/theme.dart';
 import '../features/auth/auth_repository.dart';
+import '../features/library/application/book_sync.dart';
 import 'providers.dart';
 import 'router.dart';
 
@@ -37,6 +38,7 @@ class _FolioAppState extends ConsumerState<FolioApp> with WidgetsBindingObserver
       case AppLifecycleState.resumed:
         lock.onResumed();
         ref.read(syncControllerProvider.notifier).syncNow();
+        ref.invalidate(cloudOnlyCountProvider); // books may have been added to the cloud from another device
       default:
     }
   }
@@ -45,7 +47,10 @@ class _FolioAppState extends ConsumerState<FolioApp> with WidgetsBindingObserver
   Widget build(BuildContext context) {
     // Start syncing the moment the user signs in.
     ref.listen(sessionProvider, (prev, next) {
-      if (next.value is SignedInSession && prev?.value is! SignedInSession) ref.read(syncControllerProvider.notifier).syncNow();
+      if (next.value is SignedInSession && prev?.value is! SignedInSession) {
+        ref.read(syncControllerProvider.notifier).syncNow();
+        ref.invalidate(cloudOnlyCountProvider);
+      }
     });
     return MaterialApp.router(
       title: 'Folio',
