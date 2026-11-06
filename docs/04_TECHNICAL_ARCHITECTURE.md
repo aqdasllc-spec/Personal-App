@@ -95,7 +95,7 @@ tracker_templates (id, name, payload_json, builtin)         -- data, not code
 - *Cost:* a record read needs N cell rows (mitigated by one query `WHERE record_id IN (page)` and an in-memory cache keyed by record). Table view loads only visible columns × visible rows. Spike S-7 measured this: at 10k records × 20 props every filter/sort/group/page query is p95 < 10 ms; at 100k records paging stays ~1 ms but unfiltered full-column sort/group/aggregate are 70–140 ms (mitigations in `spikes/RESULTS.md`). Device benchmarks remain a Phase 2 exit criterion.
 - *Rejected:* table-per-tracker (runtime DDL, sync complexity), pure JSON1 expression indexes (index per user property is impractical).
 
-**Postgres mirror (Supabase):** identical tables, `cells.v_json` as `jsonb`, `uuid` ids, RLS `owner_id = auth.uid()` on every table, composite indexes the same as local. A `change_log`-driven pull API (see §7).
+**Postgres (Supabase) — ARCHITECTURE CHANGE, Phase 1:** the server does **not** mirror the relational tables. It stores a *generic field store* (`sync_fields(owner_id, tbl, row_id, field, value jsonb, hlc)`), an ordered `change_log`, `sync_conflicts`, an idempotency ledger and `audit_log`, all behind RLS (`owner_id = auth.uid()`), written only through the `apply_changes` RPC. Why: field-level sync is the unit of conflict resolution, so one generic function serves every entity with no per-table server code, and the same rule is testable in one place (differentially against the Dart reference). Cost: server-side queries over user data (export, account deletion, future sharing/analytics) must read `sync_fields`/reconstruct rows rather than query typed tables; the Edge Functions for export/deletion will do this. Implemented in `supabase/migrations/20261106000000_sync_core.sql`. The `allowed_tbl` list in `apply_changes` is the allow-list of syncable tables.
 
 ### 3.2 Relations
 A relation property points at another tracker. Edges live in `record_links`. A **two-way relation** creates a hidden reciprocal property on the target; both properties share a `pair_id` in config, and creating/removing a link writes the single edge once (reciprocal is a view of the same edge, queried by `to_record_id`). Deleting a record soft-deletes its edges; purging removes them. Cardinality (one/many) is validated in the use case, not the DB.
@@ -150,7 +150,7 @@ Virtualised `TableView`/`SliverList`, keyset pagination (not OFFSET), `WHERE rec
 - Syncfusion remains the fallback if S-1/S-2 fail; the annotation *model* is engine-agnostic (`AnnotationRepository`), and the reader sits behind a `PdfEngine` interface so the swap is contained.
 
 ## 7. Offline-first sync
-### 7.1 Model
+### 7.1 Model  *(implemented in Phase 1 for scalar fields; see `packages/sync_engine`, `lib/data/sync`, `supabase/`)*
 Local DB is the source of truth for the UI. Every mutation (in one transaction): writes the row(s), bumps `hlc`, appends to `sync_outbox(entity, id, op, changed_fields, hlc, base_hlc)`.
 - **HLC** (hybrid logical clock: wall time + counter + device id) gives a total order across devices without trusting wall clocks; clock-skew > 24 h is flagged.
 - **Push:** batches of outbox entries → Postgres RPC `apply_changes(batch)` (idempotent by `(device_id, change_id)`). Server stores each accepted change into `change_log(seq bigserial, …)`.

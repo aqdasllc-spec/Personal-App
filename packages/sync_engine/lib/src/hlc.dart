@@ -61,6 +61,18 @@ class HlcClock {
   int _wall = 0;
   int _counter = 0;
 
+  /// Restore the last persisted timestamp after an app restart so the clock never
+  /// moves backwards even if the system time did.
+  void seed(Hlc last) {
+    if (last.wall > _wall || (last.wall == _wall && last.counter > _counter)) {
+      _wall = last.wall;
+      _counter = last.counter;
+    }
+  }
+
+  /// Most recent timestamp issued or observed (for persistence).
+  Hlc get latest => Hlc(_wall, _counter, node);
+
   /// Timestamp for a local event (an edit).
   Hlc tick() {
     final phys = _now();

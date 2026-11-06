@@ -1,6 +1,6 @@
 # Folio (working title) — personal library & productivity app
 
-**Status: planning complete, awaiting approval. No application code yet.**
+**Status: Phase 1 (Foundation) in progress — verified headless on Linux only; see `docs/06_ROADMAP_TESTING.md` §1b for exactly what is and isn't done.** Developer setup: `docs/DEVELOPMENT.md`.
 
 | Folder | Contents |
 |---|---|

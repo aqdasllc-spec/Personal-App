@@ -26,6 +26,12 @@ void main() {
     }
   });
 
+  test('seed restores monotonicity after restart with an earlier system clock', () {
+    final c = HlcClock('n', now: () => 100);
+    c.seed(const Hlc(9000, 3, 'n'));
+    expect(c.tick() > const Hlc(9000, 3, 'n'), isTrue);
+  });
+
   test('observe makes later local ticks exceed the remote timestamp', () {
     final c = HlcClock('a', now: () => 1000);
     c.observe(const Hlc(1500, 7, 'b'));

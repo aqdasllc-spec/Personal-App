@@ -36,4 +36,4 @@
 All D-1…D-13 approved as recommended (user: "Approved", 2026-11-06). D-11 (name) remains the placeholder "Folio".
 
 ## Honest status
-Phase 0 started: spikes S-1…S-4 and S-7 ran on Linux (`spikes/RESULTS.md`); S-5, S-6 and all non-Linux checks are outstanding. No product code yet. Package versions/capabilities were taken from pub.dev metadata and READMEs on 2026-11-06, not from running code. The HTML concepts in `/design` are static prototypes with illustrative sample content, **not** application functionality.
+Phase 0 spikes S-1…S-4, S-7 ran on Linux (`spikes/RESULTS.md`); S-5, S-6 and all non-Linux checks are outstanding. Phase 1 foundation code exists and is tested headless on Linux only (see doc 06 §1b). Package versions/capabilities were taken from pub.dev metadata and READMEs on 2026-11-06, not from running code. The HTML concepts in `/design` are static prototypes with illustrative sample content, **not** application functionality.

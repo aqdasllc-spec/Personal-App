@@ -16,4 +16,10 @@ A capability is promised to users only when every column it claims is ✅ with e
 | Local notifications (scheduled/recurring) | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | — |
 | Biometric unlock | n/a | ⬜ | ⬜ | ⬜ | ⬜ | — |
 | Secure storage | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | — |
+| Encrypted Drift DB + sync service integration tests | ✅ | ⬜ | ⬜ | ⬜ | ⬜ | test/data |
+| Sync server SQL: RLS + apply_changes (plain Postgres 16) | ✅ | n/a | n/a | n/a | n/a | supabase/tests |
+| Dart reference == Postgres (differential) | ✅ | n/a | n/a | n/a | n/a | packages/sync_engine/tool |
+| App shell/auth/lock widget tests | ✅ | ⬜ | ⬜ | ⬜ | ⬜ | test/app |
+| App launches with GUI, adaptive layouts visually checked | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | — |
+| Supabase transport/auth against a live project | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | — |
 | OCR | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | — |

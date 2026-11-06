@@ -18,6 +18,26 @@ I recommend **two changes** to your order (justified by dependencies; your call,
 
 *Note:* the three backup mechanisms' basic local version ships in Phase 1–2 (needed before real data lives in the app); improvements land in Phase 6.
 
+## 1b. Phase 1 status (updated 2026-11-06)
+**Done and verified here (Linux, headless):**
+- Flutter app scaffold for Windows/macOS/Android/iOS/Linux; feature-first layout; Riverpod + go_router.
+- `packages/sync_engine`: HLC, field resolve rule, set merge, 3-way text merge, simulation; 21 tests incl. 3 000 random scenarios.
+- Supabase sync core migration + 40+ SQL assertions (RLS isolation, validation, idempotency, collation, denied direct DML) on Postgres 16; **mutation-checked** (breaking the rule or RLS makes tests fail); differential test: Dart reference ≡ Postgres on 300 scenarios (4 307 conflicts).
+- Local DB (Drift, encrypted via sqlite3mc), generic `SyncedStore` (atomic write + clock + outbox), `SyncService` (push/pull/conflicts, resumable, idempotent, backoff), in-memory + Supabase transports; migration-test scaffolding with schema snapshot v1.
+- Design system tokens/theme (light+dark, contrast tests), adaptive shell (sidebar/rail/bottom bar), sign-in/sign-up (validation, plain-language errors, local-only mode), app lock, DB key service, sync status chip, Settings (account/sync/app lock only).
+- 36 app tests (`flutter test`), `flutter analyze` clean.
+
+**Not done / not verified (be explicit):**
+- **Nothing has run on Windows, macOS, Android, iOS** or any real device; the app has not been launched with a GUI (`main.dart` is analysed, not executed). Linux desktop build not attempted (no GTK dev libs here).
+- **`SupabaseSyncTransport` and `SupabaseAuthRepository` have never talked to a live Supabase project** (server SQL is tested on plain Postgres with a stubbed `auth.uid()`).
+- `local_auth` / `flutter_secure_storage` behaviour on real devices (only fakes tested).
+- **MFA (TOTP)** not implemented (Phase 1 only did email/password + local-only). OAuth/Apple sign-in not implemented.
+- Fonts (Fraunces, Inter) not bundled yet — platform fallbacks are used.
+- Storage buckets/policies, Edge Functions, backup (local backup was planned for early phases) not started.
+- CI workflow written but **never executed** (no GitHub Actions runner here).
+- Sync covers one entity (`trackers`) and scalar values; multi-value/rich-text field codecs (using `mergeSets`/`mergeText`) are wired in Phase 2.
+- Realtime push (we poll every 60 s and on resume) and background sync on mobile OS schedulers not implemented.
+
 ## 2. Phase 0 spikes
 | ID | Question | Pass criteria |
 |---|---|---|
