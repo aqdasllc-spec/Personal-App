@@ -383,7 +383,7 @@ List<PropertyDef> formulaOrder(List<PropertyDef> defs) {
 
 // ---------------------------------------------------------------- evaluation
 abstract interface class FormulaContext {
-  /// Value of property [propertyId] for the current record, already in formula form
+  /// CellValue of property [propertyId] for the current record, already in formula form
   /// (num, String, bool, DateTime(UTC), List, null) - or null if unknown id.
   Object? read(String propertyId);
   bool knows(String propertyId);

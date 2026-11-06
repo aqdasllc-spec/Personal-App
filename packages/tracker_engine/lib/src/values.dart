@@ -6,7 +6,7 @@ import 'property.dart';
 ///  date: String (YYYY-MM-DD or ISO-8601 UTC).  dateRange: map with start and optional end.
 ///  select, status: String (option id).  multiSelect, person, files, image: List of String.
 ///  null always means "empty".
-typedef Value = Object?;
+typedef CellValue = Object?;
 
 /// How a value is laid out in the `cells` columns so SQL can filter/sort it.
 class CellStorage {
@@ -41,7 +41,7 @@ class ParseResult {
   const ParseResult.newOption(this.newOptionLabel)
       : value = null,
         error = null;
-  final Value value;
+  final CellValue value;
   final String? error;
   final String? newOptionLabel;
   bool get isOk => error == null && newOptionLabel == null;
@@ -82,10 +82,10 @@ DateTime? parseDate(String s) {
 int dayNumber(int epochMs) => (epochMs / 86400000).floor();
 
 abstract final class Values {
-  static bool isEmpty(Value v) => v == null || (v is String && v.isEmpty) || (v is List && v.isEmpty);
+  static bool isEmpty(CellValue v) => v == null || (v is String && v.isEmpty) || (v is List && v.isEmpty);
 
   /// Returns an error message (plain language) or null when [v] may be written to [def].
-  static String? validate(PropertyDef def, Value v) {
+  static String? validate(PropertyDef def, CellValue v) {
     if (v == null) return null;
     final t = def.type;
     switch (t) {
@@ -97,7 +97,7 @@ abstract final class Values {
       case PropertyType.email:
       case PropertyType.phone:
         if (v is! String) return 'Expected text.';
-        return v.length > 2000 ? 'Value is too long.' : null; // malformed values are kept but flagged (isWellFormed)
+        return v.length > 2000 ? 'CellValue is too long.' : null; // malformed values are kept but flagged (isWellFormed)
       case PropertyType.number:
       case PropertyType.percent:
         if (v is! num || v.isNaN || v.isInfinite) return 'Enter a valid number.';
@@ -143,7 +143,7 @@ abstract final class Values {
   }
 
   /// Canonical form: trims text, drops duplicates, coerces ints. Call before [validate]/storage.
-  static Value normalize(PropertyDef def, Value v) {
+  static CellValue normalize(PropertyDef def, CellValue v) {
     if (v == null) return null;
     switch (def.type) {
       case PropertyType.text:
@@ -177,7 +177,7 @@ abstract final class Values {
     }
   }
 
-  static bool isWellFormed(PropertyDef def, Value v) {
+  static bool isWellFormed(PropertyDef def, CellValue v) {
     if (v is! String || v.isEmpty) return true;
     switch (def.type) {
       case PropertyType.url:
@@ -292,7 +292,7 @@ abstract final class Values {
   }
 
   /// Display text for the table / detail panel.
-  static String format(PropertyDef def, Value v) {
+  static String format(PropertyDef def, CellValue v) {
     if (isEmpty(v)) return '';
     switch (def.type) {
       case PropertyType.number:
@@ -350,7 +350,7 @@ abstract final class Values {
   }
 
   /// Map a (validated) value to storage columns. Returns null for empty/computed/relation.
-  static CellStorage? toStorage(PropertyDef def, Value v) {
+  static CellStorage? toStorage(PropertyDef def, CellValue v) {
     if (v == null || !def.type.isStored) return null;
     switch (def.type) {
       case PropertyType.text:

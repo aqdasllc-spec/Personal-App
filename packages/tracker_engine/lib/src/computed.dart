@@ -14,11 +14,11 @@ class Computed {
   final DateTime now;
   final int depth; // guards against relation/rollup loops across trackers
   static const maxDepth = 6;
-  final _memo = <String, Value>{};
+  final _memo = <String, CellValue>{};
   final _inProgress = <String>{};
 
-  /// Value of [def] for [r] in display/storage form (strings, numbers, bools, lists, [FormulaError]).
-  Value valueOf(TrackerRecord r, PropertyDef def) {
+  /// CellValue of [def] for [r] in display/storage form (strings, numbers, bools, lists, [FormulaError]).
+  CellValue valueOf(TrackerRecord r, PropertyDef def) {
     switch (def.type) {
       case PropertyType.createdTime:
         return r.createdAt.toUtc().toIso8601String();
@@ -51,7 +51,7 @@ class Computed {
     }
   }
 
-  Value _rollup(TrackerRecord r, PropertyDef def) {
+  CellValue _rollup(TrackerRecord r, PropertyDef def) {
     if (depth >= maxDepth) return const FormulaError('#LIMIT', 'Rollups nested too deeply');
     final relId = def.rollupRelationId;
     final rel = relId == null ? null : snapshot.property(relId);
@@ -69,13 +69,13 @@ class Computed {
       for (final id in snapshot.links[rel.id]?[r.id] ?? const <String>[])
         if (target.record(id) case final rec? when !rec.archived) rec
     ];
-    final vals = targetDef == null ? const <Value>[] : [for (final rec in related) inner.valueOf(rec, targetDef)];
+    final vals = targetDef == null ? const <CellValue>[] : [for (final rec in related) inner.valueOf(rec, targetDef)];
     return aggregateValues(aggregate, related.length, vals, targetDef);
   }
 }
 
 /// Aggregates for rollups. [count] is the number of related records, [vals] the target property values.
-Value aggregateValues(String aggregate, int count, List<Value> vals, PropertyDef? targetDef) {
+CellValue aggregateValues(String aggregate, int count, List<CellValue> vals, PropertyDef? targetDef) {
   for (final v in vals) {
     if (v is FormulaError) return v;
   }
@@ -127,7 +127,7 @@ Value aggregateValues(String aggregate, int count, List<Value> vals, PropertyDef
   }
 }
 
-Value _toStorageForm(Object? v) {
+CellValue _toStorageForm(Object? v) {
   if (v is DateTime) return v.toUtc().toIso8601String();
   if (v is double && v.isFinite && v == v.roundToDouble() && v.abs() < 1e15) return v.toInt();
   if (v is double && !v.isFinite) return const FormulaError('#TYPE', 'Not a finite number');
@@ -157,7 +157,7 @@ class _Propagate implements Exception {
 }
 
 /// Convert a stored/computed value into what formulas operate on.
-Object? _toFormulaValue(PropertyDef def, Value v) {
+Object? _toFormulaValue(PropertyDef def, CellValue v) {
   if (v == null) return null;
   switch (def.type) {
     case PropertyType.date:

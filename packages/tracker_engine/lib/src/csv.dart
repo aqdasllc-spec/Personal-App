@@ -79,7 +79,7 @@ String writeCsv(List<List<String>> rows, {String delimiter = ',', bool bom = tru
 String csvSafeText(String s) => s.isNotEmpty && '=+-@\t\r'.contains(s[0]) ? "'$s" : s;
 
 /// Machine-friendly (round-trippable) text for one cell.
-String csvCell(PropertyDef def, Value v, {TrackerSnapshot? snapshot}) {
+String csvCell(PropertyDef def, CellValue v, {TrackerSnapshot? snapshot}) {
   if (Values.isEmpty(v) || v is FormulaError) return '';
   switch (def.type) {
     case PropertyType.number:
@@ -152,7 +152,7 @@ class ImportPlan {
 
   /// One map per importable data row: propertyId -> value. Rows with errors are still included with
   /// the bad cell left empty, so the caller can choose "import anyway" or abort.
-  final List<Map<String, Value>> records;
+  final List<Map<String, CellValue>> records;
   final List<ImportIssue> issues;
 
   /// propertyId -> option labels that do not exist yet (offer to create them).
@@ -170,7 +170,7 @@ ImportPlan planImport({
   int maxRows = 100000,
 }) {
   final byId = {for (final p in properties) p.id: p};
-  final out = <Map<String, Value>>[];
+  final out = <Map<String, CellValue>>[];
   final issues = <ImportIssue>[];
   final newOpts = <String, Set<String>>{};
   final skipped = [for (var i = 0; i < headers.length; i++) if (!mapping.containsKey(i)) headers[i]];
@@ -178,7 +178,7 @@ ImportPlan planImport({
   if (rows.length > maxRows) issues.add(ImportIssue(maxRows + 1, '', 'Only the first $maxRows rows can be imported at once.'));
 
   for (var r = 0; r < n; r++) {
-    final cells = <String, Value>{};
+    final cells = <String, CellValue>{};
     final row = rows[r];
     if (row.every((c) => c.trim().isEmpty)) continue;
     for (final e in mapping.entries) {

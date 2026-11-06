@@ -26,7 +26,7 @@ DateTime _day(DateTime d) => DateTime.utc(d.year, d.month, d.day);
 
 /// Does [cell] (the property value) satisfy [op]/[operand]? Shared semantic definition: the SQL
 /// translation must agree with this function (differential-tested in the app).
-bool matchCondition(PropertyDef def, Value cell, FilterOp op, Object? operand, DateTime now) {
+bool matchCondition(PropertyDef def, CellValue cell, FilterOp op, Object? operand, DateTime now) {
   final empty = Values.isEmpty(cell);
   switch (op) {
     case FilterOp.isEmpty:
@@ -158,7 +158,7 @@ bool matchFilter(FilterNode node, TrackerRecord r, TrackerSnapshot s, Computed c
 }
 
 /// Comparable representation for sorting; null sorts last in both directions.
-Object? sortValue(PropertyDef def, Value v) {
+Object? sortValue(PropertyDef def, CellValue v) {
   if (v == null || v is FormulaError) return null;
   switch (def.type) {
     case PropertyType.text:
@@ -274,7 +274,7 @@ QueryResult runQuery(TrackerSnapshot s, ViewConfig view, {DateTime? now, String 
 }
 
 /// Groupable value -> stable key. Null = empty.
-String? groupKey(PropertyDef def, Value v) {
+String? groupKey(PropertyDef def, CellValue v) {
   if (Values.isEmpty(v) || v is FormulaError) return null;
   switch (def.type) {
     case PropertyType.select:

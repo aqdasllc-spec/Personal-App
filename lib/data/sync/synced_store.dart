@@ -46,17 +46,18 @@ class SyncedStore {
 
   String newId() => _uuid.v7();
 
+  int get nowMs => _now();
+
   /// Local edit of one or more fields of one row, atomically.
   Future<void> setFields(String tbl, String rowId, Map<String, Object?> fields) {
     final table = syncedTables[tbl] ?? (throw ArgumentError('Table $tbl is not synced'));
     return db.transaction(() async {
-      await _ensureRow(table, rowId);
+      if (table.custom == null) await _ensureRow(table, rowId);
       for (final e in fields.entries) {
         final column = table.fieldToColumn[e.key] ?? (throw ArgumentError('Unknown field ${e.key} on $tbl'));
         final hlc = clock.tick();
         final base = await _metaHlc(tbl, rowId, e.key);
-        await db.customUpdate('UPDATE $tbl SET $column = ? WHERE id = ?',
-            variables: [_variable(e.value), Variable.withString(rowId)], updates: {_tableInfo(tbl)});
+        await _writeField(table, column, rowId, e.key, e.value, hlc.wall);
         await _putMeta(tbl, rowId, e.key, hlc);
         await db.into(db.syncOutbox).insert(SyncOutboxCompanion.insert(
               tbl: tbl,
@@ -88,13 +89,23 @@ class SyncedStore {
         await _setState(db, 'last_hlc', clock.latest.toString());
         return false;
       }
-      await _ensureRow(table, c.key.rowId);
-      await db.customUpdate('UPDATE ${table.name} SET $column = ? WHERE id = ?',
-          variables: [_variable(c.value), Variable.withString(c.key.rowId)], updates: {_tableInfo(table.name)});
+      if (table.custom == null) await _ensureRow(table, c.key.rowId);
+      await _writeField(table, column, c.key.rowId, c.key.field, c.value, c.hlc.wall);
       await _putMeta(c.key.table, c.key.rowId, c.key.field, c.hlc);
       await _setState(db, 'last_hlc', clock.latest.toString());
       return true;
     });
+  }
+
+  Future<void> _writeField(SyncedTable table, String column, String rowId, String field, Object? value, int wallMs) async {
+    final custom = table.custom;
+    if (custom != null) {
+      await custom(db, rowId, field, value, wallMs);
+    } else {
+      await db.customUpdate('UPDATE ${table.name} SET $column = ? WHERE id = ?',
+          variables: [_variable(value), Variable.withString(rowId)], updates: {_tableInfo(table.name)});
+    }
+    await table.afterApply?.call(db, rowId, field, value, wallMs);
   }
 
   Future<void> _ensureRow(SyncedTable t, String rowId) => db.customInsert(

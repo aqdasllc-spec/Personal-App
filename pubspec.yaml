@@ -43,6 +43,8 @@ dependencies:
   local_auth: ^3.0.2
   sync_engine:
     path: packages/sync_engine
+  tracker_engine:
+    path: packages/tracker_engine
 
 dev_dependencies:
   flutter_test:

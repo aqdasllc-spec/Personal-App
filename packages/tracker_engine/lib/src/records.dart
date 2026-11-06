@@ -7,7 +7,7 @@ class TrackerRecord {
     required this.trackerId,
     this.parentId,
     this.sortKey = '',
-    Map<String, Value>? cells,
+    Map<String, CellValue>? cells,
     DateTime? createdAt,
     DateTime? updatedAt,
     this.archived = false,
@@ -21,7 +21,7 @@ class TrackerRecord {
   final String sortKey;
 
   /// propertyId -> stored value (never contains computed/relation properties).
-  final Map<String, Value> cells;
+  final Map<String, CellValue> cells;
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool archived;

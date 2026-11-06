@@ -504,6 +504,2448 @@ class TrackersCompanion extends UpdateCompanion<Tracker> {
   }
 }
 
+class $PropertiesTable extends Properties
+    with TableInfo<$PropertiesTable, PropertyRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PropertiesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _trackerIdMeta = const VerificationMeta(
+    'trackerId',
+  );
+  @override
+  late final GeneratedColumn<String> trackerId = GeneratedColumn<String>(
+    'tracker_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('text'),
+  );
+  static const VerificationMeta _configJsonMeta = const VerificationMeta(
+    'configJson',
+  );
+  @override
+  late final GeneratedColumn<String> configJson = GeneratedColumn<String>(
+    'config_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
+  static const VerificationMeta _sortKeyMeta = const VerificationMeta(
+    'sortKey',
+  );
+  @override
+  late final GeneratedColumn<String> sortKey = GeneratedColumn<String>(
+    'sort_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    trackerId,
+    name,
+    type,
+    configJson,
+    sortKey,
+    deletedAt,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'properties';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PropertyRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('tracker_id')) {
+      context.handle(
+        _trackerIdMeta,
+        trackerId.isAcceptableOrUnknown(data['tracker_id']!, _trackerIdMeta),
+      );
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    }
+    if (data.containsKey('config_json')) {
+      context.handle(
+        _configJsonMeta,
+        configJson.isAcceptableOrUnknown(data['config_json']!, _configJsonMeta),
+      );
+    }
+    if (data.containsKey('sort_key')) {
+      context.handle(
+        _sortKeyMeta,
+        sortKey.isAcceptableOrUnknown(data['sort_key']!, _sortKeyMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PropertyRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PropertyRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      trackerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tracker_id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      configJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}config_json'],
+      )!,
+      sortKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sort_key'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PropertiesTable createAlias(String alias) {
+    return $PropertiesTable(attachedDatabase, alias);
+  }
+}
+
+class PropertyRow extends DataClass implements Insertable<PropertyRow> {
+  final String id;
+  final String trackerId;
+  final String name;
+  final String type;
+  final String configJson;
+  final String sortKey;
+  final int? deletedAt;
+  final int createdAt;
+  const PropertyRow({
+    required this.id,
+    required this.trackerId,
+    required this.name,
+    required this.type,
+    required this.configJson,
+    required this.sortKey,
+    this.deletedAt,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['tracker_id'] = Variable<String>(trackerId);
+    map['name'] = Variable<String>(name);
+    map['type'] = Variable<String>(type);
+    map['config_json'] = Variable<String>(configJson);
+    map['sort_key'] = Variable<String>(sortKey);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    map['created_at'] = Variable<int>(createdAt);
+    return map;
+  }
+
+  PropertiesCompanion toCompanion(bool nullToAbsent) {
+    return PropertiesCompanion(
+      id: Value(id),
+      trackerId: Value(trackerId),
+      name: Value(name),
+      type: Value(type),
+      configJson: Value(configJson),
+      sortKey: Value(sortKey),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory PropertyRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PropertyRow(
+      id: serializer.fromJson<String>(json['id']),
+      trackerId: serializer.fromJson<String>(json['trackerId']),
+      name: serializer.fromJson<String>(json['name']),
+      type: serializer.fromJson<String>(json['type']),
+      configJson: serializer.fromJson<String>(json['configJson']),
+      sortKey: serializer.fromJson<String>(json['sortKey']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'trackerId': serializer.toJson<String>(trackerId),
+      'name': serializer.toJson<String>(name),
+      'type': serializer.toJson<String>(type),
+      'configJson': serializer.toJson<String>(configJson),
+      'sortKey': serializer.toJson<String>(sortKey),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+      'createdAt': serializer.toJson<int>(createdAt),
+    };
+  }
+
+  PropertyRow copyWith({
+    String? id,
+    String? trackerId,
+    String? name,
+    String? type,
+    String? configJson,
+    String? sortKey,
+    Value<int?> deletedAt = const Value.absent(),
+    int? createdAt,
+  }) => PropertyRow(
+    id: id ?? this.id,
+    trackerId: trackerId ?? this.trackerId,
+    name: name ?? this.name,
+    type: type ?? this.type,
+    configJson: configJson ?? this.configJson,
+    sortKey: sortKey ?? this.sortKey,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  PropertyRow copyWithCompanion(PropertiesCompanion data) {
+    return PropertyRow(
+      id: data.id.present ? data.id.value : this.id,
+      trackerId: data.trackerId.present ? data.trackerId.value : this.trackerId,
+      name: data.name.present ? data.name.value : this.name,
+      type: data.type.present ? data.type.value : this.type,
+      configJson: data.configJson.present
+          ? data.configJson.value
+          : this.configJson,
+      sortKey: data.sortKey.present ? data.sortKey.value : this.sortKey,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PropertyRow(')
+          ..write('id: $id, ')
+          ..write('trackerId: $trackerId, ')
+          ..write('name: $name, ')
+          ..write('type: $type, ')
+          ..write('configJson: $configJson, ')
+          ..write('sortKey: $sortKey, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    trackerId,
+    name,
+    type,
+    configJson,
+    sortKey,
+    deletedAt,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PropertyRow &&
+          other.id == this.id &&
+          other.trackerId == this.trackerId &&
+          other.name == this.name &&
+          other.type == this.type &&
+          other.configJson == this.configJson &&
+          other.sortKey == this.sortKey &&
+          other.deletedAt == this.deletedAt &&
+          other.createdAt == this.createdAt);
+}
+
+class PropertiesCompanion extends UpdateCompanion<PropertyRow> {
+  final Value<String> id;
+  final Value<String> trackerId;
+  final Value<String> name;
+  final Value<String> type;
+  final Value<String> configJson;
+  final Value<String> sortKey;
+  final Value<int?> deletedAt;
+  final Value<int> createdAt;
+  final Value<int> rowid;
+  const PropertiesCompanion({
+    this.id = const Value.absent(),
+    this.trackerId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.type = const Value.absent(),
+    this.configJson = const Value.absent(),
+    this.sortKey = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PropertiesCompanion.insert({
+    required String id,
+    this.trackerId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.type = const Value.absent(),
+    this.configJson = const Value.absent(),
+    this.sortKey = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    required int createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       createdAt = Value(createdAt);
+  static Insertable<PropertyRow> custom({
+    Expression<String>? id,
+    Expression<String>? trackerId,
+    Expression<String>? name,
+    Expression<String>? type,
+    Expression<String>? configJson,
+    Expression<String>? sortKey,
+    Expression<int>? deletedAt,
+    Expression<int>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (trackerId != null) 'tracker_id': trackerId,
+      if (name != null) 'name': name,
+      if (type != null) 'type': type,
+      if (configJson != null) 'config_json': configJson,
+      if (sortKey != null) 'sort_key': sortKey,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PropertiesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? trackerId,
+    Value<String>? name,
+    Value<String>? type,
+    Value<String>? configJson,
+    Value<String>? sortKey,
+    Value<int?>? deletedAt,
+    Value<int>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return PropertiesCompanion(
+      id: id ?? this.id,
+      trackerId: trackerId ?? this.trackerId,
+      name: name ?? this.name,
+      type: type ?? this.type,
+      configJson: configJson ?? this.configJson,
+      sortKey: sortKey ?? this.sortKey,
+      deletedAt: deletedAt ?? this.deletedAt,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (trackerId.present) {
+      map['tracker_id'] = Variable<String>(trackerId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (configJson.present) {
+      map['config_json'] = Variable<String>(configJson.value);
+    }
+    if (sortKey.present) {
+      map['sort_key'] = Variable<String>(sortKey.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PropertiesCompanion(')
+          ..write('id: $id, ')
+          ..write('trackerId: $trackerId, ')
+          ..write('name: $name, ')
+          ..write('type: $type, ')
+          ..write('configJson: $configJson, ')
+          ..write('sortKey: $sortKey, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $RecordsTable extends Records with TableInfo<$RecordsTable, RecordRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RecordsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _trackerIdMeta = const VerificationMeta(
+    'trackerId',
+  );
+  @override
+  late final GeneratedColumn<String> trackerId = GeneratedColumn<String>(
+    'tracker_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _parentIdMeta = const VerificationMeta(
+    'parentId',
+  );
+  @override
+  late final GeneratedColumn<String> parentId = GeneratedColumn<String>(
+    'parent_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sortKeyMeta = const VerificationMeta(
+    'sortKey',
+  );
+  @override
+  late final GeneratedColumn<String> sortKey = GeneratedColumn<String>(
+    'sort_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _archivedAtMeta = const VerificationMeta(
+    'archivedAt',
+  );
+  @override
+  late final GeneratedColumn<int> archivedAt = GeneratedColumn<int>(
+    'archived_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    trackerId,
+    parentId,
+    sortKey,
+    archivedAt,
+    deletedAt,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'records';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RecordRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('tracker_id')) {
+      context.handle(
+        _trackerIdMeta,
+        trackerId.isAcceptableOrUnknown(data['tracker_id']!, _trackerIdMeta),
+      );
+    }
+    if (data.containsKey('parent_id')) {
+      context.handle(
+        _parentIdMeta,
+        parentId.isAcceptableOrUnknown(data['parent_id']!, _parentIdMeta),
+      );
+    }
+    if (data.containsKey('sort_key')) {
+      context.handle(
+        _sortKeyMeta,
+        sortKey.isAcceptableOrUnknown(data['sort_key']!, _sortKeyMeta),
+      );
+    }
+    if (data.containsKey('archived_at')) {
+      context.handle(
+        _archivedAtMeta,
+        archivedAt.isAcceptableOrUnknown(data['archived_at']!, _archivedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  RecordRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RecordRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      trackerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tracker_id'],
+      )!,
+      parentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parent_id'],
+      ),
+      sortKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sort_key'],
+      )!,
+      archivedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}archived_at'],
+      ),
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $RecordsTable createAlias(String alias) {
+    return $RecordsTable(attachedDatabase, alias);
+  }
+}
+
+class RecordRow extends DataClass implements Insertable<RecordRow> {
+  final String id;
+  final String trackerId;
+  final String? parentId;
+  final String sortKey;
+  final int? archivedAt;
+  final int? deletedAt;
+  final int createdAt;
+
+  /// Wall-clock ms of the latest change to the record or any of its cells (any device).
+  final int updatedAt;
+  const RecordRow({
+    required this.id,
+    required this.trackerId,
+    this.parentId,
+    required this.sortKey,
+    this.archivedAt,
+    this.deletedAt,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['tracker_id'] = Variable<String>(trackerId);
+    if (!nullToAbsent || parentId != null) {
+      map['parent_id'] = Variable<String>(parentId);
+    }
+    map['sort_key'] = Variable<String>(sortKey);
+    if (!nullToAbsent || archivedAt != null) {
+      map['archived_at'] = Variable<int>(archivedAt);
+    }
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    map['created_at'] = Variable<int>(createdAt);
+    map['updated_at'] = Variable<int>(updatedAt);
+    return map;
+  }
+
+  RecordsCompanion toCompanion(bool nullToAbsent) {
+    return RecordsCompanion(
+      id: Value(id),
+      trackerId: Value(trackerId),
+      parentId: parentId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentId),
+      sortKey: Value(sortKey),
+      archivedAt: archivedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(archivedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory RecordRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RecordRow(
+      id: serializer.fromJson<String>(json['id']),
+      trackerId: serializer.fromJson<String>(json['trackerId']),
+      parentId: serializer.fromJson<String?>(json['parentId']),
+      sortKey: serializer.fromJson<String>(json['sortKey']),
+      archivedAt: serializer.fromJson<int?>(json['archivedAt']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      updatedAt: serializer.fromJson<int>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'trackerId': serializer.toJson<String>(trackerId),
+      'parentId': serializer.toJson<String?>(parentId),
+      'sortKey': serializer.toJson<String>(sortKey),
+      'archivedAt': serializer.toJson<int?>(archivedAt),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'updatedAt': serializer.toJson<int>(updatedAt),
+    };
+  }
+
+  RecordRow copyWith({
+    String? id,
+    String? trackerId,
+    Value<String?> parentId = const Value.absent(),
+    String? sortKey,
+    Value<int?> archivedAt = const Value.absent(),
+    Value<int?> deletedAt = const Value.absent(),
+    int? createdAt,
+    int? updatedAt,
+  }) => RecordRow(
+    id: id ?? this.id,
+    trackerId: trackerId ?? this.trackerId,
+    parentId: parentId.present ? parentId.value : this.parentId,
+    sortKey: sortKey ?? this.sortKey,
+    archivedAt: archivedAt.present ? archivedAt.value : this.archivedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  RecordRow copyWithCompanion(RecordsCompanion data) {
+    return RecordRow(
+      id: data.id.present ? data.id.value : this.id,
+      trackerId: data.trackerId.present ? data.trackerId.value : this.trackerId,
+      parentId: data.parentId.present ? data.parentId.value : this.parentId,
+      sortKey: data.sortKey.present ? data.sortKey.value : this.sortKey,
+      archivedAt: data.archivedAt.present
+          ? data.archivedAt.value
+          : this.archivedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecordRow(')
+          ..write('id: $id, ')
+          ..write('trackerId: $trackerId, ')
+          ..write('parentId: $parentId, ')
+          ..write('sortKey: $sortKey, ')
+          ..write('archivedAt: $archivedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    trackerId,
+    parentId,
+    sortKey,
+    archivedAt,
+    deletedAt,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RecordRow &&
+          other.id == this.id &&
+          other.trackerId == this.trackerId &&
+          other.parentId == this.parentId &&
+          other.sortKey == this.sortKey &&
+          other.archivedAt == this.archivedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class RecordsCompanion extends UpdateCompanion<RecordRow> {
+  final Value<String> id;
+  final Value<String> trackerId;
+  final Value<String?> parentId;
+  final Value<String> sortKey;
+  final Value<int?> archivedAt;
+  final Value<int?> deletedAt;
+  final Value<int> createdAt;
+  final Value<int> updatedAt;
+  final Value<int> rowid;
+  const RecordsCompanion({
+    this.id = const Value.absent(),
+    this.trackerId = const Value.absent(),
+    this.parentId = const Value.absent(),
+    this.sortKey = const Value.absent(),
+    this.archivedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RecordsCompanion.insert({
+    required String id,
+    this.trackerId = const Value.absent(),
+    this.parentId = const Value.absent(),
+    this.sortKey = const Value.absent(),
+    this.archivedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    required int createdAt,
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       createdAt = Value(createdAt);
+  static Insertable<RecordRow> custom({
+    Expression<String>? id,
+    Expression<String>? trackerId,
+    Expression<String>? parentId,
+    Expression<String>? sortKey,
+    Expression<int>? archivedAt,
+    Expression<int>? deletedAt,
+    Expression<int>? createdAt,
+    Expression<int>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (trackerId != null) 'tracker_id': trackerId,
+      if (parentId != null) 'parent_id': parentId,
+      if (sortKey != null) 'sort_key': sortKey,
+      if (archivedAt != null) 'archived_at': archivedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RecordsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? trackerId,
+    Value<String?>? parentId,
+    Value<String>? sortKey,
+    Value<int?>? archivedAt,
+    Value<int?>? deletedAt,
+    Value<int>? createdAt,
+    Value<int>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return RecordsCompanion(
+      id: id ?? this.id,
+      trackerId: trackerId ?? this.trackerId,
+      parentId: parentId ?? this.parentId,
+      sortKey: sortKey ?? this.sortKey,
+      archivedAt: archivedAt ?? this.archivedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (trackerId.present) {
+      map['tracker_id'] = Variable<String>(trackerId.value);
+    }
+    if (parentId.present) {
+      map['parent_id'] = Variable<String>(parentId.value);
+    }
+    if (sortKey.present) {
+      map['sort_key'] = Variable<String>(sortKey.value);
+    }
+    if (archivedAt.present) {
+      map['archived_at'] = Variable<int>(archivedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecordsCompanion(')
+          ..write('id: $id, ')
+          ..write('trackerId: $trackerId, ')
+          ..write('parentId: $parentId, ')
+          ..write('sortKey: $sortKey, ')
+          ..write('archivedAt: $archivedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CellsTable extends Cells with TableInfo<$CellsTable, CellRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CellsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _recordIdMeta = const VerificationMeta(
+    'recordId',
+  );
+  @override
+  late final GeneratedColumn<String> recordId = GeneratedColumn<String>(
+    'record_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _propertyIdMeta = const VerificationMeta(
+    'propertyId',
+  );
+  @override
+  late final GeneratedColumn<String> propertyId = GeneratedColumn<String>(
+    'property_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _rawMeta = const VerificationMeta('raw');
+  @override
+  late final GeneratedColumn<String> raw = GeneratedColumn<String>(
+    'raw',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _vTextMeta = const VerificationMeta('vText');
+  @override
+  late final GeneratedColumn<String> vText = GeneratedColumn<String>(
+    'v_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _vNumMeta = const VerificationMeta('vNum');
+  @override
+  late final GeneratedColumn<double> vNum = GeneratedColumn<double>(
+    'v_num',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _vIntMeta = const VerificationMeta('vInt');
+  @override
+  late final GeneratedColumn<int> vInt = GeneratedColumn<int>(
+    'v_int',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _vSortMeta = const VerificationMeta('vSort');
+  @override
+  late final GeneratedColumn<String> vSort = GeneratedColumn<String>(
+    'v_sort',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _vDayMeta = const VerificationMeta('vDay');
+  @override
+  late final GeneratedColumn<int> vDay = GeneratedColumn<int>(
+    'v_day',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    recordId,
+    propertyId,
+    raw,
+    vText,
+    vNum,
+    vInt,
+    vSort,
+    vDay,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'cells';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CellRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('record_id')) {
+      context.handle(
+        _recordIdMeta,
+        recordId.isAcceptableOrUnknown(data['record_id']!, _recordIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_recordIdMeta);
+    }
+    if (data.containsKey('property_id')) {
+      context.handle(
+        _propertyIdMeta,
+        propertyId.isAcceptableOrUnknown(data['property_id']!, _propertyIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_propertyIdMeta);
+    }
+    if (data.containsKey('raw')) {
+      context.handle(
+        _rawMeta,
+        raw.isAcceptableOrUnknown(data['raw']!, _rawMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_rawMeta);
+    }
+    if (data.containsKey('v_text')) {
+      context.handle(
+        _vTextMeta,
+        vText.isAcceptableOrUnknown(data['v_text']!, _vTextMeta),
+      );
+    }
+    if (data.containsKey('v_num')) {
+      context.handle(
+        _vNumMeta,
+        vNum.isAcceptableOrUnknown(data['v_num']!, _vNumMeta),
+      );
+    }
+    if (data.containsKey('v_int')) {
+      context.handle(
+        _vIntMeta,
+        vInt.isAcceptableOrUnknown(data['v_int']!, _vIntMeta),
+      );
+    }
+    if (data.containsKey('v_sort')) {
+      context.handle(
+        _vSortMeta,
+        vSort.isAcceptableOrUnknown(data['v_sort']!, _vSortMeta),
+      );
+    }
+    if (data.containsKey('v_day')) {
+      context.handle(
+        _vDayMeta,
+        vDay.isAcceptableOrUnknown(data['v_day']!, _vDayMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {recordId, propertyId};
+  @override
+  CellRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CellRow(
+      recordId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}record_id'],
+      )!,
+      propertyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}property_id'],
+      )!,
+      raw: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}raw'],
+      )!,
+      vText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}v_text'],
+      ),
+      vNum: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}v_num'],
+      ),
+      vInt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}v_int'],
+      ),
+      vSort: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}v_sort'],
+      ),
+      vDay: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}v_day'],
+      ),
+    );
+  }
+
+  @override
+  $CellsTable createAlias(String alias) {
+    return $CellsTable(attachedDatabase, alias);
+  }
+}
+
+class CellRow extends DataClass implements Insertable<CellRow> {
+  final String recordId;
+  final String propertyId;
+  final String raw;
+  final String? vText;
+  final double? vNum;
+  final int? vInt;
+  final String? vSort;
+  final int? vDay;
+  const CellRow({
+    required this.recordId,
+    required this.propertyId,
+    required this.raw,
+    this.vText,
+    this.vNum,
+    this.vInt,
+    this.vSort,
+    this.vDay,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['record_id'] = Variable<String>(recordId);
+    map['property_id'] = Variable<String>(propertyId);
+    map['raw'] = Variable<String>(raw);
+    if (!nullToAbsent || vText != null) {
+      map['v_text'] = Variable<String>(vText);
+    }
+    if (!nullToAbsent || vNum != null) {
+      map['v_num'] = Variable<double>(vNum);
+    }
+    if (!nullToAbsent || vInt != null) {
+      map['v_int'] = Variable<int>(vInt);
+    }
+    if (!nullToAbsent || vSort != null) {
+      map['v_sort'] = Variable<String>(vSort);
+    }
+    if (!nullToAbsent || vDay != null) {
+      map['v_day'] = Variable<int>(vDay);
+    }
+    return map;
+  }
+
+  CellsCompanion toCompanion(bool nullToAbsent) {
+    return CellsCompanion(
+      recordId: Value(recordId),
+      propertyId: Value(propertyId),
+      raw: Value(raw),
+      vText: vText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(vText),
+      vNum: vNum == null && nullToAbsent ? const Value.absent() : Value(vNum),
+      vInt: vInt == null && nullToAbsent ? const Value.absent() : Value(vInt),
+      vSort: vSort == null && nullToAbsent
+          ? const Value.absent()
+          : Value(vSort),
+      vDay: vDay == null && nullToAbsent ? const Value.absent() : Value(vDay),
+    );
+  }
+
+  factory CellRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CellRow(
+      recordId: serializer.fromJson<String>(json['recordId']),
+      propertyId: serializer.fromJson<String>(json['propertyId']),
+      raw: serializer.fromJson<String>(json['raw']),
+      vText: serializer.fromJson<String?>(json['vText']),
+      vNum: serializer.fromJson<double?>(json['vNum']),
+      vInt: serializer.fromJson<int?>(json['vInt']),
+      vSort: serializer.fromJson<String?>(json['vSort']),
+      vDay: serializer.fromJson<int?>(json['vDay']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'recordId': serializer.toJson<String>(recordId),
+      'propertyId': serializer.toJson<String>(propertyId),
+      'raw': serializer.toJson<String>(raw),
+      'vText': serializer.toJson<String?>(vText),
+      'vNum': serializer.toJson<double?>(vNum),
+      'vInt': serializer.toJson<int?>(vInt),
+      'vSort': serializer.toJson<String?>(vSort),
+      'vDay': serializer.toJson<int?>(vDay),
+    };
+  }
+
+  CellRow copyWith({
+    String? recordId,
+    String? propertyId,
+    String? raw,
+    Value<String?> vText = const Value.absent(),
+    Value<double?> vNum = const Value.absent(),
+    Value<int?> vInt = const Value.absent(),
+    Value<String?> vSort = const Value.absent(),
+    Value<int?> vDay = const Value.absent(),
+  }) => CellRow(
+    recordId: recordId ?? this.recordId,
+    propertyId: propertyId ?? this.propertyId,
+    raw: raw ?? this.raw,
+    vText: vText.present ? vText.value : this.vText,
+    vNum: vNum.present ? vNum.value : this.vNum,
+    vInt: vInt.present ? vInt.value : this.vInt,
+    vSort: vSort.present ? vSort.value : this.vSort,
+    vDay: vDay.present ? vDay.value : this.vDay,
+  );
+  CellRow copyWithCompanion(CellsCompanion data) {
+    return CellRow(
+      recordId: data.recordId.present ? data.recordId.value : this.recordId,
+      propertyId: data.propertyId.present
+          ? data.propertyId.value
+          : this.propertyId,
+      raw: data.raw.present ? data.raw.value : this.raw,
+      vText: data.vText.present ? data.vText.value : this.vText,
+      vNum: data.vNum.present ? data.vNum.value : this.vNum,
+      vInt: data.vInt.present ? data.vInt.value : this.vInt,
+      vSort: data.vSort.present ? data.vSort.value : this.vSort,
+      vDay: data.vDay.present ? data.vDay.value : this.vDay,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CellRow(')
+          ..write('recordId: $recordId, ')
+          ..write('propertyId: $propertyId, ')
+          ..write('raw: $raw, ')
+          ..write('vText: $vText, ')
+          ..write('vNum: $vNum, ')
+          ..write('vInt: $vInt, ')
+          ..write('vSort: $vSort, ')
+          ..write('vDay: $vDay')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(recordId, propertyId, raw, vText, vNum, vInt, vSort, vDay);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CellRow &&
+          other.recordId == this.recordId &&
+          other.propertyId == this.propertyId &&
+          other.raw == this.raw &&
+          other.vText == this.vText &&
+          other.vNum == this.vNum &&
+          other.vInt == this.vInt &&
+          other.vSort == this.vSort &&
+          other.vDay == this.vDay);
+}
+
+class CellsCompanion extends UpdateCompanion<CellRow> {
+  final Value<String> recordId;
+  final Value<String> propertyId;
+  final Value<String> raw;
+  final Value<String?> vText;
+  final Value<double?> vNum;
+  final Value<int?> vInt;
+  final Value<String?> vSort;
+  final Value<int?> vDay;
+  final Value<int> rowid;
+  const CellsCompanion({
+    this.recordId = const Value.absent(),
+    this.propertyId = const Value.absent(),
+    this.raw = const Value.absent(),
+    this.vText = const Value.absent(),
+    this.vNum = const Value.absent(),
+    this.vInt = const Value.absent(),
+    this.vSort = const Value.absent(),
+    this.vDay = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CellsCompanion.insert({
+    required String recordId,
+    required String propertyId,
+    required String raw,
+    this.vText = const Value.absent(),
+    this.vNum = const Value.absent(),
+    this.vInt = const Value.absent(),
+    this.vSort = const Value.absent(),
+    this.vDay = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : recordId = Value(recordId),
+       propertyId = Value(propertyId),
+       raw = Value(raw);
+  static Insertable<CellRow> custom({
+    Expression<String>? recordId,
+    Expression<String>? propertyId,
+    Expression<String>? raw,
+    Expression<String>? vText,
+    Expression<double>? vNum,
+    Expression<int>? vInt,
+    Expression<String>? vSort,
+    Expression<int>? vDay,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (recordId != null) 'record_id': recordId,
+      if (propertyId != null) 'property_id': propertyId,
+      if (raw != null) 'raw': raw,
+      if (vText != null) 'v_text': vText,
+      if (vNum != null) 'v_num': vNum,
+      if (vInt != null) 'v_int': vInt,
+      if (vSort != null) 'v_sort': vSort,
+      if (vDay != null) 'v_day': vDay,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CellsCompanion copyWith({
+    Value<String>? recordId,
+    Value<String>? propertyId,
+    Value<String>? raw,
+    Value<String?>? vText,
+    Value<double?>? vNum,
+    Value<int?>? vInt,
+    Value<String?>? vSort,
+    Value<int?>? vDay,
+    Value<int>? rowid,
+  }) {
+    return CellsCompanion(
+      recordId: recordId ?? this.recordId,
+      propertyId: propertyId ?? this.propertyId,
+      raw: raw ?? this.raw,
+      vText: vText ?? this.vText,
+      vNum: vNum ?? this.vNum,
+      vInt: vInt ?? this.vInt,
+      vSort: vSort ?? this.vSort,
+      vDay: vDay ?? this.vDay,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (recordId.present) {
+      map['record_id'] = Variable<String>(recordId.value);
+    }
+    if (propertyId.present) {
+      map['property_id'] = Variable<String>(propertyId.value);
+    }
+    if (raw.present) {
+      map['raw'] = Variable<String>(raw.value);
+    }
+    if (vText.present) {
+      map['v_text'] = Variable<String>(vText.value);
+    }
+    if (vNum.present) {
+      map['v_num'] = Variable<double>(vNum.value);
+    }
+    if (vInt.present) {
+      map['v_int'] = Variable<int>(vInt.value);
+    }
+    if (vSort.present) {
+      map['v_sort'] = Variable<String>(vSort.value);
+    }
+    if (vDay.present) {
+      map['v_day'] = Variable<int>(vDay.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CellsCompanion(')
+          ..write('recordId: $recordId, ')
+          ..write('propertyId: $propertyId, ')
+          ..write('raw: $raw, ')
+          ..write('vText: $vText, ')
+          ..write('vNum: $vNum, ')
+          ..write('vInt: $vInt, ')
+          ..write('vSort: $vSort, ')
+          ..write('vDay: $vDay, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $RecordLinksTable extends RecordLinks
+    with TableInfo<$RecordLinksTable, RecordLinkRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RecordLinksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _relationPropertyIdMeta =
+      const VerificationMeta('relationPropertyId');
+  @override
+  late final GeneratedColumn<String> relationPropertyId =
+      GeneratedColumn<String>(
+        'relation_property_id',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(''),
+      );
+  static const VerificationMeta _fromRecordIdMeta = const VerificationMeta(
+    'fromRecordId',
+  );
+  @override
+  late final GeneratedColumn<String> fromRecordId = GeneratedColumn<String>(
+    'from_record_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _toRecordIdMeta = const VerificationMeta(
+    'toRecordId',
+  );
+  @override
+  late final GeneratedColumn<String> toRecordId = GeneratedColumn<String>(
+    'to_record_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _sortKeyMeta = const VerificationMeta(
+    'sortKey',
+  );
+  @override
+  late final GeneratedColumn<String> sortKey = GeneratedColumn<String>(
+    'sort_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    relationPropertyId,
+    fromRecordId,
+    toRecordId,
+    sortKey,
+    deletedAt,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'record_links';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RecordLinkRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('relation_property_id')) {
+      context.handle(
+        _relationPropertyIdMeta,
+        relationPropertyId.isAcceptableOrUnknown(
+          data['relation_property_id']!,
+          _relationPropertyIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('from_record_id')) {
+      context.handle(
+        _fromRecordIdMeta,
+        fromRecordId.isAcceptableOrUnknown(
+          data['from_record_id']!,
+          _fromRecordIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('to_record_id')) {
+      context.handle(
+        _toRecordIdMeta,
+        toRecordId.isAcceptableOrUnknown(
+          data['to_record_id']!,
+          _toRecordIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sort_key')) {
+      context.handle(
+        _sortKeyMeta,
+        sortKey.isAcceptableOrUnknown(data['sort_key']!, _sortKeyMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  RecordLinkRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RecordLinkRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      relationPropertyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}relation_property_id'],
+      )!,
+      fromRecordId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}from_record_id'],
+      )!,
+      toRecordId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}to_record_id'],
+      )!,
+      sortKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sort_key'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $RecordLinksTable createAlias(String alias) {
+    return $RecordLinksTable(attachedDatabase, alias);
+  }
+}
+
+class RecordLinkRow extends DataClass implements Insertable<RecordLinkRow> {
+  final String id;
+  final String relationPropertyId;
+  final String fromRecordId;
+  final String toRecordId;
+  final String sortKey;
+  final int? deletedAt;
+  final int createdAt;
+  const RecordLinkRow({
+    required this.id,
+    required this.relationPropertyId,
+    required this.fromRecordId,
+    required this.toRecordId,
+    required this.sortKey,
+    this.deletedAt,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['relation_property_id'] = Variable<String>(relationPropertyId);
+    map['from_record_id'] = Variable<String>(fromRecordId);
+    map['to_record_id'] = Variable<String>(toRecordId);
+    map['sort_key'] = Variable<String>(sortKey);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    map['created_at'] = Variable<int>(createdAt);
+    return map;
+  }
+
+  RecordLinksCompanion toCompanion(bool nullToAbsent) {
+    return RecordLinksCompanion(
+      id: Value(id),
+      relationPropertyId: Value(relationPropertyId),
+      fromRecordId: Value(fromRecordId),
+      toRecordId: Value(toRecordId),
+      sortKey: Value(sortKey),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory RecordLinkRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RecordLinkRow(
+      id: serializer.fromJson<String>(json['id']),
+      relationPropertyId: serializer.fromJson<String>(
+        json['relationPropertyId'],
+      ),
+      fromRecordId: serializer.fromJson<String>(json['fromRecordId']),
+      toRecordId: serializer.fromJson<String>(json['toRecordId']),
+      sortKey: serializer.fromJson<String>(json['sortKey']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'relationPropertyId': serializer.toJson<String>(relationPropertyId),
+      'fromRecordId': serializer.toJson<String>(fromRecordId),
+      'toRecordId': serializer.toJson<String>(toRecordId),
+      'sortKey': serializer.toJson<String>(sortKey),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+      'createdAt': serializer.toJson<int>(createdAt),
+    };
+  }
+
+  RecordLinkRow copyWith({
+    String? id,
+    String? relationPropertyId,
+    String? fromRecordId,
+    String? toRecordId,
+    String? sortKey,
+    Value<int?> deletedAt = const Value.absent(),
+    int? createdAt,
+  }) => RecordLinkRow(
+    id: id ?? this.id,
+    relationPropertyId: relationPropertyId ?? this.relationPropertyId,
+    fromRecordId: fromRecordId ?? this.fromRecordId,
+    toRecordId: toRecordId ?? this.toRecordId,
+    sortKey: sortKey ?? this.sortKey,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  RecordLinkRow copyWithCompanion(RecordLinksCompanion data) {
+    return RecordLinkRow(
+      id: data.id.present ? data.id.value : this.id,
+      relationPropertyId: data.relationPropertyId.present
+          ? data.relationPropertyId.value
+          : this.relationPropertyId,
+      fromRecordId: data.fromRecordId.present
+          ? data.fromRecordId.value
+          : this.fromRecordId,
+      toRecordId: data.toRecordId.present
+          ? data.toRecordId.value
+          : this.toRecordId,
+      sortKey: data.sortKey.present ? data.sortKey.value : this.sortKey,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecordLinkRow(')
+          ..write('id: $id, ')
+          ..write('relationPropertyId: $relationPropertyId, ')
+          ..write('fromRecordId: $fromRecordId, ')
+          ..write('toRecordId: $toRecordId, ')
+          ..write('sortKey: $sortKey, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    relationPropertyId,
+    fromRecordId,
+    toRecordId,
+    sortKey,
+    deletedAt,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RecordLinkRow &&
+          other.id == this.id &&
+          other.relationPropertyId == this.relationPropertyId &&
+          other.fromRecordId == this.fromRecordId &&
+          other.toRecordId == this.toRecordId &&
+          other.sortKey == this.sortKey &&
+          other.deletedAt == this.deletedAt &&
+          other.createdAt == this.createdAt);
+}
+
+class RecordLinksCompanion extends UpdateCompanion<RecordLinkRow> {
+  final Value<String> id;
+  final Value<String> relationPropertyId;
+  final Value<String> fromRecordId;
+  final Value<String> toRecordId;
+  final Value<String> sortKey;
+  final Value<int?> deletedAt;
+  final Value<int> createdAt;
+  final Value<int> rowid;
+  const RecordLinksCompanion({
+    this.id = const Value.absent(),
+    this.relationPropertyId = const Value.absent(),
+    this.fromRecordId = const Value.absent(),
+    this.toRecordId = const Value.absent(),
+    this.sortKey = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RecordLinksCompanion.insert({
+    required String id,
+    this.relationPropertyId = const Value.absent(),
+    this.fromRecordId = const Value.absent(),
+    this.toRecordId = const Value.absent(),
+    this.sortKey = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    required int createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       createdAt = Value(createdAt);
+  static Insertable<RecordLinkRow> custom({
+    Expression<String>? id,
+    Expression<String>? relationPropertyId,
+    Expression<String>? fromRecordId,
+    Expression<String>? toRecordId,
+    Expression<String>? sortKey,
+    Expression<int>? deletedAt,
+    Expression<int>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (relationPropertyId != null)
+        'relation_property_id': relationPropertyId,
+      if (fromRecordId != null) 'from_record_id': fromRecordId,
+      if (toRecordId != null) 'to_record_id': toRecordId,
+      if (sortKey != null) 'sort_key': sortKey,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RecordLinksCompanion copyWith({
+    Value<String>? id,
+    Value<String>? relationPropertyId,
+    Value<String>? fromRecordId,
+    Value<String>? toRecordId,
+    Value<String>? sortKey,
+    Value<int?>? deletedAt,
+    Value<int>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return RecordLinksCompanion(
+      id: id ?? this.id,
+      relationPropertyId: relationPropertyId ?? this.relationPropertyId,
+      fromRecordId: fromRecordId ?? this.fromRecordId,
+      toRecordId: toRecordId ?? this.toRecordId,
+      sortKey: sortKey ?? this.sortKey,
+      deletedAt: deletedAt ?? this.deletedAt,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (relationPropertyId.present) {
+      map['relation_property_id'] = Variable<String>(relationPropertyId.value);
+    }
+    if (fromRecordId.present) {
+      map['from_record_id'] = Variable<String>(fromRecordId.value);
+    }
+    if (toRecordId.present) {
+      map['to_record_id'] = Variable<String>(toRecordId.value);
+    }
+    if (sortKey.present) {
+      map['sort_key'] = Variable<String>(sortKey.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecordLinksCompanion(')
+          ..write('id: $id, ')
+          ..write('relationPropertyId: $relationPropertyId, ')
+          ..write('fromRecordId: $fromRecordId, ')
+          ..write('toRecordId: $toRecordId, ')
+          ..write('sortKey: $sortKey, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $TrackerViewsTable extends TrackerViews
+    with TableInfo<$TrackerViewsTable, ViewRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TrackerViewsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _trackerIdMeta = const VerificationMeta(
+    'trackerId',
+  );
+  @override
+  late final GeneratedColumn<String> trackerId = GeneratedColumn<String>(
+    'tracker_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _configJsonMeta = const VerificationMeta(
+    'configJson',
+  );
+  @override
+  late final GeneratedColumn<String> configJson = GeneratedColumn<String>(
+    'config_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
+  static const VerificationMeta _sortKeyMeta = const VerificationMeta(
+    'sortKey',
+  );
+  @override
+  late final GeneratedColumn<String> sortKey = GeneratedColumn<String>(
+    'sort_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    trackerId,
+    name,
+    configJson,
+    sortKey,
+    deletedAt,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'views';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ViewRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('tracker_id')) {
+      context.handle(
+        _trackerIdMeta,
+        trackerId.isAcceptableOrUnknown(data['tracker_id']!, _trackerIdMeta),
+      );
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    }
+    if (data.containsKey('config_json')) {
+      context.handle(
+        _configJsonMeta,
+        configJson.isAcceptableOrUnknown(data['config_json']!, _configJsonMeta),
+      );
+    }
+    if (data.containsKey('sort_key')) {
+      context.handle(
+        _sortKeyMeta,
+        sortKey.isAcceptableOrUnknown(data['sort_key']!, _sortKeyMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ViewRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ViewRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      trackerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tracker_id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      configJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}config_json'],
+      )!,
+      sortKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sort_key'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $TrackerViewsTable createAlias(String alias) {
+    return $TrackerViewsTable(attachedDatabase, alias);
+  }
+}
+
+class ViewRow extends DataClass implements Insertable<ViewRow> {
+  final String id;
+  final String trackerId;
+  final String name;
+  final String configJson;
+  final String sortKey;
+  final int? deletedAt;
+  final int createdAt;
+  const ViewRow({
+    required this.id,
+    required this.trackerId,
+    required this.name,
+    required this.configJson,
+    required this.sortKey,
+    this.deletedAt,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['tracker_id'] = Variable<String>(trackerId);
+    map['name'] = Variable<String>(name);
+    map['config_json'] = Variable<String>(configJson);
+    map['sort_key'] = Variable<String>(sortKey);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    map['created_at'] = Variable<int>(createdAt);
+    return map;
+  }
+
+  TrackerViewsCompanion toCompanion(bool nullToAbsent) {
+    return TrackerViewsCompanion(
+      id: Value(id),
+      trackerId: Value(trackerId),
+      name: Value(name),
+      configJson: Value(configJson),
+      sortKey: Value(sortKey),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory ViewRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ViewRow(
+      id: serializer.fromJson<String>(json['id']),
+      trackerId: serializer.fromJson<String>(json['trackerId']),
+      name: serializer.fromJson<String>(json['name']),
+      configJson: serializer.fromJson<String>(json['configJson']),
+      sortKey: serializer.fromJson<String>(json['sortKey']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'trackerId': serializer.toJson<String>(trackerId),
+      'name': serializer.toJson<String>(name),
+      'configJson': serializer.toJson<String>(configJson),
+      'sortKey': serializer.toJson<String>(sortKey),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+      'createdAt': serializer.toJson<int>(createdAt),
+    };
+  }
+
+  ViewRow copyWith({
+    String? id,
+    String? trackerId,
+    String? name,
+    String? configJson,
+    String? sortKey,
+    Value<int?> deletedAt = const Value.absent(),
+    int? createdAt,
+  }) => ViewRow(
+    id: id ?? this.id,
+    trackerId: trackerId ?? this.trackerId,
+    name: name ?? this.name,
+    configJson: configJson ?? this.configJson,
+    sortKey: sortKey ?? this.sortKey,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  ViewRow copyWithCompanion(TrackerViewsCompanion data) {
+    return ViewRow(
+      id: data.id.present ? data.id.value : this.id,
+      trackerId: data.trackerId.present ? data.trackerId.value : this.trackerId,
+      name: data.name.present ? data.name.value : this.name,
+      configJson: data.configJson.present
+          ? data.configJson.value
+          : this.configJson,
+      sortKey: data.sortKey.present ? data.sortKey.value : this.sortKey,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ViewRow(')
+          ..write('id: $id, ')
+          ..write('trackerId: $trackerId, ')
+          ..write('name: $name, ')
+          ..write('configJson: $configJson, ')
+          ..write('sortKey: $sortKey, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    trackerId,
+    name,
+    configJson,
+    sortKey,
+    deletedAt,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ViewRow &&
+          other.id == this.id &&
+          other.trackerId == this.trackerId &&
+          other.name == this.name &&
+          other.configJson == this.configJson &&
+          other.sortKey == this.sortKey &&
+          other.deletedAt == this.deletedAt &&
+          other.createdAt == this.createdAt);
+}
+
+class TrackerViewsCompanion extends UpdateCompanion<ViewRow> {
+  final Value<String> id;
+  final Value<String> trackerId;
+  final Value<String> name;
+  final Value<String> configJson;
+  final Value<String> sortKey;
+  final Value<int?> deletedAt;
+  final Value<int> createdAt;
+  final Value<int> rowid;
+  const TrackerViewsCompanion({
+    this.id = const Value.absent(),
+    this.trackerId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.configJson = const Value.absent(),
+    this.sortKey = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TrackerViewsCompanion.insert({
+    required String id,
+    this.trackerId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.configJson = const Value.absent(),
+    this.sortKey = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    required int createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       createdAt = Value(createdAt);
+  static Insertable<ViewRow> custom({
+    Expression<String>? id,
+    Expression<String>? trackerId,
+    Expression<String>? name,
+    Expression<String>? configJson,
+    Expression<String>? sortKey,
+    Expression<int>? deletedAt,
+    Expression<int>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (trackerId != null) 'tracker_id': trackerId,
+      if (name != null) 'name': name,
+      if (configJson != null) 'config_json': configJson,
+      if (sortKey != null) 'sort_key': sortKey,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TrackerViewsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? trackerId,
+    Value<String>? name,
+    Value<String>? configJson,
+    Value<String>? sortKey,
+    Value<int?>? deletedAt,
+    Value<int>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return TrackerViewsCompanion(
+      id: id ?? this.id,
+      trackerId: trackerId ?? this.trackerId,
+      name: name ?? this.name,
+      configJson: configJson ?? this.configJson,
+      sortKey: sortKey ?? this.sortKey,
+      deletedAt: deletedAt ?? this.deletedAt,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (trackerId.present) {
+      map['tracker_id'] = Variable<String>(trackerId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (configJson.present) {
+      map['config_json'] = Variable<String>(configJson.value);
+    }
+    if (sortKey.present) {
+      map['sort_key'] = Variable<String>(sortKey.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TrackerViewsCompanion(')
+          ..write('id: $id, ')
+          ..write('trackerId: $trackerId, ')
+          ..write('name: $name, ')
+          ..write('configJson: $configJson, ')
+          ..write('sortKey: $sortKey, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $FieldMetaTable extends FieldMeta
     with TableInfo<$FieldMetaTable, FieldMetaData> {
   @override
@@ -2267,6 +4709,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $TrackersTable trackers = $TrackersTable(this);
+  late final $PropertiesTable properties = $PropertiesTable(this);
+  late final $RecordsTable records = $RecordsTable(this);
+  late final $CellsTable cells = $CellsTable(this);
+  late final $RecordLinksTable recordLinks = $RecordLinksTable(this);
+  late final $TrackerViewsTable trackerViews = $TrackerViewsTable(this);
   late final $FieldMetaTable fieldMeta = $FieldMetaTable(this);
   late final $SyncOutboxTable syncOutbox = $SyncOutboxTable(this);
   late final $SyncStateTable syncState = $SyncStateTable(this);
@@ -2277,6 +4724,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     trackers,
+    properties,
+    records,
+    cells,
+    recordLinks,
+    trackerViews,
     fieldMeta,
     syncOutbox,
     syncState,
@@ -2542,6 +4994,1287 @@ typedef $$TrackersTableProcessedTableManager =
       $$TrackersTableUpdateCompanionBuilder,
       (Tracker, BaseReferences<_$AppDatabase, $TrackersTable, Tracker>),
       Tracker,
+      PrefetchHooks Function()
+    >;
+typedef $$PropertiesTableCreateCompanionBuilder = PropertiesCompanion Function({
+  required String id,
+  Value<String> trackerId,
+  Value<String> name,
+  Value<String> type,
+  Value<String> configJson,
+  Value<String> sortKey,
+  Value<int?> deletedAt,
+  required int createdAt,
+  Value<int> rowid,
+});
+typedef $$PropertiesTableUpdateCompanionBuilder = PropertiesCompanion Function({
+  Value<String> id,
+  Value<String> trackerId,
+  Value<String> name,
+  Value<String> type,
+  Value<String> configJson,
+  Value<String> sortKey,
+  Value<int?> deletedAt,
+  Value<int> createdAt,
+  Value<int> rowid,
+});
+
+class $$PropertiesTableFilterComposer
+    extends Composer<_$AppDatabase, $PropertiesTable> {
+  $$PropertiesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get trackerId => $composableBuilder(
+    column: $table.trackerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get configJson => $composableBuilder(
+    column: $table.configJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sortKey => $composableBuilder(
+    column: $table.sortKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PropertiesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PropertiesTable> {
+  $$PropertiesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get trackerId => $composableBuilder(
+    column: $table.trackerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get configJson => $composableBuilder(
+    column: $table.configJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sortKey => $composableBuilder(
+    column: $table.sortKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PropertiesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PropertiesTable> {
+  $$PropertiesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get trackerId =>
+      $composableBuilder(column: $table.trackerId, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get configJson => $composableBuilder(
+    column: $table.configJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sortKey =>
+      $composableBuilder(column: $table.sortKey, builder: (column) => column);
+
+  GeneratedColumn<int> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$PropertiesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PropertiesTable,
+          PropertyRow,
+          $$PropertiesTableFilterComposer,
+          $$PropertiesTableOrderingComposer,
+          $$PropertiesTableAnnotationComposer,
+          $$PropertiesTableCreateCompanionBuilder,
+          $$PropertiesTableUpdateCompanionBuilder,
+          (
+            PropertyRow,
+            BaseReferences<_$AppDatabase, $PropertiesTable, PropertyRow>,
+          ),
+          PropertyRow,
+          PrefetchHooks Function()
+        > {
+  $$PropertiesTableTableManager(_$AppDatabase db, $PropertiesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PropertiesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PropertiesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PropertiesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> trackerId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<String> configJson = const Value.absent(),
+                Value<String> sortKey = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PropertiesCompanion(
+                id: id,
+                trackerId: trackerId,
+                name: name,
+                type: type,
+                configJson: configJson,
+                sortKey: sortKey,
+                deletedAt: deletedAt,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String> trackerId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<String> configJson = const Value.absent(),
+                Value<String> sortKey = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                required int createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => PropertiesCompanion.insert(
+                id: id,
+                trackerId: trackerId,
+                name: name,
+                type: type,
+                configJson: configJson,
+                sortKey: sortKey,
+                deletedAt: deletedAt,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$PropertiesTable, PropertyRow>(table),
+                  BaseReferences<_$AppDatabase, $PropertiesTable, PropertyRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PropertiesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PropertiesTable,
+      PropertyRow,
+      $$PropertiesTableFilterComposer,
+      $$PropertiesTableOrderingComposer,
+      $$PropertiesTableAnnotationComposer,
+      $$PropertiesTableCreateCompanionBuilder,
+      $$PropertiesTableUpdateCompanionBuilder,
+      (
+        PropertyRow,
+        BaseReferences<_$AppDatabase, $PropertiesTable, PropertyRow>,
+      ),
+      PropertyRow,
+      PrefetchHooks Function()
+    >;
+typedef $$RecordsTableCreateCompanionBuilder = RecordsCompanion Function({
+  required String id,
+  Value<String> trackerId,
+  Value<String?> parentId,
+  Value<String> sortKey,
+  Value<int?> archivedAt,
+  Value<int?> deletedAt,
+  required int createdAt,
+  Value<int> updatedAt,
+  Value<int> rowid,
+});
+typedef $$RecordsTableUpdateCompanionBuilder = RecordsCompanion Function({
+  Value<String> id,
+  Value<String> trackerId,
+  Value<String?> parentId,
+  Value<String> sortKey,
+  Value<int?> archivedAt,
+  Value<int?> deletedAt,
+  Value<int> createdAt,
+  Value<int> updatedAt,
+  Value<int> rowid,
+});
+
+class $$RecordsTableFilterComposer
+    extends Composer<_$AppDatabase, $RecordsTable> {
+  $$RecordsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get trackerId => $composableBuilder(
+    column: $table.trackerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parentId => $composableBuilder(
+    column: $table.parentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sortKey => $composableBuilder(
+    column: $table.sortKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get archivedAt => $composableBuilder(
+    column: $table.archivedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RecordsTableOrderingComposer
+    extends Composer<_$AppDatabase, $RecordsTable> {
+  $$RecordsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get trackerId => $composableBuilder(
+    column: $table.trackerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get parentId => $composableBuilder(
+    column: $table.parentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sortKey => $composableBuilder(
+    column: $table.sortKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get archivedAt => $composableBuilder(
+    column: $table.archivedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RecordsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RecordsTable> {
+  $$RecordsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get trackerId =>
+      $composableBuilder(column: $table.trackerId, builder: (column) => column);
+
+  GeneratedColumn<String> get parentId =>
+      $composableBuilder(column: $table.parentId, builder: (column) => column);
+
+  GeneratedColumn<String> get sortKey =>
+      $composableBuilder(column: $table.sortKey, builder: (column) => column);
+
+  GeneratedColumn<int> get archivedAt => $composableBuilder(
+    column: $table.archivedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$RecordsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RecordsTable,
+          RecordRow,
+          $$RecordsTableFilterComposer,
+          $$RecordsTableOrderingComposer,
+          $$RecordsTableAnnotationComposer,
+          $$RecordsTableCreateCompanionBuilder,
+          $$RecordsTableUpdateCompanionBuilder,
+          (RecordRow, BaseReferences<_$AppDatabase, $RecordsTable, RecordRow>),
+          RecordRow,
+          PrefetchHooks Function()
+        > {
+  $$RecordsTableTableManager(_$AppDatabase db, $RecordsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RecordsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RecordsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RecordsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> trackerId = const Value.absent(),
+                Value<String?> parentId = const Value.absent(),
+                Value<String> sortKey = const Value.absent(),
+                Value<int?> archivedAt = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RecordsCompanion(
+                id: id,
+                trackerId: trackerId,
+                parentId: parentId,
+                sortKey: sortKey,
+                archivedAt: archivedAt,
+                deletedAt: deletedAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String> trackerId = const Value.absent(),
+                Value<String?> parentId = const Value.absent(),
+                Value<String> sortKey = const Value.absent(),
+                Value<int?> archivedAt = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                required int createdAt,
+                Value<int> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RecordsCompanion.insert(
+                id: id,
+                trackerId: trackerId,
+                parentId: parentId,
+                sortKey: sortKey,
+                archivedAt: archivedAt,
+                deletedAt: deletedAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$RecordsTable, RecordRow>(table),
+                  BaseReferences<_$AppDatabase, $RecordsTable, RecordRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RecordsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RecordsTable,
+      RecordRow,
+      $$RecordsTableFilterComposer,
+      $$RecordsTableOrderingComposer,
+      $$RecordsTableAnnotationComposer,
+      $$RecordsTableCreateCompanionBuilder,
+      $$RecordsTableUpdateCompanionBuilder,
+      (RecordRow, BaseReferences<_$AppDatabase, $RecordsTable, RecordRow>),
+      RecordRow,
+      PrefetchHooks Function()
+    >;
+typedef $$CellsTableCreateCompanionBuilder = CellsCompanion Function({
+  required String recordId,
+  required String propertyId,
+  required String raw,
+  Value<String?> vText,
+  Value<double?> vNum,
+  Value<int?> vInt,
+  Value<String?> vSort,
+  Value<int?> vDay,
+  Value<int> rowid,
+});
+typedef $$CellsTableUpdateCompanionBuilder = CellsCompanion Function({
+  Value<String> recordId,
+  Value<String> propertyId,
+  Value<String> raw,
+  Value<String?> vText,
+  Value<double?> vNum,
+  Value<int?> vInt,
+  Value<String?> vSort,
+  Value<int?> vDay,
+  Value<int> rowid,
+});
+
+class $$CellsTableFilterComposer extends Composer<_$AppDatabase, $CellsTable> {
+  $$CellsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get recordId => $composableBuilder(
+    column: $table.recordId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get propertyId => $composableBuilder(
+    column: $table.propertyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get raw => $composableBuilder(
+    column: $table.raw,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get vText => $composableBuilder(
+    column: $table.vText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get vNum => $composableBuilder(
+    column: $table.vNum,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get vInt => $composableBuilder(
+    column: $table.vInt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get vSort => $composableBuilder(
+    column: $table.vSort,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get vDay => $composableBuilder(
+    column: $table.vDay,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CellsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CellsTable> {
+  $$CellsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get recordId => $composableBuilder(
+    column: $table.recordId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get propertyId => $composableBuilder(
+    column: $table.propertyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get raw => $composableBuilder(
+    column: $table.raw,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get vText => $composableBuilder(
+    column: $table.vText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get vNum => $composableBuilder(
+    column: $table.vNum,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get vInt => $composableBuilder(
+    column: $table.vInt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get vSort => $composableBuilder(
+    column: $table.vSort,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get vDay => $composableBuilder(
+    column: $table.vDay,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CellsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CellsTable> {
+  $$CellsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get recordId =>
+      $composableBuilder(column: $table.recordId, builder: (column) => column);
+
+  GeneratedColumn<String> get propertyId => $composableBuilder(
+    column: $table.propertyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get raw =>
+      $composableBuilder(column: $table.raw, builder: (column) => column);
+
+  GeneratedColumn<String> get vText =>
+      $composableBuilder(column: $table.vText, builder: (column) => column);
+
+  GeneratedColumn<double> get vNum =>
+      $composableBuilder(column: $table.vNum, builder: (column) => column);
+
+  GeneratedColumn<int> get vInt =>
+      $composableBuilder(column: $table.vInt, builder: (column) => column);
+
+  GeneratedColumn<String> get vSort =>
+      $composableBuilder(column: $table.vSort, builder: (column) => column);
+
+  GeneratedColumn<int> get vDay =>
+      $composableBuilder(column: $table.vDay, builder: (column) => column);
+}
+
+class $$CellsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CellsTable,
+          CellRow,
+          $$CellsTableFilterComposer,
+          $$CellsTableOrderingComposer,
+          $$CellsTableAnnotationComposer,
+          $$CellsTableCreateCompanionBuilder,
+          $$CellsTableUpdateCompanionBuilder,
+          (CellRow, BaseReferences<_$AppDatabase, $CellsTable, CellRow>),
+          CellRow,
+          PrefetchHooks Function()
+        > {
+  $$CellsTableTableManager(_$AppDatabase db, $CellsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CellsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CellsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CellsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> recordId = const Value.absent(),
+                Value<String> propertyId = const Value.absent(),
+                Value<String> raw = const Value.absent(),
+                Value<String?> vText = const Value.absent(),
+                Value<double?> vNum = const Value.absent(),
+                Value<int?> vInt = const Value.absent(),
+                Value<String?> vSort = const Value.absent(),
+                Value<int?> vDay = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CellsCompanion(
+                recordId: recordId,
+                propertyId: propertyId,
+                raw: raw,
+                vText: vText,
+                vNum: vNum,
+                vInt: vInt,
+                vSort: vSort,
+                vDay: vDay,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String recordId,
+                required String propertyId,
+                required String raw,
+                Value<String?> vText = const Value.absent(),
+                Value<double?> vNum = const Value.absent(),
+                Value<int?> vInt = const Value.absent(),
+                Value<String?> vSort = const Value.absent(),
+                Value<int?> vDay = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CellsCompanion.insert(
+                recordId: recordId,
+                propertyId: propertyId,
+                raw: raw,
+                vText: vText,
+                vNum: vNum,
+                vInt: vInt,
+                vSort: vSort,
+                vDay: vDay,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$CellsTable, CellRow>(table),
+                  BaseReferences<_$AppDatabase, $CellsTable, CellRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CellsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CellsTable,
+      CellRow,
+      $$CellsTableFilterComposer,
+      $$CellsTableOrderingComposer,
+      $$CellsTableAnnotationComposer,
+      $$CellsTableCreateCompanionBuilder,
+      $$CellsTableUpdateCompanionBuilder,
+      (CellRow, BaseReferences<_$AppDatabase, $CellsTable, CellRow>),
+      CellRow,
+      PrefetchHooks Function()
+    >;
+typedef $$RecordLinksTableCreateCompanionBuilder =
+    RecordLinksCompanion Function({
+      required String id,
+      Value<String> relationPropertyId,
+      Value<String> fromRecordId,
+      Value<String> toRecordId,
+      Value<String> sortKey,
+      Value<int?> deletedAt,
+      required int createdAt,
+      Value<int> rowid,
+    });
+typedef $$RecordLinksTableUpdateCompanionBuilder =
+    RecordLinksCompanion Function({
+      Value<String> id,
+      Value<String> relationPropertyId,
+      Value<String> fromRecordId,
+      Value<String> toRecordId,
+      Value<String> sortKey,
+      Value<int?> deletedAt,
+      Value<int> createdAt,
+      Value<int> rowid,
+    });
+
+class $$RecordLinksTableFilterComposer
+    extends Composer<_$AppDatabase, $RecordLinksTable> {
+  $$RecordLinksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get relationPropertyId => $composableBuilder(
+    column: $table.relationPropertyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fromRecordId => $composableBuilder(
+    column: $table.fromRecordId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get toRecordId => $composableBuilder(
+    column: $table.toRecordId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sortKey => $composableBuilder(
+    column: $table.sortKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RecordLinksTableOrderingComposer
+    extends Composer<_$AppDatabase, $RecordLinksTable> {
+  $$RecordLinksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get relationPropertyId => $composableBuilder(
+    column: $table.relationPropertyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fromRecordId => $composableBuilder(
+    column: $table.fromRecordId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get toRecordId => $composableBuilder(
+    column: $table.toRecordId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sortKey => $composableBuilder(
+    column: $table.sortKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RecordLinksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RecordLinksTable> {
+  $$RecordLinksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get relationPropertyId => $composableBuilder(
+    column: $table.relationPropertyId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get fromRecordId => $composableBuilder(
+    column: $table.fromRecordId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get toRecordId => $composableBuilder(
+    column: $table.toRecordId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sortKey =>
+      $composableBuilder(column: $table.sortKey, builder: (column) => column);
+
+  GeneratedColumn<int> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$RecordLinksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RecordLinksTable,
+          RecordLinkRow,
+          $$RecordLinksTableFilterComposer,
+          $$RecordLinksTableOrderingComposer,
+          $$RecordLinksTableAnnotationComposer,
+          $$RecordLinksTableCreateCompanionBuilder,
+          $$RecordLinksTableUpdateCompanionBuilder,
+          (
+            RecordLinkRow,
+            BaseReferences<_$AppDatabase, $RecordLinksTable, RecordLinkRow>,
+          ),
+          RecordLinkRow,
+          PrefetchHooks Function()
+        > {
+  $$RecordLinksTableTableManager(_$AppDatabase db, $RecordLinksTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RecordLinksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RecordLinksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RecordLinksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> relationPropertyId = const Value.absent(),
+                Value<String> fromRecordId = const Value.absent(),
+                Value<String> toRecordId = const Value.absent(),
+                Value<String> sortKey = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RecordLinksCompanion(
+                id: id,
+                relationPropertyId: relationPropertyId,
+                fromRecordId: fromRecordId,
+                toRecordId: toRecordId,
+                sortKey: sortKey,
+                deletedAt: deletedAt,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String> relationPropertyId = const Value.absent(),
+                Value<String> fromRecordId = const Value.absent(),
+                Value<String> toRecordId = const Value.absent(),
+                Value<String> sortKey = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                required int createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => RecordLinksCompanion.insert(
+                id: id,
+                relationPropertyId: relationPropertyId,
+                fromRecordId: fromRecordId,
+                toRecordId: toRecordId,
+                sortKey: sortKey,
+                deletedAt: deletedAt,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$RecordLinksTable, RecordLinkRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $RecordLinksTable,
+                    RecordLinkRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RecordLinksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RecordLinksTable,
+      RecordLinkRow,
+      $$RecordLinksTableFilterComposer,
+      $$RecordLinksTableOrderingComposer,
+      $$RecordLinksTableAnnotationComposer,
+      $$RecordLinksTableCreateCompanionBuilder,
+      $$RecordLinksTableUpdateCompanionBuilder,
+      (
+        RecordLinkRow,
+        BaseReferences<_$AppDatabase, $RecordLinksTable, RecordLinkRow>,
+      ),
+      RecordLinkRow,
+      PrefetchHooks Function()
+    >;
+typedef $$TrackerViewsTableCreateCompanionBuilder =
+    TrackerViewsCompanion Function({
+      required String id,
+      Value<String> trackerId,
+      Value<String> name,
+      Value<String> configJson,
+      Value<String> sortKey,
+      Value<int?> deletedAt,
+      required int createdAt,
+      Value<int> rowid,
+    });
+typedef $$TrackerViewsTableUpdateCompanionBuilder =
+    TrackerViewsCompanion Function({
+      Value<String> id,
+      Value<String> trackerId,
+      Value<String> name,
+      Value<String> configJson,
+      Value<String> sortKey,
+      Value<int?> deletedAt,
+      Value<int> createdAt,
+      Value<int> rowid,
+    });
+
+class $$TrackerViewsTableFilterComposer
+    extends Composer<_$AppDatabase, $TrackerViewsTable> {
+  $$TrackerViewsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get trackerId => $composableBuilder(
+    column: $table.trackerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get configJson => $composableBuilder(
+    column: $table.configJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sortKey => $composableBuilder(
+    column: $table.sortKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$TrackerViewsTableOrderingComposer
+    extends Composer<_$AppDatabase, $TrackerViewsTable> {
+  $$TrackerViewsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get trackerId => $composableBuilder(
+    column: $table.trackerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get configJson => $composableBuilder(
+    column: $table.configJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sortKey => $composableBuilder(
+    column: $table.sortKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$TrackerViewsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TrackerViewsTable> {
+  $$TrackerViewsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get trackerId =>
+      $composableBuilder(column: $table.trackerId, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get configJson => $composableBuilder(
+    column: $table.configJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sortKey =>
+      $composableBuilder(column: $table.sortKey, builder: (column) => column);
+
+  GeneratedColumn<int> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$TrackerViewsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TrackerViewsTable,
+          ViewRow,
+          $$TrackerViewsTableFilterComposer,
+          $$TrackerViewsTableOrderingComposer,
+          $$TrackerViewsTableAnnotationComposer,
+          $$TrackerViewsTableCreateCompanionBuilder,
+          $$TrackerViewsTableUpdateCompanionBuilder,
+          (ViewRow, BaseReferences<_$AppDatabase, $TrackerViewsTable, ViewRow>),
+          ViewRow,
+          PrefetchHooks Function()
+        > {
+  $$TrackerViewsTableTableManager(_$AppDatabase db, $TrackerViewsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TrackerViewsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TrackerViewsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TrackerViewsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> trackerId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> configJson = const Value.absent(),
+                Value<String> sortKey = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TrackerViewsCompanion(
+                id: id,
+                trackerId: trackerId,
+                name: name,
+                configJson: configJson,
+                sortKey: sortKey,
+                deletedAt: deletedAt,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String> trackerId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> configJson = const Value.absent(),
+                Value<String> sortKey = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                required int createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => TrackerViewsCompanion.insert(
+                id: id,
+                trackerId: trackerId,
+                name: name,
+                configJson: configJson,
+                sortKey: sortKey,
+                deletedAt: deletedAt,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$TrackerViewsTable, ViewRow>(table),
+                  BaseReferences<_$AppDatabase, $TrackerViewsTable, ViewRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$TrackerViewsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TrackerViewsTable,
+      ViewRow,
+      $$TrackerViewsTableFilterComposer,
+      $$TrackerViewsTableOrderingComposer,
+      $$TrackerViewsTableAnnotationComposer,
+      $$TrackerViewsTableCreateCompanionBuilder,
+      $$TrackerViewsTableUpdateCompanionBuilder,
+      (ViewRow, BaseReferences<_$AppDatabase, $TrackerViewsTable, ViewRow>),
+      ViewRow,
       PrefetchHooks Function()
     >;
 typedef $$FieldMetaTableCreateCompanionBuilder = FieldMetaCompanion Function({
@@ -3497,6 +7230,16 @@ class $AppDatabaseManager {
   $AppDatabaseManager(this._db);
   $$TrackersTableTableManager get trackers =>
       $$TrackersTableTableManager(_db, _db.trackers);
+  $$PropertiesTableTableManager get properties =>
+      $$PropertiesTableTableManager(_db, _db.properties);
+  $$RecordsTableTableManager get records =>
+      $$RecordsTableTableManager(_db, _db.records);
+  $$CellsTableTableManager get cells =>
+      $$CellsTableTableManager(_db, _db.cells);
+  $$RecordLinksTableTableManager get recordLinks =>
+      $$RecordLinksTableTableManager(_db, _db.recordLinks);
+  $$TrackerViewsTableTableManager get trackerViews =>
+      $$TrackerViewsTableTableManager(_db, _db.trackerViews);
   $$FieldMetaTableTableManager get fieldMeta =>
       $$FieldMetaTableTableManager(_db, _db.fieldMeta);
   $$SyncOutboxTableTableManager get syncOutbox =>

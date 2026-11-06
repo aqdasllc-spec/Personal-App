@@ -83,7 +83,7 @@ void main() {
       );
     }
 
-    Value roll(TrackerSnapshot s, String rec, String prop) => Computed(s, now: now).valueOf(s.record(rec)!, s.property(prop)!);
+    CellValue roll(TrackerSnapshot s, String rec, String prop) => Computed(s, now: now).valueOf(s.record(rec)!, s.property(prop)!);
 
     test('aggregates over related records; archived related records are excluded', () {
       final s = projects();
