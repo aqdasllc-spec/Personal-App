@@ -58,10 +58,65 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _dueHasTimeMeta = const VerificationMeta(
+    'dueHasTime',
+  );
+  @override
+  late final GeneratedColumn<int> dueHasTime = GeneratedColumn<int>(
+    'due_has_time',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _plannedAtMeta = const VerificationMeta(
+    'plannedAt',
+  );
+  @override
+  late final GeneratedColumn<int> plannedAt = GeneratedColumn<int>(
+    'planned_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _plannedMinutesMeta = const VerificationMeta(
+    'plannedMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> plannedMinutes = GeneratedColumn<int>(
+    'planned_minutes',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _doneAtMeta = const VerificationMeta('doneAt');
   @override
   late final GeneratedColumn<int> doneAt = GeneratedColumn<int>(
     'done_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _rruleMeta = const VerificationMeta('rrule');
+  @override
+  late final GeneratedColumn<String> rrule = GeneratedColumn<String>(
+    'rrule',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _remindMinutesMeta = const VerificationMeta(
+    'remindMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> remindMinutes = GeneratedColumn<int>(
+    'remind_minutes',
     aliasedName,
     true,
     type: DriftSqlType.int,
@@ -108,7 +163,12 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
     notes,
     priority,
     dueAt,
+    dueHasTime,
+    plannedAt,
+    plannedMinutes,
     doneAt,
+    rrule,
+    remindMinutes,
     sortKey,
     deletedAt,
     createdAt,
@@ -154,10 +214,49 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
         dueAt.isAcceptableOrUnknown(data['due_at']!, _dueAtMeta),
       );
     }
+    if (data.containsKey('due_has_time')) {
+      context.handle(
+        _dueHasTimeMeta,
+        dueHasTime.isAcceptableOrUnknown(
+          data['due_has_time']!,
+          _dueHasTimeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('planned_at')) {
+      context.handle(
+        _plannedAtMeta,
+        plannedAt.isAcceptableOrUnknown(data['planned_at']!, _plannedAtMeta),
+      );
+    }
+    if (data.containsKey('planned_minutes')) {
+      context.handle(
+        _plannedMinutesMeta,
+        plannedMinutes.isAcceptableOrUnknown(
+          data['planned_minutes']!,
+          _plannedMinutesMeta,
+        ),
+      );
+    }
     if (data.containsKey('done_at')) {
       context.handle(
         _doneAtMeta,
         doneAt.isAcceptableOrUnknown(data['done_at']!, _doneAtMeta),
+      );
+    }
+    if (data.containsKey('rrule')) {
+      context.handle(
+        _rruleMeta,
+        rrule.isAcceptableOrUnknown(data['rrule']!, _rruleMeta),
+      );
+    }
+    if (data.containsKey('remind_minutes')) {
+      context.handle(
+        _remindMinutesMeta,
+        remindMinutes.isAcceptableOrUnknown(
+          data['remind_minutes']!,
+          _remindMinutesMeta,
+        ),
       );
     }
     if (data.containsKey('sort_key')) {
@@ -209,9 +308,29 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
         DriftSqlType.int,
         data['${effectivePrefix}due_at'],
       ),
+      dueHasTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}due_has_time'],
+      )!,
+      plannedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}planned_at'],
+      ),
+      plannedMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}planned_minutes'],
+      ),
       doneAt: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}done_at'],
+      ),
+      rrule: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}rrule'],
+      )!,
+      remindMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}remind_minutes'],
       ),
       sortKey: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -242,9 +361,20 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
   /// '', 'low', 'medium' or 'high'.
   final String priority;
 
-  /// Due date/time, epoch milliseconds (UTC).
+  /// Due date/time, epoch ms. For date-only tasks this is local midnight and [dueHasTime] is 0.
   final int? dueAt;
+  final int dueHasTime;
+
+  /// Time block: when the user plans to work on it, and for how long.
+  final int? plannedAt;
+  final int? plannedMinutes;
   final int? doneAt;
+
+  /// Recurrence rule, e.g. `FREQ=WEEKLY;BYDAY=MO,WE` ('' = does not repeat). See planner/recurrence.dart.
+  final String rrule;
+
+  /// Remind this many minutes before the due/planned time (null = no reminder).
+  final int? remindMinutes;
   final String sortKey;
   final int? deletedAt;
   final int createdAt;
@@ -254,7 +384,12 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     required this.notes,
     required this.priority,
     this.dueAt,
+    required this.dueHasTime,
+    this.plannedAt,
+    this.plannedMinutes,
     this.doneAt,
+    required this.rrule,
+    this.remindMinutes,
     required this.sortKey,
     this.deletedAt,
     required this.createdAt,
@@ -269,8 +404,19 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     if (!nullToAbsent || dueAt != null) {
       map['due_at'] = Variable<int>(dueAt);
     }
+    map['due_has_time'] = Variable<int>(dueHasTime);
+    if (!nullToAbsent || plannedAt != null) {
+      map['planned_at'] = Variable<int>(plannedAt);
+    }
+    if (!nullToAbsent || plannedMinutes != null) {
+      map['planned_minutes'] = Variable<int>(plannedMinutes);
+    }
     if (!nullToAbsent || doneAt != null) {
       map['done_at'] = Variable<int>(doneAt);
+    }
+    map['rrule'] = Variable<String>(rrule);
+    if (!nullToAbsent || remindMinutes != null) {
+      map['remind_minutes'] = Variable<int>(remindMinutes);
     }
     map['sort_key'] = Variable<String>(sortKey);
     if (!nullToAbsent || deletedAt != null) {
@@ -289,9 +435,20 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       dueAt: dueAt == null && nullToAbsent
           ? const Value.absent()
           : Value(dueAt),
+      dueHasTime: Value(dueHasTime),
+      plannedAt: plannedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(plannedAt),
+      plannedMinutes: plannedMinutes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(plannedMinutes),
       doneAt: doneAt == null && nullToAbsent
           ? const Value.absent()
           : Value(doneAt),
+      rrule: Value(rrule),
+      remindMinutes: remindMinutes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remindMinutes),
       sortKey: Value(sortKey),
       deletedAt: deletedAt == null && nullToAbsent
           ? const Value.absent()
@@ -311,7 +468,12 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       notes: serializer.fromJson<String>(json['notes']),
       priority: serializer.fromJson<String>(json['priority']),
       dueAt: serializer.fromJson<int?>(json['dueAt']),
+      dueHasTime: serializer.fromJson<int>(json['dueHasTime']),
+      plannedAt: serializer.fromJson<int?>(json['plannedAt']),
+      plannedMinutes: serializer.fromJson<int?>(json['plannedMinutes']),
       doneAt: serializer.fromJson<int?>(json['doneAt']),
+      rrule: serializer.fromJson<String>(json['rrule']),
+      remindMinutes: serializer.fromJson<int?>(json['remindMinutes']),
       sortKey: serializer.fromJson<String>(json['sortKey']),
       deletedAt: serializer.fromJson<int?>(json['deletedAt']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
@@ -326,7 +488,12 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       'notes': serializer.toJson<String>(notes),
       'priority': serializer.toJson<String>(priority),
       'dueAt': serializer.toJson<int?>(dueAt),
+      'dueHasTime': serializer.toJson<int>(dueHasTime),
+      'plannedAt': serializer.toJson<int?>(plannedAt),
+      'plannedMinutes': serializer.toJson<int?>(plannedMinutes),
       'doneAt': serializer.toJson<int?>(doneAt),
+      'rrule': serializer.toJson<String>(rrule),
+      'remindMinutes': serializer.toJson<int?>(remindMinutes),
       'sortKey': serializer.toJson<String>(sortKey),
       'deletedAt': serializer.toJson<int?>(deletedAt),
       'createdAt': serializer.toJson<int>(createdAt),
@@ -339,7 +506,12 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     String? notes,
     String? priority,
     Value<int?> dueAt = const Value.absent(),
+    int? dueHasTime,
+    Value<int?> plannedAt = const Value.absent(),
+    Value<int?> plannedMinutes = const Value.absent(),
     Value<int?> doneAt = const Value.absent(),
+    String? rrule,
+    Value<int?> remindMinutes = const Value.absent(),
     String? sortKey,
     Value<int?> deletedAt = const Value.absent(),
     int? createdAt,
@@ -349,7 +521,16 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     notes: notes ?? this.notes,
     priority: priority ?? this.priority,
     dueAt: dueAt.present ? dueAt.value : this.dueAt,
+    dueHasTime: dueHasTime ?? this.dueHasTime,
+    plannedAt: plannedAt.present ? plannedAt.value : this.plannedAt,
+    plannedMinutes: plannedMinutes.present
+        ? plannedMinutes.value
+        : this.plannedMinutes,
     doneAt: doneAt.present ? doneAt.value : this.doneAt,
+    rrule: rrule ?? this.rrule,
+    remindMinutes: remindMinutes.present
+        ? remindMinutes.value
+        : this.remindMinutes,
     sortKey: sortKey ?? this.sortKey,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     createdAt: createdAt ?? this.createdAt,
@@ -361,7 +542,18 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       notes: data.notes.present ? data.notes.value : this.notes,
       priority: data.priority.present ? data.priority.value : this.priority,
       dueAt: data.dueAt.present ? data.dueAt.value : this.dueAt,
+      dueHasTime: data.dueHasTime.present
+          ? data.dueHasTime.value
+          : this.dueHasTime,
+      plannedAt: data.plannedAt.present ? data.plannedAt.value : this.plannedAt,
+      plannedMinutes: data.plannedMinutes.present
+          ? data.plannedMinutes.value
+          : this.plannedMinutes,
       doneAt: data.doneAt.present ? data.doneAt.value : this.doneAt,
+      rrule: data.rrule.present ? data.rrule.value : this.rrule,
+      remindMinutes: data.remindMinutes.present
+          ? data.remindMinutes.value
+          : this.remindMinutes,
       sortKey: data.sortKey.present ? data.sortKey.value : this.sortKey,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -376,7 +568,12 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
           ..write('notes: $notes, ')
           ..write('priority: $priority, ')
           ..write('dueAt: $dueAt, ')
+          ..write('dueHasTime: $dueHasTime, ')
+          ..write('plannedAt: $plannedAt, ')
+          ..write('plannedMinutes: $plannedMinutes, ')
           ..write('doneAt: $doneAt, ')
+          ..write('rrule: $rrule, ')
+          ..write('remindMinutes: $remindMinutes, ')
           ..write('sortKey: $sortKey, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('createdAt: $createdAt')
@@ -391,7 +588,12 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     notes,
     priority,
     dueAt,
+    dueHasTime,
+    plannedAt,
+    plannedMinutes,
     doneAt,
+    rrule,
+    remindMinutes,
     sortKey,
     deletedAt,
     createdAt,
@@ -405,7 +607,12 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
           other.notes == this.notes &&
           other.priority == this.priority &&
           other.dueAt == this.dueAt &&
+          other.dueHasTime == this.dueHasTime &&
+          other.plannedAt == this.plannedAt &&
+          other.plannedMinutes == this.plannedMinutes &&
           other.doneAt == this.doneAt &&
+          other.rrule == this.rrule &&
+          other.remindMinutes == this.remindMinutes &&
           other.sortKey == this.sortKey &&
           other.deletedAt == this.deletedAt &&
           other.createdAt == this.createdAt);
@@ -417,7 +624,12 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
   final Value<String> notes;
   final Value<String> priority;
   final Value<int?> dueAt;
+  final Value<int> dueHasTime;
+  final Value<int?> plannedAt;
+  final Value<int?> plannedMinutes;
   final Value<int?> doneAt;
+  final Value<String> rrule;
+  final Value<int?> remindMinutes;
   final Value<String> sortKey;
   final Value<int?> deletedAt;
   final Value<int> createdAt;
@@ -428,7 +640,12 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     this.notes = const Value.absent(),
     this.priority = const Value.absent(),
     this.dueAt = const Value.absent(),
+    this.dueHasTime = const Value.absent(),
+    this.plannedAt = const Value.absent(),
+    this.plannedMinutes = const Value.absent(),
     this.doneAt = const Value.absent(),
+    this.rrule = const Value.absent(),
+    this.remindMinutes = const Value.absent(),
     this.sortKey = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -440,7 +657,12 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     this.notes = const Value.absent(),
     this.priority = const Value.absent(),
     this.dueAt = const Value.absent(),
+    this.dueHasTime = const Value.absent(),
+    this.plannedAt = const Value.absent(),
+    this.plannedMinutes = const Value.absent(),
     this.doneAt = const Value.absent(),
+    this.rrule = const Value.absent(),
+    this.remindMinutes = const Value.absent(),
     this.sortKey = const Value.absent(),
     this.deletedAt = const Value.absent(),
     required int createdAt,
@@ -453,7 +675,12 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     Expression<String>? notes,
     Expression<String>? priority,
     Expression<int>? dueAt,
+    Expression<int>? dueHasTime,
+    Expression<int>? plannedAt,
+    Expression<int>? plannedMinutes,
     Expression<int>? doneAt,
+    Expression<String>? rrule,
+    Expression<int>? remindMinutes,
     Expression<String>? sortKey,
     Expression<int>? deletedAt,
     Expression<int>? createdAt,
@@ -465,7 +692,12 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
       if (notes != null) 'notes': notes,
       if (priority != null) 'priority': priority,
       if (dueAt != null) 'due_at': dueAt,
+      if (dueHasTime != null) 'due_has_time': dueHasTime,
+      if (plannedAt != null) 'planned_at': plannedAt,
+      if (plannedMinutes != null) 'planned_minutes': plannedMinutes,
       if (doneAt != null) 'done_at': doneAt,
+      if (rrule != null) 'rrule': rrule,
+      if (remindMinutes != null) 'remind_minutes': remindMinutes,
       if (sortKey != null) 'sort_key': sortKey,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (createdAt != null) 'created_at': createdAt,
@@ -479,7 +711,12 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     Value<String>? notes,
     Value<String>? priority,
     Value<int?>? dueAt,
+    Value<int>? dueHasTime,
+    Value<int?>? plannedAt,
+    Value<int?>? plannedMinutes,
     Value<int?>? doneAt,
+    Value<String>? rrule,
+    Value<int?>? remindMinutes,
     Value<String>? sortKey,
     Value<int?>? deletedAt,
     Value<int>? createdAt,
@@ -491,7 +728,12 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
       notes: notes ?? this.notes,
       priority: priority ?? this.priority,
       dueAt: dueAt ?? this.dueAt,
+      dueHasTime: dueHasTime ?? this.dueHasTime,
+      plannedAt: plannedAt ?? this.plannedAt,
+      plannedMinutes: plannedMinutes ?? this.plannedMinutes,
       doneAt: doneAt ?? this.doneAt,
+      rrule: rrule ?? this.rrule,
+      remindMinutes: remindMinutes ?? this.remindMinutes,
       sortKey: sortKey ?? this.sortKey,
       deletedAt: deletedAt ?? this.deletedAt,
       createdAt: createdAt ?? this.createdAt,
@@ -517,8 +759,23 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     if (dueAt.present) {
       map['due_at'] = Variable<int>(dueAt.value);
     }
+    if (dueHasTime.present) {
+      map['due_has_time'] = Variable<int>(dueHasTime.value);
+    }
+    if (plannedAt.present) {
+      map['planned_at'] = Variable<int>(plannedAt.value);
+    }
+    if (plannedMinutes.present) {
+      map['planned_minutes'] = Variable<int>(plannedMinutes.value);
+    }
     if (doneAt.present) {
       map['done_at'] = Variable<int>(doneAt.value);
+    }
+    if (rrule.present) {
+      map['rrule'] = Variable<String>(rrule.value);
+    }
+    if (remindMinutes.present) {
+      map['remind_minutes'] = Variable<int>(remindMinutes.value);
     }
     if (sortKey.present) {
       map['sort_key'] = Variable<String>(sortKey.value);
@@ -543,8 +800,653 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
           ..write('notes: $notes, ')
           ..write('priority: $priority, ')
           ..write('dueAt: $dueAt, ')
+          ..write('dueHasTime: $dueHasTime, ')
+          ..write('plannedAt: $plannedAt, ')
+          ..write('plannedMinutes: $plannedMinutes, ')
           ..write('doneAt: $doneAt, ')
+          ..write('rrule: $rrule, ')
+          ..write('remindMinutes: $remindMinutes, ')
           ..write('sortKey: $sortKey, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $EventsTable extends Events with TableInfo<$EventsTable, EventRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $EventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _startAtMeta = const VerificationMeta(
+    'startAt',
+  );
+  @override
+  late final GeneratedColumn<int> startAt = GeneratedColumn<int>(
+    'start_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _endAtMeta = const VerificationMeta('endAt');
+  @override
+  late final GeneratedColumn<int> endAt = GeneratedColumn<int>(
+    'end_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _allDayMeta = const VerificationMeta('allDay');
+  @override
+  late final GeneratedColumn<int> allDay = GeneratedColumn<int>(
+    'all_day',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _rruleMeta = const VerificationMeta('rrule');
+  @override
+  late final GeneratedColumn<String> rrule = GeneratedColumn<String>(
+    'rrule',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _remindMinutesMeta = const VerificationMeta(
+    'remindMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> remindMinutes = GeneratedColumn<int>(
+    'remind_minutes',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _colorMeta = const VerificationMeta('color');
+  @override
+  late final GeneratedColumn<String> color = GeneratedColumn<String>(
+    'color',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    title,
+    notes,
+    startAt,
+    endAt,
+    allDay,
+    rrule,
+    remindMinutes,
+    color,
+    deletedAt,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'events';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<EventRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('start_at')) {
+      context.handle(
+        _startAtMeta,
+        startAt.isAcceptableOrUnknown(data['start_at']!, _startAtMeta),
+      );
+    }
+    if (data.containsKey('end_at')) {
+      context.handle(
+        _endAtMeta,
+        endAt.isAcceptableOrUnknown(data['end_at']!, _endAtMeta),
+      );
+    }
+    if (data.containsKey('all_day')) {
+      context.handle(
+        _allDayMeta,
+        allDay.isAcceptableOrUnknown(data['all_day']!, _allDayMeta),
+      );
+    }
+    if (data.containsKey('rrule')) {
+      context.handle(
+        _rruleMeta,
+        rrule.isAcceptableOrUnknown(data['rrule']!, _rruleMeta),
+      );
+    }
+    if (data.containsKey('remind_minutes')) {
+      context.handle(
+        _remindMinutesMeta,
+        remindMinutes.isAcceptableOrUnknown(
+          data['remind_minutes']!,
+          _remindMinutesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('color')) {
+      context.handle(
+        _colorMeta,
+        color.isAcceptableOrUnknown(data['color']!, _colorMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  EventRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return EventRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      )!,
+      startAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}start_at'],
+      )!,
+      endAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}end_at'],
+      )!,
+      allDay: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}all_day'],
+      )!,
+      rrule: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}rrule'],
+      )!,
+      remindMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}remind_minutes'],
+      ),
+      color: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}color'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $EventsTable createAlias(String alias) {
+    return $EventsTable(attachedDatabase, alias);
+  }
+}
+
+class EventRow extends DataClass implements Insertable<EventRow> {
+  final String id;
+  final String title;
+  final String notes;
+  final int startAt;
+  final int endAt;
+
+  /// 1 = all-day (start is local midnight, end is the exclusive next midnight).
+  final int allDay;
+  final String rrule;
+  final int? remindMinutes;
+  final String color;
+  final int? deletedAt;
+  final int createdAt;
+  const EventRow({
+    required this.id,
+    required this.title,
+    required this.notes,
+    required this.startAt,
+    required this.endAt,
+    required this.allDay,
+    required this.rrule,
+    this.remindMinutes,
+    required this.color,
+    this.deletedAt,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['title'] = Variable<String>(title);
+    map['notes'] = Variable<String>(notes);
+    map['start_at'] = Variable<int>(startAt);
+    map['end_at'] = Variable<int>(endAt);
+    map['all_day'] = Variable<int>(allDay);
+    map['rrule'] = Variable<String>(rrule);
+    if (!nullToAbsent || remindMinutes != null) {
+      map['remind_minutes'] = Variable<int>(remindMinutes);
+    }
+    map['color'] = Variable<String>(color);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    map['created_at'] = Variable<int>(createdAt);
+    return map;
+  }
+
+  EventsCompanion toCompanion(bool nullToAbsent) {
+    return EventsCompanion(
+      id: Value(id),
+      title: Value(title),
+      notes: Value(notes),
+      startAt: Value(startAt),
+      endAt: Value(endAt),
+      allDay: Value(allDay),
+      rrule: Value(rrule),
+      remindMinutes: remindMinutes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remindMinutes),
+      color: Value(color),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory EventRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return EventRow(
+      id: serializer.fromJson<String>(json['id']),
+      title: serializer.fromJson<String>(json['title']),
+      notes: serializer.fromJson<String>(json['notes']),
+      startAt: serializer.fromJson<int>(json['startAt']),
+      endAt: serializer.fromJson<int>(json['endAt']),
+      allDay: serializer.fromJson<int>(json['allDay']),
+      rrule: serializer.fromJson<String>(json['rrule']),
+      remindMinutes: serializer.fromJson<int?>(json['remindMinutes']),
+      color: serializer.fromJson<String>(json['color']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'title': serializer.toJson<String>(title),
+      'notes': serializer.toJson<String>(notes),
+      'startAt': serializer.toJson<int>(startAt),
+      'endAt': serializer.toJson<int>(endAt),
+      'allDay': serializer.toJson<int>(allDay),
+      'rrule': serializer.toJson<String>(rrule),
+      'remindMinutes': serializer.toJson<int?>(remindMinutes),
+      'color': serializer.toJson<String>(color),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+      'createdAt': serializer.toJson<int>(createdAt),
+    };
+  }
+
+  EventRow copyWith({
+    String? id,
+    String? title,
+    String? notes,
+    int? startAt,
+    int? endAt,
+    int? allDay,
+    String? rrule,
+    Value<int?> remindMinutes = const Value.absent(),
+    String? color,
+    Value<int?> deletedAt = const Value.absent(),
+    int? createdAt,
+  }) => EventRow(
+    id: id ?? this.id,
+    title: title ?? this.title,
+    notes: notes ?? this.notes,
+    startAt: startAt ?? this.startAt,
+    endAt: endAt ?? this.endAt,
+    allDay: allDay ?? this.allDay,
+    rrule: rrule ?? this.rrule,
+    remindMinutes: remindMinutes.present
+        ? remindMinutes.value
+        : this.remindMinutes,
+    color: color ?? this.color,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  EventRow copyWithCompanion(EventsCompanion data) {
+    return EventRow(
+      id: data.id.present ? data.id.value : this.id,
+      title: data.title.present ? data.title.value : this.title,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      startAt: data.startAt.present ? data.startAt.value : this.startAt,
+      endAt: data.endAt.present ? data.endAt.value : this.endAt,
+      allDay: data.allDay.present ? data.allDay.value : this.allDay,
+      rrule: data.rrule.present ? data.rrule.value : this.rrule,
+      remindMinutes: data.remindMinutes.present
+          ? data.remindMinutes.value
+          : this.remindMinutes,
+      color: data.color.present ? data.color.value : this.color,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EventRow(')
+          ..write('id: $id, ')
+          ..write('title: $title, ')
+          ..write('notes: $notes, ')
+          ..write('startAt: $startAt, ')
+          ..write('endAt: $endAt, ')
+          ..write('allDay: $allDay, ')
+          ..write('rrule: $rrule, ')
+          ..write('remindMinutes: $remindMinutes, ')
+          ..write('color: $color, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    title,
+    notes,
+    startAt,
+    endAt,
+    allDay,
+    rrule,
+    remindMinutes,
+    color,
+    deletedAt,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is EventRow &&
+          other.id == this.id &&
+          other.title == this.title &&
+          other.notes == this.notes &&
+          other.startAt == this.startAt &&
+          other.endAt == this.endAt &&
+          other.allDay == this.allDay &&
+          other.rrule == this.rrule &&
+          other.remindMinutes == this.remindMinutes &&
+          other.color == this.color &&
+          other.deletedAt == this.deletedAt &&
+          other.createdAt == this.createdAt);
+}
+
+class EventsCompanion extends UpdateCompanion<EventRow> {
+  final Value<String> id;
+  final Value<String> title;
+  final Value<String> notes;
+  final Value<int> startAt;
+  final Value<int> endAt;
+  final Value<int> allDay;
+  final Value<String> rrule;
+  final Value<int?> remindMinutes;
+  final Value<String> color;
+  final Value<int?> deletedAt;
+  final Value<int> createdAt;
+  final Value<int> rowid;
+  const EventsCompanion({
+    this.id = const Value.absent(),
+    this.title = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.startAt = const Value.absent(),
+    this.endAt = const Value.absent(),
+    this.allDay = const Value.absent(),
+    this.rrule = const Value.absent(),
+    this.remindMinutes = const Value.absent(),
+    this.color = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  EventsCompanion.insert({
+    required String id,
+    this.title = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.startAt = const Value.absent(),
+    this.endAt = const Value.absent(),
+    this.allDay = const Value.absent(),
+    this.rrule = const Value.absent(),
+    this.remindMinutes = const Value.absent(),
+    this.color = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    required int createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       createdAt = Value(createdAt);
+  static Insertable<EventRow> custom({
+    Expression<String>? id,
+    Expression<String>? title,
+    Expression<String>? notes,
+    Expression<int>? startAt,
+    Expression<int>? endAt,
+    Expression<int>? allDay,
+    Expression<String>? rrule,
+    Expression<int>? remindMinutes,
+    Expression<String>? color,
+    Expression<int>? deletedAt,
+    Expression<int>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (title != null) 'title': title,
+      if (notes != null) 'notes': notes,
+      if (startAt != null) 'start_at': startAt,
+      if (endAt != null) 'end_at': endAt,
+      if (allDay != null) 'all_day': allDay,
+      if (rrule != null) 'rrule': rrule,
+      if (remindMinutes != null) 'remind_minutes': remindMinutes,
+      if (color != null) 'color': color,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  EventsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? title,
+    Value<String>? notes,
+    Value<int>? startAt,
+    Value<int>? endAt,
+    Value<int>? allDay,
+    Value<String>? rrule,
+    Value<int?>? remindMinutes,
+    Value<String>? color,
+    Value<int?>? deletedAt,
+    Value<int>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return EventsCompanion(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      notes: notes ?? this.notes,
+      startAt: startAt ?? this.startAt,
+      endAt: endAt ?? this.endAt,
+      allDay: allDay ?? this.allDay,
+      rrule: rrule ?? this.rrule,
+      remindMinutes: remindMinutes ?? this.remindMinutes,
+      color: color ?? this.color,
+      deletedAt: deletedAt ?? this.deletedAt,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (startAt.present) {
+      map['start_at'] = Variable<int>(startAt.value);
+    }
+    if (endAt.present) {
+      map['end_at'] = Variable<int>(endAt.value);
+    }
+    if (allDay.present) {
+      map['all_day'] = Variable<int>(allDay.value);
+    }
+    if (rrule.present) {
+      map['rrule'] = Variable<String>(rrule.value);
+    }
+    if (remindMinutes.present) {
+      map['remind_minutes'] = Variable<int>(remindMinutes.value);
+    }
+    if (color.present) {
+      map['color'] = Variable<String>(color.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EventsCompanion(')
+          ..write('id: $id, ')
+          ..write('title: $title, ')
+          ..write('notes: $notes, ')
+          ..write('startAt: $startAt, ')
+          ..write('endAt: $endAt, ')
+          ..write('allDay: $allDay, ')
+          ..write('rrule: $rrule, ')
+          ..write('remindMinutes: $remindMinutes, ')
+          ..write('color: $color, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
@@ -2316,20 +3218,37 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $TasksTable tasks = $TasksTable(this);
+  late final $EventsTable events = $EventsTable(this);
   late final $FieldMetaTable fieldMeta = $FieldMetaTable(this);
   late final $SyncOutboxTable syncOutbox = $SyncOutboxTable(this);
   late final $SyncStateTable syncState = $SyncStateTable(this);
   late final $LocalConflictsTable localConflicts = $LocalConflictsTable(this);
+  late final Index tasksDue = Index(
+    'tasks_due',
+    'CREATE INDEX tasks_due ON tasks (due_at)',
+  );
+  late final Index tasksPlanned = Index(
+    'tasks_planned',
+    'CREATE INDEX tasks_planned ON tasks (planned_at)',
+  );
+  late final Index eventsStart = Index(
+    'events_start',
+    'CREATE INDEX events_start ON events (start_at)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     tasks,
+    events,
     fieldMeta,
     syncOutbox,
     syncState,
     localConflicts,
+    tasksDue,
+    tasksPlanned,
+    eventsStart,
   ];
 }
 
@@ -2339,7 +3258,12 @@ typedef $$TasksTableCreateCompanionBuilder = TasksCompanion Function({
   Value<String> notes,
   Value<String> priority,
   Value<int?> dueAt,
+  Value<int> dueHasTime,
+  Value<int?> plannedAt,
+  Value<int?> plannedMinutes,
   Value<int?> doneAt,
+  Value<String> rrule,
+  Value<int?> remindMinutes,
   Value<String> sortKey,
   Value<int?> deletedAt,
   required int createdAt,
@@ -2351,7 +3275,12 @@ typedef $$TasksTableUpdateCompanionBuilder = TasksCompanion Function({
   Value<String> notes,
   Value<String> priority,
   Value<int?> dueAt,
+  Value<int> dueHasTime,
+  Value<int?> plannedAt,
+  Value<int?> plannedMinutes,
   Value<int?> doneAt,
+  Value<String> rrule,
+  Value<int?> remindMinutes,
   Value<String> sortKey,
   Value<int?> deletedAt,
   Value<int> createdAt,
@@ -2391,8 +3320,33 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get dueHasTime => $composableBuilder(
+    column: $table.dueHasTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get plannedAt => $composableBuilder(
+    column: $table.plannedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get plannedMinutes => $composableBuilder(
+    column: $table.plannedMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get doneAt => $composableBuilder(
     column: $table.doneAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rrule => $composableBuilder(
+    column: $table.rrule,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get remindMinutes => $composableBuilder(
+    column: $table.remindMinutes,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2446,8 +3400,33 @@ class $$TasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get dueHasTime => $composableBuilder(
+    column: $table.dueHasTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get plannedAt => $composableBuilder(
+    column: $table.plannedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get plannedMinutes => $composableBuilder(
+    column: $table.plannedMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get doneAt => $composableBuilder(
     column: $table.doneAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rrule => $composableBuilder(
+    column: $table.rrule,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get remindMinutes => $composableBuilder(
+    column: $table.remindMinutes,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -2491,8 +3470,29 @@ class $$TasksTableAnnotationComposer
   GeneratedColumn<int> get dueAt =>
       $composableBuilder(column: $table.dueAt, builder: (column) => column);
 
+  GeneratedColumn<int> get dueHasTime => $composableBuilder(
+    column: $table.dueHasTime,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get plannedAt =>
+      $composableBuilder(column: $table.plannedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get plannedMinutes => $composableBuilder(
+    column: $table.plannedMinutes,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get doneAt =>
       $composableBuilder(column: $table.doneAt, builder: (column) => column);
+
+  GeneratedColumn<String> get rrule =>
+      $composableBuilder(column: $table.rrule, builder: (column) => column);
+
+  GeneratedColumn<int> get remindMinutes => $composableBuilder(
+    column: $table.remindMinutes,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get sortKey =>
       $composableBuilder(column: $table.sortKey, builder: (column) => column);
@@ -2537,7 +3537,12 @@ class $$TasksTableTableManager
                 Value<String> notes = const Value.absent(),
                 Value<String> priority = const Value.absent(),
                 Value<int?> dueAt = const Value.absent(),
+                Value<int> dueHasTime = const Value.absent(),
+                Value<int?> plannedAt = const Value.absent(),
+                Value<int?> plannedMinutes = const Value.absent(),
                 Value<int?> doneAt = const Value.absent(),
+                Value<String> rrule = const Value.absent(),
+                Value<int?> remindMinutes = const Value.absent(),
                 Value<String> sortKey = const Value.absent(),
                 Value<int?> deletedAt = const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
@@ -2548,7 +3553,12 @@ class $$TasksTableTableManager
                 notes: notes,
                 priority: priority,
                 dueAt: dueAt,
+                dueHasTime: dueHasTime,
+                plannedAt: plannedAt,
+                plannedMinutes: plannedMinutes,
                 doneAt: doneAt,
+                rrule: rrule,
+                remindMinutes: remindMinutes,
                 sortKey: sortKey,
                 deletedAt: deletedAt,
                 createdAt: createdAt,
@@ -2561,7 +3571,12 @@ class $$TasksTableTableManager
                 Value<String> notes = const Value.absent(),
                 Value<String> priority = const Value.absent(),
                 Value<int?> dueAt = const Value.absent(),
+                Value<int> dueHasTime = const Value.absent(),
+                Value<int?> plannedAt = const Value.absent(),
+                Value<int?> plannedMinutes = const Value.absent(),
                 Value<int?> doneAt = const Value.absent(),
+                Value<String> rrule = const Value.absent(),
+                Value<int?> remindMinutes = const Value.absent(),
                 Value<String> sortKey = const Value.absent(),
                 Value<int?> deletedAt = const Value.absent(),
                 required int createdAt,
@@ -2572,7 +3587,12 @@ class $$TasksTableTableManager
                 notes: notes,
                 priority: priority,
                 dueAt: dueAt,
+                dueHasTime: dueHasTime,
+                plannedAt: plannedAt,
+                plannedMinutes: plannedMinutes,
                 doneAt: doneAt,
+                rrule: rrule,
+                remindMinutes: remindMinutes,
                 sortKey: sortKey,
                 deletedAt: deletedAt,
                 createdAt: createdAt,
@@ -2607,6 +3627,323 @@ typedef $$TasksTableProcessedTableManager =
       $$TasksTableUpdateCompanionBuilder,
       (TaskRow, BaseReferences<_$AppDatabase, $TasksTable, TaskRow>),
       TaskRow,
+      PrefetchHooks Function()
+    >;
+typedef $$EventsTableCreateCompanionBuilder = EventsCompanion Function({
+  required String id,
+  Value<String> title,
+  Value<String> notes,
+  Value<int> startAt,
+  Value<int> endAt,
+  Value<int> allDay,
+  Value<String> rrule,
+  Value<int?> remindMinutes,
+  Value<String> color,
+  Value<int?> deletedAt,
+  required int createdAt,
+  Value<int> rowid,
+});
+typedef $$EventsTableUpdateCompanionBuilder = EventsCompanion Function({
+  Value<String> id,
+  Value<String> title,
+  Value<String> notes,
+  Value<int> startAt,
+  Value<int> endAt,
+  Value<int> allDay,
+  Value<String> rrule,
+  Value<int?> remindMinutes,
+  Value<String> color,
+  Value<int?> deletedAt,
+  Value<int> createdAt,
+  Value<int> rowid,
+});
+
+class $$EventsTableFilterComposer
+    extends Composer<_$AppDatabase, $EventsTable> {
+  $$EventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startAt => $composableBuilder(
+    column: $table.startAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get endAt => $composableBuilder(
+    column: $table.endAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get allDay => $composableBuilder(
+    column: $table.allDay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rrule => $composableBuilder(
+    column: $table.rrule,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get remindMinutes => $composableBuilder(
+    column: $table.remindMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get color => $composableBuilder(
+    column: $table.color,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$EventsTableOrderingComposer
+    extends Composer<_$AppDatabase, $EventsTable> {
+  $$EventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startAt => $composableBuilder(
+    column: $table.startAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get endAt => $composableBuilder(
+    column: $table.endAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get allDay => $composableBuilder(
+    column: $table.allDay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rrule => $composableBuilder(
+    column: $table.rrule,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get remindMinutes => $composableBuilder(
+    column: $table.remindMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get color => $composableBuilder(
+    column: $table.color,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$EventsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $EventsTable> {
+  $$EventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<int> get startAt =>
+      $composableBuilder(column: $table.startAt, builder: (column) => column);
+
+  GeneratedColumn<int> get endAt =>
+      $composableBuilder(column: $table.endAt, builder: (column) => column);
+
+  GeneratedColumn<int> get allDay =>
+      $composableBuilder(column: $table.allDay, builder: (column) => column);
+
+  GeneratedColumn<String> get rrule =>
+      $composableBuilder(column: $table.rrule, builder: (column) => column);
+
+  GeneratedColumn<int> get remindMinutes => $composableBuilder(
+    column: $table.remindMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get color =>
+      $composableBuilder(column: $table.color, builder: (column) => column);
+
+  GeneratedColumn<int> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$EventsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $EventsTable,
+          EventRow,
+          $$EventsTableFilterComposer,
+          $$EventsTableOrderingComposer,
+          $$EventsTableAnnotationComposer,
+          $$EventsTableCreateCompanionBuilder,
+          $$EventsTableUpdateCompanionBuilder,
+          (EventRow, BaseReferences<_$AppDatabase, $EventsTable, EventRow>),
+          EventRow,
+          PrefetchHooks Function()
+        > {
+  $$EventsTableTableManager(_$AppDatabase db, $EventsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$EventsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$EventsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$EventsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String> notes = const Value.absent(),
+                Value<int> startAt = const Value.absent(),
+                Value<int> endAt = const Value.absent(),
+                Value<int> allDay = const Value.absent(),
+                Value<String> rrule = const Value.absent(),
+                Value<int?> remindMinutes = const Value.absent(),
+                Value<String> color = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => EventsCompanion(
+                id: id,
+                title: title,
+                notes: notes,
+                startAt: startAt,
+                endAt: endAt,
+                allDay: allDay,
+                rrule: rrule,
+                remindMinutes: remindMinutes,
+                color: color,
+                deletedAt: deletedAt,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String> title = const Value.absent(),
+                Value<String> notes = const Value.absent(),
+                Value<int> startAt = const Value.absent(),
+                Value<int> endAt = const Value.absent(),
+                Value<int> allDay = const Value.absent(),
+                Value<String> rrule = const Value.absent(),
+                Value<int?> remindMinutes = const Value.absent(),
+                Value<String> color = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                required int createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => EventsCompanion.insert(
+                id: id,
+                title: title,
+                notes: notes,
+                startAt: startAt,
+                endAt: endAt,
+                allDay: allDay,
+                rrule: rrule,
+                remindMinutes: remindMinutes,
+                color: color,
+                deletedAt: deletedAt,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$EventsTable, EventRow>(table),
+                  BaseReferences<_$AppDatabase, $EventsTable, EventRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$EventsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $EventsTable,
+      EventRow,
+      $$EventsTableFilterComposer,
+      $$EventsTableOrderingComposer,
+      $$EventsTableAnnotationComposer,
+      $$EventsTableCreateCompanionBuilder,
+      $$EventsTableUpdateCompanionBuilder,
+      (EventRow, BaseReferences<_$AppDatabase, $EventsTable, EventRow>),
+      EventRow,
       PrefetchHooks Function()
     >;
 typedef $$FieldMetaTableCreateCompanionBuilder = FieldMetaCompanion Function({
@@ -3562,6 +4899,8 @@ class $AppDatabaseManager {
   $AppDatabaseManager(this._db);
   $$TasksTableTableManager get tasks =>
       $$TasksTableTableManager(_db, _db.tasks);
+  $$EventsTableTableManager get events =>
+      $$EventsTableTableManager(_db, _db.events);
   $$FieldMetaTableTableManager get fieldMeta =>
       $$FieldMetaTableTableManager(_db, _db.fieldMeta);
   $$SyncOutboxTableTableManager get syncOutbox =>

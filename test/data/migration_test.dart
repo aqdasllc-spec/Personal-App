@@ -49,24 +49,51 @@ void main() {
 
       final db = AppDatabase(schema.newConnection());
       addTearDown(db.close);
-      await verifier.migrateAndValidate(db, 3);
+      await verifier.migrateAndValidate(db, 4);
 
       final tables = (await db.customSelect("SELECT name FROM sqlite_master WHERE type = 'table'").get()).map((r) => r.read<String>('name')).toSet();
       for (final gone in ['trackers', 'properties', 'records', 'cells', 'record_links', 'views']) {
         expect(tables, isNot(contains(gone)), reason: '$gone should be dropped');
       }
-      expect(tables, contains('tasks'));
+      expect(tables, containsAll(['tasks', 'events']));
       // nothing for a deleted table may remain to be pushed to the server
       expect(await db.select(db.syncOutbox).get(), isEmpty, reason: 'pending edits for removed tables must not survive');
       expect(await db.select(db.fieldMeta).get(), isEmpty);
       expect(await db.select(db.localConflicts).get(), isEmpty);
       final state = {for (final r in await db.select(db.syncState).get()) r.key: r.value};
       expect(state, {'device_id': 'dev-1', 'cursor': '42'}, reason: 'this device keeps its identity and position in the change feed');
-      // the new table works
+      // the new tables work end to end
       await db.customStatement("INSERT INTO tasks (id, title, created_at) VALUES ('k1', 'first task', 1)");
-      expect((await db.select(db.tasks).getSingle()).title, 'first task');
-      final idx = await db.customSelect("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'tasks_due'").get();
-      expect(idx, hasLength(1));
+      final task = await db.select(db.tasks).getSingle();
+      expect((task.title, task.dueHasTime, task.rrule, task.remindMinutes), ('first task', 0, '', null));
+      await db.customStatement("INSERT INTO events (id, title, start_at, end_at, created_at) VALUES ('e1', 'meet', 1, 2, 1)");
+      expect((await db.select(db.events).getSingle()).title, 'meet');
     });
   }
+
+  test('upgrade from v3 keeps every task and every pending sync edit, and gives them the new column defaults', () async {
+    final schema = await verifier.schemaAt(3);
+    final raw = schema.rawDatabase;
+    raw.execute("INSERT INTO tasks (id, title, notes, priority, due_at, done_at, sort_key, created_at) VALUES ('t1', 'Pay rent', 'monthly', 'high', 1700000000000, NULL, 'a', 1699999999999)");
+    raw.execute("INSERT INTO tasks (id, title, done_at, created_at) VALUES ('t2', 'Done thing', 1700000001000, 1)");
+    raw.execute("INSERT INTO field_meta (tbl, row_id, field, hlc) VALUES ('tasks', 't1', 'title', '00018bcfe56a-0000-dev')");
+    raw.execute("INSERT INTO sync_outbox (tbl, row_id, field, value_json, hlc, change_id, created_at) VALUES ('tasks', 't1', 'title', '\"Pay rent\"', '00018bcfe56a-0000-dev', 'c1', 1)");
+    raw.execute("INSERT INTO sync_state (key, value) VALUES ('device_id', 'dev-1')");
+
+    final db = AppDatabase(schema.newConnection());
+    addTearDown(db.close);
+    await verifier.migrateAndValidate(db, 4);
+
+    final tasks = {for (final t in await db.select(db.tasks).get()) t.id: t};
+    expect(tasks.keys, {'t1', 't2'});
+    expect((tasks['t1']!.title, tasks['t1']!.notes, tasks['t1']!.priority, tasks['t1']!.dueAt), ('Pay rent', 'monthly', 'high', 1700000000000));
+    expect(tasks['t2']!.doneAt, 1700000001000);
+    for (final t in tasks.values) {
+      expect((t.dueHasTime, t.plannedAt, t.plannedMinutes, t.rrule, t.remindMinutes), (0, null, null, '', null), reason: 'new columns get safe defaults');
+    }
+    expect(await db.select(db.syncOutbox).get(), hasLength(1), reason: 'an un-synced edit must survive the upgrade');
+    expect(await db.select(db.fieldMeta).get(), hasLength(1));
+    final idx = (await db.customSelect("SELECT name FROM sqlite_master WHERE type = 'index'").get()).map((r) => r.read<String>('name')).toSet();
+    expect(idx, containsAll(['tasks_due', 'tasks_planned', 'events_start']));
+  });
 }

@@ -1,9 +1,15 @@
 import 'package:drift/drift.dart';
 
+import 'schema_versions.dart';
+
 part 'app_database.g.dart';
 
-/// Planner tasks - the first real synced entity. (Events, time blocks and recurrence build on this.)
+/// Planner tasks. A task may have a due date (optionally with a time), be scheduled into a time block
+/// (plannedAt + plannedMinutes), repeat, and remind. Recurring tasks "advance": completing one moves
+/// its due date to the next occurrence instead of closing it.
 @DataClassName('TaskRow')
+@TableIndex(name: 'tasks_due', columns: {#dueAt})
+@TableIndex(name: 'tasks_planned', columns: {#plannedAt})
 class Tasks extends Table {
   TextColumn get id => text()();
   TextColumn get title => text().withDefault(const Constant(''))();
@@ -12,10 +18,43 @@ class Tasks extends Table {
   /// '', 'low', 'medium' or 'high'.
   TextColumn get priority => text().withDefault(const Constant(''))();
 
-  /// Due date/time, epoch milliseconds (UTC).
+  /// Due date/time, epoch ms. For date-only tasks this is local midnight and [dueHasTime] is 0.
   IntColumn get dueAt => integer().nullable()();
+  IntColumn get dueHasTime => integer().withDefault(const Constant(0))();
+
+  /// Time block: when the user plans to work on it, and for how long.
+  IntColumn get plannedAt => integer().nullable()();
+  IntColumn get plannedMinutes => integer().nullable()();
   IntColumn get doneAt => integer().nullable()();
+
+  /// Recurrence rule, e.g. `FREQ=WEEKLY;BYDAY=MO,WE` ('' = does not repeat). See planner/recurrence.dart.
+  TextColumn get rrule => text().withDefault(const Constant(''))();
+
+  /// Remind this many minutes before the due/planned time (null = no reminder).
+  IntColumn get remindMinutes => integer().nullable()();
   TextColumn get sortKey => text().withDefault(const Constant(''))();
+  IntColumn get deletedAt => integer().nullable()();
+  IntColumn get createdAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Planner events (things that happen at a time). Repeating events are stored once and expanded on read.
+@DataClassName('EventRow')
+@TableIndex(name: 'events_start', columns: {#startAt})
+class Events extends Table {
+  TextColumn get id => text()();
+  TextColumn get title => text().withDefault(const Constant(''))();
+  TextColumn get notes => text().withDefault(const Constant(''))();
+  IntColumn get startAt => integer().withDefault(const Constant(0))();
+  IntColumn get endAt => integer().withDefault(const Constant(0))();
+
+  /// 1 = all-day (start is local midnight, end is the exclusive next midnight).
+  IntColumn get allDay => integer().withDefault(const Constant(0))();
+  TextColumn get rrule => text().withDefault(const Constant(''))();
+  IntColumn get remindMinutes => integer().nullable()();
+  TextColumn get color => text().withDefault(const Constant(''))();
   IntColumn get deletedAt => integer().nullable()();
   IntColumn get createdAt => integer()();
 
@@ -73,23 +112,31 @@ class LocalConflicts extends Table {
   IntColumn get resolvedAt => integer().nullable()();
 }
 
-@DriftDatabase(tables: [Tasks, FieldMeta, SyncOutbox, SyncState, LocalConflicts])
+@DriftDatabase(tables: [Tasks, Events, FieldMeta, SyncOutbox, SyncState, LocalConflicts])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
           await customStatement('CREATE INDEX outbox_order ON sync_outbox (id)');
-          await customStatement('CREATE INDEX tasks_due ON tasks (due_at) WHERE deleted_at IS NULL');
         },
-        onUpgrade: (m, from, to) async {
-          // Every schema change adds a step here and a migration test (test/data/migration_test.dart).
-          if (from < 3) {
+        // Step-by-step migrations use generated snapshots of each old schema (schema_versions.dart), so a
+        // later change to a table can never silently alter how an OLD upgrade runs.
+        onUpgrade: stepByStep(
+          from1To2: (m, schema) async {
+            // v2 added the custom-tracker tables (removed again in v3).
+            await m.createTable(schema.properties);
+            await m.createTable(schema.records);
+            await m.createTable(schema.cells);
+            await m.createTable(schema.recordLinks);
+            await m.createTable(schema.views);
+          },
+          from2To3: (m, schema) async {
             // v3: the custom-tracker feature was removed from the product (user decision 2026-11-06).
             // Drop its tables AND every piece of sync bookkeeping that refers to them, so no pending
             // edit for a deleted table is ever pushed to the server.
@@ -100,11 +147,23 @@ class AppDatabase extends _$AppDatabase {
               await customStatement("DELETE FROM field_meta WHERE tbl = '$t'");
               await customStatement("DELETE FROM local_conflicts WHERE tbl = '$t'");
             }
-            // the sync cursor now points past changes for tables we no longer keep: harmless, they are skipped on apply
-            await m.createTable(tasks);
+            await m.createTable(schema.tasks);
             await customStatement('CREATE INDEX tasks_due ON tasks (due_at) WHERE deleted_at IS NULL');
-          }
-        },
+          },
+          from3To4: (m, schema) async {
+            // v4: Planner - time blocks, repeat and reminders on tasks, plus events.
+            await customStatement('DROP INDEX IF EXISTS tasks_due'); // v3 made a partial index by hand; v4 declares it
+            await m.addColumn(schema.tasks, schema.tasks.dueHasTime);
+            await m.addColumn(schema.tasks, schema.tasks.plannedAt);
+            await m.addColumn(schema.tasks, schema.tasks.plannedMinutes);
+            await m.addColumn(schema.tasks, schema.tasks.rrule);
+            await m.addColumn(schema.tasks, schema.tasks.remindMinutes);
+            await m.createIndex(schema.tasksDue);
+            await m.createIndex(schema.tasksPlanned);
+            await m.createTable(schema.events);
+            await m.createIndex(schema.eventsStart);
+          },
+        ),
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
         },

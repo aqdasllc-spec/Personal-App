@@ -10,6 +10,8 @@ import 'data/sync/supabase_sync_transport.dart';
 import 'data/sync/synced_store.dart';
 import 'data/sync/sync_service.dart';
 import 'features/auth/auth_repository.dart';
+import 'features/planner/application/planner_controller.dart';
+import 'features/planner/data/local_notifications_scheduler.dart';
 import 'features/security/app_lock.dart';
 import 'features/security/key_service.dart';
 import 'features/settings/rotation.dart';
@@ -61,6 +63,7 @@ Future<void> main() async {
         )),
       syncControllerProvider.overrideWith(() => SyncController(sync)),
       rotationProvider.overrideWith(() => RotationController(rotation)),
+      reminderSchedulerProvider.overrideWithValue(createReminderScheduler()),
     ],
     child: const FolioApp(),
   ));

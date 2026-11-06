@@ -23,9 +23,3 @@ class LibraryPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const _Soon(Icons.auto_stories_outlined, 'Library', 'the next phase', 'Import PDFs, arrange bookshelves and read with annotations.');
 }
-
-class PlannerPlaceholder extends StatelessWidget {
-  const PlannerPlaceholder({super.key});
-  @override
-  Widget build(BuildContext context) => const _Soon(Icons.calendar_month_outlined, 'Planner', 'after the Library', 'Plan your day, week and year with tasks, time blocks and reminders.');
-}
