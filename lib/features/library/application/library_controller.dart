@@ -48,6 +48,30 @@ typedef PdfViewBuilder = Widget Function(
 /// Lets the reader page ask the (native) PDF view to jump to a page, e.g. from a bookmark.
 class ReaderControl {
   void Function(int page)? goTo;
+
+  // text search inside the PDF
+  void Function(String query)? startSearch;
+  void Function()? nextMatch, prevMatch, stopSearch;
+  final search = ValueNotifier<ReaderSearch>(const ReaderSearch());
+}
+
+class ReaderSearch {
+  const ReaderSearch({
+    this.query = '',
+    this.count = 0,
+    this.index,
+    this.searching = false,
+  });
+  final String query;
+
+  /// Matches found so far.
+  final int count;
+
+  /// The match currently shown (0-based), or null before the first one is reached.
+  final int? index;
+
+  /// Still scanning pages for more matches.
+  final bool searching;
 }
 
 final pdfViewBuilderProvider = Provider<PdfViewBuilder>((ref) => buildPdfView);
@@ -73,7 +97,7 @@ sealed class LibraryFilter {
 class AllBooks extends LibraryFilter {
   const AllBooks();
   @override
-  bool operator ==(Object o) => o is AllBooks;
+  bool operator ==(Object other) => other is AllBooks;
   @override
   int get hashCode => 1;
 }
@@ -81,7 +105,7 @@ class AllBooks extends LibraryFilter {
 class Favorites extends LibraryFilter {
   const Favorites();
   @override
-  bool operator ==(Object o) => o is Favorites;
+  bool operator ==(Object other) => other is Favorites;
   @override
   int get hashCode => 2;
 }
@@ -90,7 +114,7 @@ class ShelfFilter extends LibraryFilter {
   const ShelfFilter(this.shelfId);
   final String shelfId;
   @override
-  bool operator ==(Object o) => o is ShelfFilter && o.shelfId == shelfId;
+  bool operator ==(Object other) => other is ShelfFilter && other.shelfId == shelfId;
   @override
   int get hashCode => shelfId.hashCode;
 }

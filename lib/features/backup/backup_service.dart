@@ -8,12 +8,24 @@ import 'package:path/path.dart' as p;
 
 import '../../data/local/app_database.dart';
 import '../../data/sync/synced_store.dart';
+import 'backup_crypto.dart';
 
 class BackupException implements Exception {
   BackupException(this.message);
   final String message;
   @override
   String toString() => message;
+}
+
+/// The backup is password protected and no password was given.
+class BackupPasswordRequired extends BackupException {
+  BackupPasswordRequired() : super('This backup is password protected.');
+}
+
+/// The password does not open the backup (or the file is damaged).
+class BackupWrongPassword extends BackupException {
+  BackupWrongPassword()
+    : super('Wrong password, or the backup file is damaged.');
 }
 
 class BackupInfo {
@@ -25,9 +37,11 @@ class BackupInfo {
     required this.shelves,
     required this.files,
     required this.sizeBytes,
+    this.encrypted = false,
   });
   final DateTime createdAt;
   final int tasks, events, books, shelves, files, sizeBytes;
+  final bool encrypted;
 }
 
 class RestoreResult {
@@ -59,7 +73,11 @@ class BackupService {
     this._store, {
     required this.libraryDir,
     DateTime Function()? now,
-  }) : _now = now ?? DateTime.now;
+    this.kdfIterations = BackupCrypto.defaultIterations,
+    this.chunkSize = BackupCrypto.defaultChunk,
+    Directory? scratch,
+  }) : _now = now ?? DateTime.now,
+       _scratch = scratch ?? Directory.systemTemp;
 
   static const format = 'folio-backup';
   static const version = 1;
@@ -68,6 +86,10 @@ class BackupService {
   final SyncedStore _store;
   final Directory libraryDir;
   final DateTime Function() _now;
+
+  /// Password-protection settings (tests lower them for speed) and where a decrypted copy is held while restoring.
+  final int kdfIterations, chunkSize;
+  final Directory _scratch;
 
   /// What a backup would contain right now.
   Future<({int tasks, int events, int books})> summary() async {
@@ -86,7 +108,8 @@ class BackupService {
   }
 
   /// Writes a backup into [into] and returns the file.
-  Future<File> create(Directory into) async {
+  /// With a non-empty [password] the file is encrypted (AES-256-GCM); without one it is a plain zip.
+  Future<File> create(Directory into, {String? password}) async {
     final now = _now();
     await into.create(recursive: true);
     String two(int n) => n.toString().padLeft(2, '0');
@@ -149,12 +172,70 @@ class BackupService {
       await enc.close();
     }
     if (await out.exists()) await out.delete();
-    await tmp.rename(out.path);
+    if (password != null && password.isNotEmpty) {
+      try {
+        await BackupCrypto.encryptFile(
+          tmp,
+          out,
+          password,
+          iterations: kdfIterations,
+          chunkSize: chunkSize,
+        );
+      } finally {
+        if (await tmp.exists()) {
+          await tmp.delete(); // never leave the readable copy behind
+        }
+      }
+    } else {
+      await tmp.rename(out.path);
+    }
     return out;
   }
 
   /// Reads and validates [path] without changing anything.
-  Future<BackupInfo> inspect(String path) async {
+  Future<BackupInfo> inspect(String path, {String? password}) => _withPlain(
+    path,
+    password,
+    (plain) async => (await _inspectPlain(plain, original: path)),
+  );
+
+  /// Whether [path] is a password-protected backup.
+  Future<bool> isEncrypted(String path) async {
+    final f = File(path);
+    return await f.exists() && await BackupCrypto.isEncrypted(f);
+  }
+
+  /// Runs [fn] on a readable (decrypted if needed) copy of the backup, and removes that copy afterwards.
+  Future<T> _withPlain<T>(
+    String path,
+    String? password,
+    Future<T> Function(String plainPath) fn,
+  ) async {
+    final f = File(path);
+    if (!await f.exists()) throw BackupException('That file no longer exists.');
+    if (!await BackupCrypto.isEncrypted(f)) return fn(path);
+    if (password == null || password.isEmpty) throw BackupPasswordRequired();
+    final plain = File(
+      '${_scratch.path}/folio-restore-${DateTime.now().microsecondsSinceEpoch}.zip',
+    );
+    try {
+      await BackupCrypto.decryptFile(f, plain, password);
+    } on WrongPasswordException {
+      throw BackupWrongPassword();
+    } on DamagedBackupException catch (e) {
+      throw BackupException(e.detail);
+    }
+    try {
+      return await fn(plain.path);
+    } finally {
+      if (await plain.exists()) await plain.delete();
+    }
+  }
+
+  Future<BackupInfo> _inspectPlain(
+    String path, {
+    required String original,
+  }) async {
     final (_, manifest, _) = await _open(path, needData: false);
     final c = (manifest['counts'] as Map?) ?? const {};
     return BackupInfo(
@@ -166,7 +247,8 @@ class BackupService {
       books: (c['books'] as int?) ?? 0,
       shelves: (c['shelves'] as int?) ?? 0,
       files: (c['files'] as int?) ?? 0,
-      sizeBytes: await File(path).length(),
+      sizeBytes: await File(original).length(),
+      encrypted: original != path,
     );
   }
 
@@ -187,10 +269,11 @@ class BackupService {
     ArchiveFile? find(String n) =>
         archive.files.where((x) => x.name == n).firstOrNull;
     final m = find('manifest.json'), d = find('data.json');
-    if (m == null || d == null)
+    if (m == null || d == null) {
       throw BackupException(
         'This is not a Folio backup (or the file is damaged).',
       );
+    }
     final Map<String, dynamic> manifest;
     final Map<String, dynamic> data;
     try {
@@ -198,10 +281,11 @@ class BackupService {
           jsonDecode(utf8.decode(m.readBytes()!)) as Map<String, dynamic>;
       final raw = d.readBytes()!;
       if (manifest['format'] != format) throw const FormatException();
-      if (sha256.convert(raw).toString() != manifest['dataSha256'])
+      if (sha256.convert(raw).toString() != manifest['dataSha256']) {
         throw BackupException(
           'The backup is damaged (checksum mismatch). Try the file again or an older backup.',
         );
+      }
       data = jsonDecode(utf8.decode(raw)) as Map<String, dynamic>;
     } on BackupException {
       rethrow;
@@ -220,7 +304,10 @@ class BackupService {
   }
 
   /// Adds everything from the backup that is not already here. Nothing is deleted or overwritten.
-  Future<RestoreResult> restore(String path) async {
+  Future<RestoreResult> restore(String path, {String? password}) =>
+      _withPlain(path, password, _restorePlain);
+
+  Future<RestoreResult> _restorePlain(String path) async {
     final (archive, _, data) = await _open(path, needData: true);
     var tasks = 0, events = 0, books = 0, shelves = 0, skipped = 0;
     final problems = <String>[];

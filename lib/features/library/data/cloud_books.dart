@@ -56,17 +56,19 @@ class SupabaseCloudBooks implements CloudBooks {
           'This PDF is larger than your cloud plan allows (the free plan accepts files up to 50 MB).',
         );
       }
-      if (m.contains('bucket not found'))
+      if (m.contains('bucket not found')) {
         throw CloudException(
           'The cloud storage is not set up yet. Run the latest setup SQL in Supabase.',
         );
+      }
       throw CloudException(e.message);
     }
     if (e is PostgrestException) {
-      if (e.code == 'PGRST205' || e.code == '42P01')
+      if (e.code == 'PGRST205' || e.code == '42P01') {
         throw CloudException(
           'The cloud tables are not set up yet. Run the latest setup SQL in Supabase.',
         );
+      }
       throw CloudException(e.message);
     }
     throw CloudException(

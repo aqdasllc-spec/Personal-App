@@ -207,7 +207,7 @@ class _Card extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
-              if (trailing != null) trailing!,
+              ?trailing,
             ],
           ),
           const SizedBox(height: Space.s8),
@@ -381,7 +381,7 @@ class _ReadingCard extends ConsumerWidget {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: recent.length,
-              separatorBuilder: (_, __) => const SizedBox(width: Space.s12),
+              separatorBuilder: (_, _) => const SizedBox(width: Space.s12),
               itemBuilder: (_, i) {
                 final b = recent[i];
                 return BookPeekTarget(

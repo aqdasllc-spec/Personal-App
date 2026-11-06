@@ -26,8 +26,8 @@ final _rootKey = GlobalKey<NavigatorState>();
 
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier<int>(0);
-  ref.listen(sessionProvider, (_, __) => refresh.value++);
-  ref.listen(appLockProvider, (_, __) => refresh.value++);
+  ref.listen(sessionProvider, (_, _) => refresh.value++);
+  ref.listen(appLockProvider, (_, _) => refresh.value++);
   ref.onDispose(refresh.dispose);
 
   return GoRouter(
@@ -44,19 +44,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(path: Routes.signIn, builder: (_, __) => const SignInPage()),
-      GoRoute(path: Routes.locked, builder: (_, __) => const LockScreen()),
+      GoRoute(path: Routes.signIn, builder: (_, _) => const SignInPage()),
+      GoRoute(path: Routes.locked, builder: (_, _) => const LockScreen()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AdaptiveShell(shell: shell),
         branches: [
-          StatefulShellBranch(routes: [GoRoute(path: Routes.home, builder: (_, __) => const HomePage())]),
+          StatefulShellBranch(routes: [GoRoute(path: Routes.home, builder: (_, _) => const HomePage())]),
           StatefulShellBranch(routes: [GoRoute(
             path: Routes.library,
-            builder: (_, __) => const LibraryPage(),
+            builder: (_, _) => const LibraryPage(),
             routes: [GoRoute(path: 'read/:id', parentNavigatorKey: _rootKey, builder: (_, s) => ReaderPage(bookId: s.pathParameters['id']!))],
           )]),
-          StatefulShellBranch(routes: [GoRoute(path: Routes.planner, builder: (_, __) => const PlannerPage())]),
-          StatefulShellBranch(routes: [GoRoute(path: Routes.settings, builder: (_, __) => const SettingsPage())]),
+          StatefulShellBranch(routes: [GoRoute(path: Routes.planner, builder: (_, _) => const PlannerPage())]),
+          StatefulShellBranch(routes: [GoRoute(path: Routes.settings, builder: (_, _) => const SettingsPage())]),
         ],
       ),
     ],

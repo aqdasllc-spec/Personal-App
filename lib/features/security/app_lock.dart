@@ -43,9 +43,8 @@ class LockState {
 /// Locks the UI after [timeout] in the background. Locking never touches data or sync; it
 /// only gates the screen (the DB key is held by the OS secure store).
 class AppLockController extends Notifier<LockState> {
-  AppLockController({required this.authenticator, DateTime Function()? now, bool startEnabled = false, this.persistEnabled})
-      : _now = now ?? DateTime.now,
-        _startEnabled = startEnabled;
+  AppLockController({required this.authenticator, DateTime Function()? now, this._startEnabled = false, this.persistEnabled})
+      : _now = now ?? DateTime.now;
 
   /// Persists the setting (so it survives restarts).
   final Future<void> Function(bool enabled)? persistEnabled;

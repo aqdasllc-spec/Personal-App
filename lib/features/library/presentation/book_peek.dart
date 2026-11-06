@@ -180,7 +180,7 @@ class _PeekCard extends ConsumerWidget {
                   height: 28,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
-                error: (_, __) => CoverTile(book: book, size: 150),
+                error: (_, _) => CoverTile(book: book, size: 150),
               ),
             ),
             Padding(

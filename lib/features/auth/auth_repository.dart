@@ -68,9 +68,8 @@ abstract final class AuthValidation {
 }
 
 class SupabaseAuthRepository implements AuthRepository {
-  SupabaseAuthRepository(this._client, {required Future<void> Function(bool localOnly) onLocalOnly, bool startLocalOnly = false})
-      : _onLocalOnly = onLocalOnly,
-        _override = startLocalOnly && _client.auth.currentSession == null ? const LocalOnlySession() : null {
+  SupabaseAuthRepository(this._client, {required this._onLocalOnly, bool startLocalOnly = false})
+      : _override = startLocalOnly && _client.auth.currentSession == null ? const LocalOnlySession() : null {
     _sub = _client.auth.onAuthStateChange.listen((s) => _emit(_map(s.session)));
   }
 

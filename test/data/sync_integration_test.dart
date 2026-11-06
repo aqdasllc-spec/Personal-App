@@ -189,7 +189,7 @@ void main() {
     await store.setFields('tasks', 't1', {'title': 'TOP-SECRET-TASK-TITLE'});
     await db.close();
     expect(String.fromCharCodes(file.readAsBytesSync()).contains('TOP-SECRET-TASK-TITLE'), isFalse);
-    final wrong = openEncrypted(file, '${'bb' * 32}');
+    final wrong = openEncrypted(file, 'bb' * 32);
     await expectLater(wrong.select(wrong.tasks).get(), throwsA(anything));
     final ok = openEncrypted(file, key);
     expect((await ok.select(ok.tasks).get()).single.title, 'TOP-SECRET-TASK-TITLE');

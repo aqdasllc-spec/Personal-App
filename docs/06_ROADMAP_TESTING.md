@@ -17,6 +17,10 @@ Sections: **Home, Library, Planner, Settings**. The tracker engine (old Phase 2)
 
 *Order note:* the Planner is small compared with the PDF reader; if you want something useful on your phone sooner, Planner first is reasonable — say so.
 
+## 1k. PDF search + password-protected backups (2026-11-07)
+**PDF search:** magnifier in the reader → type, match count "3 / 12", previous/next (wraps), matches highlighted on the page (pdfrx text search). Scanned PDFs have no text layer, so they report "No matches". Logic tested with a fake viewer; **real highlighting/jumping unverified on a device.**
+**Backup password (optional):** asked when you tap Back up now ("No password" keeps the old plain zip). AES-256-GCM, key from PBKDF2-HMAC-SHA256 (150 000 iterations, random salt), 1 MiB chunks authenticated with position + final flag, so a wrong password, a changed byte, reordered chunks and truncation are all detected. Restoring asks for the password (wrong one -> asks again). No password recovery exists by design. Speed ~6 MB/s in a desktop debug run (20 MB in 3.5 s); a multi-GB library will take minutes — unverified on phones. Lint cleanup applied (`dart fix`).
+
 ## 1j. Round 3 (2026-11-07)
 **Preview card** now opens centred on the screen (dimmed backdrop on long-press). **Cloud badge** is a rectangle across the top of each book (same width as the book, 21 px high): red "Sync", rotating arrows "Syncing", green "Synced"; icon only on very narrow spines. Bug found by tests and fixed: tapping the badge while syncing used to fall through and open the book. **Real first-page covers** in grid, list and Home tiles (rendered once, cached, at most 2 renders at a time). **Reader bookmarks**: bookmark the current page, list them, jump to a page, remove; included in backups. DB v7. 178 headless tests; on-device behaviour of jump-to-page unverified.
 

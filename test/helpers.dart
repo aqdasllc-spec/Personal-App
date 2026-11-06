@@ -185,6 +185,8 @@ class TestEnv {
 
   /// Pages the reader was asked to jump to (bookmarks).
   final jumps = <int>[];
+  final searches = <String>[];
+  int searchCursor = -1;
   final covers = FakeCoverRenderer();
 
   /// Writes a fake PDF (the fake inspector reads the page count from its text).
@@ -216,6 +218,31 @@ class TestEnv {
             jumps.add(p);
             onPage(p);
           };
+          // canned search results: "permit" has 3 matches (pages 2, 5, 9), anything else none
+          const hits = {'permit': [2, 5, 9]};
+          void publish(String q) => control.search.value = ReaderSearch(query: q, count: hits[q]?.length ?? 0, index: searchCursor < 0 ? null : searchCursor);
+          control.startSearch = (q) {
+            searches.add(q);
+            searchCursor = hits[q.trim().toLowerCase()] == null ? -1 : 0;
+            if (searchCursor == 0) onPage(hits[q.trim().toLowerCase()]![0]);
+            publish(q.trim().toLowerCase());
+          };
+          control.nextMatch = () {
+            final h = hits[control.search.value.query]!;
+            searchCursor = (searchCursor + 1) % h.length;
+            onPage(h[searchCursor]);
+            publish(control.search.value.query);
+          };
+          control.prevMatch = () {
+            final h = hits[control.search.value.query]!;
+            searchCursor = (searchCursor - 1 + h.length) % h.length;
+            onPage(h[searchCursor]);
+            publish(control.search.value.query);
+          };
+          control.stopSearch = () {
+            searches.add('<stop>');
+            control.search.value = const ReaderSearch();
+          };
           return Column(children: [
             Text('PDF view page $initial'),
             TextButton(onPressed: () => onPage(7), child: const Text('go to page 7')),
@@ -235,4 +262,4 @@ Future<void> settle(WidgetTester t) async {
 }
 
 /// A BackupService over a TestEnv's database (for building backup files in tests).
-BackupService BackupServiceFor(TestEnv e) => BackupService(e.db, e.store, libraryDir: e.libraryDir);
+BackupService backupServiceFor(TestEnv e) => BackupService(e.db, e.store, libraryDir: e.libraryDir);

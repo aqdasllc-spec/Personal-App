@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/app/app.dart';
 import 'package:folio/features/backup/backup_controller.dart';
+import 'package:folio/features/backup/backup_service.dart';
 import 'package:folio/features/library/data/library_repository.dart';
 import 'package:folio/features/planner/data/planner_repository.dart';
 import 'package:folio/features/settings/backup_tiles.dart';
@@ -90,6 +91,9 @@ void main() {
     await scrollTo(t, const Key('backup-now'));
     await t.tap(find.byKey(const Key('backup-now')));
     await settleB(t);
+    expect(find.text('Protect with a password?'), findsOneWidget);
+    await t.tap(find.byKey(const Key('backup-no-password')));
+    await settleB(t);
     expect(f.shared.length, 1);
     expect(f.shared.single.existsSync(), isTrue);
     expect(f.shared.single.path, endsWith('.folio'));
@@ -105,6 +109,8 @@ void main() {
     await scrollTo(t, const Key('backup-now'));
     await t.tap(find.byKey(const Key('backup-now')));
     await settleB(t);
+    await t.tap(find.byKey(const Key('backup-no-password')));
+    await settleB(t);
     expect(await t.runAsync(() => env.store.state('last_backup_at')), isNull);
     expect(find.text('Backup cancelled. Nothing was saved.'), findsOneWidget);
     await end(t);
@@ -117,7 +123,7 @@ void main() {
     late File backup;
     await t.runAsync(() async {
       await seedData(src);
-      final svc = BackupServiceFor(src);
+      final svc = backupServiceFor(src);
       backup = await svc.create(Directory.systemTemp.createTempSync('srcbk'));
     });
     final (env, f) = await open(t);
@@ -151,6 +157,71 @@ void main() {
     await t.tap(find.byKey(const Key('restore-confirm')));
     await settleB(t);
     expect(find.text('Nothing to add'), findsOneWidget);
+    await t.tap(find.text('OK'));
+    await settleB(t);
+    await end(t);
+  });
+
+  testWidgets('Back up with a password: needs 8+ matching characters, produces an encrypted file; Cancel makes nothing', (t) async {
+    final (env, f) = await open(t, seed: seedData);
+    await scrollTo(t, const Key('backup-now'));
+    await t.tap(find.byKey(const Key('backup-now')));
+    await settleB(t);
+    await t.tap(find.byKey(const Key('backup-cancel')));
+    await settleB(t);
+    expect(f.shared, isEmpty);
+
+    await t.tap(find.byKey(const Key('backup-now')));
+    await settleB(t);
+    await t.enterText(find.byKey(const Key('backup-password')), 'short');
+    await t.enterText(find.byKey(const Key('backup-password2')), 'short');
+    await t.tap(find.byKey(const Key('backup-encrypt')));
+    await t.pump();
+    expect(find.text('Use at least 8 characters.'), findsOneWidget);
+    await t.enterText(find.byKey(const Key('backup-password')), 'long enough pw');
+    await t.enterText(find.byKey(const Key('backup-password2')), 'different pw!!');
+    await t.tap(find.byKey(const Key('backup-encrypt')));
+    await t.pump();
+    expect(find.textContaining('don\'t match'), findsOneWidget);
+    await t.enterText(find.byKey(const Key('backup-password2')), 'long enough pw');
+    await t.tap(find.byKey(const Key('backup-encrypt')));
+    await settleB(t);
+    expect(f.shared.length, 1);
+    final bytes = await t.runAsync(() => f.shared.single.readAsBytes());
+    expect(String.fromCharCodes(bytes!.take(8)), 'FOLIOENC');
+    expect(find.textContaining('password protected'), findsWidgets);
+    expect(await t.runAsync(() => env.store.state('last_backup_at')), isNotNull);
+    await end(t);
+  });
+
+  testWidgets('Restore an encrypted backup: asks for the password, a wrong one is refused and asks again, the right one restores', (t) async {
+    final src = await TestEnv.create();
+    addTearDown(src.db.close);
+    late File backup;
+    await t.runAsync(() async {
+      await seedData(src);
+      final svc = BackupService(src.db, src.store, libraryDir: src.libraryDir, kdfIterations: 1000);
+      backup = await svc.create(Directory.systemTemp.createTempSync('srcbk'), password: 'open sesame 1');
+    });
+    final (env, f) = await open(t);
+    f.picked = backup.path;
+    await scrollTo(t, const Key('backup-restore'));
+    await t.tap(find.byKey(const Key('backup-restore')));
+    await settleB(t);
+    expect(find.text('Password needed'), findsOneWidget);
+    await t.enterText(find.byKey(const Key('restore-password')), 'wrong one');
+    await t.tap(find.byKey(const Key('restore-password-ok')));
+    await settleB(t);
+    expect(find.text('Wrong password, or the file is damaged.'), findsOneWidget, reason: 'asks again, with the reason');
+    await t.enterText(find.byKey(const Key('restore-password')), 'open sesame 1');
+    await t.tap(find.byKey(const Key('restore-password-ok')));
+    await settleB(t);
+    expect(find.text('Restore this backup?'), findsOneWidget);
+    expect(find.textContaining('password protected'), findsOneWidget);
+    await t.tap(find.byKey(const Key('restore-confirm')));
+    await settleB(t);
+    expect(find.text('Restore finished'), findsOneWidget);
+    expect((await t.runAsync(() => env.db.select(env.db.tasks).get()))!.single.title, 'Pay rent');
     await t.tap(find.text('OK'));
     await settleB(t);
     await end(t);

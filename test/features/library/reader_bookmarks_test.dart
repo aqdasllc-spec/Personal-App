@@ -86,4 +86,40 @@ void main() {
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(seconds: 1));
   });
+
+  testWidgets('search in the PDF: type, see the count, step through matches (wrapping), no matches, close', (t) async {
+    final (env, _) = await openReader(t);
+    await t.tap(find.byKey(const Key('reader-search')));
+    await io(t);
+    expect(find.byKey(const Key('reader-search-field')), findsOneWidget);
+    await t.enterText(find.byKey(const Key('reader-search-field')), 'permit');
+    await io(t, rounds: 3);
+    expect(env.searches, ['permit']);
+    expect(find.text('1 / 3'), findsOneWidget);
+
+    await t.tap(find.byKey(const Key('reader-search-next')));
+    await io(t, rounds: 2);
+    expect(find.text('2 / 3'), findsOneWidget);
+    await t.tap(find.byKey(const Key('reader-search-next')));
+    await t.tap(find.byKey(const Key('reader-search-next')));
+    await io(t, rounds: 2);
+    expect(find.text('1 / 3'), findsOneWidget, reason: 'wraps from the last match to the first');
+    await t.tap(find.byKey(const Key('reader-search-prev')));
+    await io(t, rounds: 2);
+    expect(find.text('3 / 3'), findsOneWidget, reason: 'and back');
+
+    await t.enterText(find.byKey(const Key('reader-search-field')), 'zebra');
+    await io(t, rounds: 3);
+    expect(find.text('No matches'), findsOneWidget);
+    final next = t.widget<IconButton>(find.byKey(const Key('reader-search-next')));
+    expect(next.onPressed, isNull, reason: 'nothing to step through');
+
+    await t.tap(find.byKey(const Key('reader-search-close')));
+    await io(t);
+    expect(env.searches.last, '<stop>');
+    expect(find.byKey(const Key('reader-search-field')), findsNothing);
+    expect(find.byKey(const Key('reader-bookmark')), findsOneWidget, reason: 'normal toolbar is back');
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(seconds: 1));
+  });
 }

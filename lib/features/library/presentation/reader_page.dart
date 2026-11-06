@@ -20,6 +20,9 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   int? _page;
   late final _repo = ref.read(libraryRepositoryProvider);
   final _control = ReaderControl();
+  final _searchCtl = TextEditingController();
+  Timer? _searchDebounce;
+  bool _searching = false;
 
   @override
   void initState() {
@@ -40,10 +43,93 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   void dispose() {
     // Save the final position immediately (the debounce may not have fired).
     _debounce?.cancel();
+    _searchDebounce?.cancel();
+    _searchCtl.dispose();
     final p = _page;
     if (p != null) _repo.saveProgress(widget.bookId, p);
     super.dispose();
   }
+
+  void _openSearch() => setState(() => _searching = true);
+
+  void _closeSearch() {
+    _searchDebounce?.cancel();
+    _searchCtl.clear();
+    _control.stopSearch?.call();
+    setState(() => _searching = false);
+  }
+
+  void _onQuery(String q) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 400),
+      () => _control.startSearch?.call(q),
+    );
+  }
+
+  Widget _searchTitle() => TextField(
+    key: const Key('reader-search-field'),
+    controller: _searchCtl,
+    autofocus: true,
+    textInputAction: TextInputAction.search,
+    decoration: const InputDecoration(
+      hintText: 'Search in this PDF',
+      border: InputBorder.none,
+    ),
+    onChanged: _onQuery,
+    onSubmitted: (q) {
+      // Enter: search now, or go to the next match when the search is already up to date
+      _searchDebounce?.cancel();
+      if (_control.search.value.query == q.trim() &&
+          _control.search.value.count > 0) {
+        _control.nextMatch?.call();
+      } else {
+        _control.startSearch?.call(q);
+      }
+    },
+  );
+
+  List<Widget> _searchActions() => [
+    ValueListenableBuilder<ReaderSearch>(
+      valueListenable: _control.search,
+      builder: (context, s, _) {
+        final String label;
+        if (s.query.isEmpty) {
+          label = '';
+        } else if (s.count == 0) {
+          label = s.searching ? 'Searching…' : 'No matches';
+        } else {
+          label =
+              '${(s.index ?? -1) + 1} / ${s.count}${s.searching ? '+' : ''}';
+        }
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (label.isNotEmpty)
+              Text(label, key: const Key('reader-search-count')),
+            IconButton(
+              key: const Key('reader-search-prev'),
+              tooltip: 'Previous match',
+              icon: const Icon(Icons.keyboard_arrow_up),
+              onPressed: s.count == 0 ? null : () => _control.prevMatch?.call(),
+            ),
+            IconButton(
+              key: const Key('reader-search-next'),
+              tooltip: 'Next match',
+              icon: const Icon(Icons.keyboard_arrow_down),
+              onPressed: s.count == 0 ? null : () => _control.nextMatch?.call(),
+            ),
+          ],
+        );
+      },
+    ),
+    IconButton(
+      key: const Key('reader-search-close'),
+      tooltip: 'Close search',
+      icon: const Icon(Icons.close),
+      onPressed: _closeSearch,
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -70,46 +156,56 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     final marked = marks.any((m) => m.page == current);
     return Scaffold(
       appBar: AppBar(
-        title: Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        actions: [
-          IconButton(
-            key: const Key('reader-bookmark'),
-            tooltip: marked
-                ? 'Remove bookmark from this page'
-                : 'Bookmark this page',
-            icon: Icon(marked ? Icons.bookmark : Icons.bookmark_border),
-            onPressed: () => _repo.toggleBookmark(book.id, current),
-          ),
-          IconButton(
-            key: const Key('reader-bookmarks'),
-            tooltip: 'Bookmarks',
-            icon: Badge(
-              isLabelVisible: marks.isNotEmpty,
-              label: Text('${marks.length}'),
-              child: const Icon(Icons.list_alt),
-            ),
-            onPressed: () => showModalBottomSheet<void>(
-              context: context,
-              showDragHandle: true,
-              isScrollControlled: true,
-              builder: (_) => _BookmarksSheet(
-                bookId: book.id,
-                current: current,
-                onJump: (p) => _control.goTo?.call(p),
-              ),
-            ),
-          ),
-          if (book.pageCount > 0)
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Center(
-                child: Text(
-                  '${_page ?? (book.lastPage < 1 ? 1 : book.lastPage)} / ${book.pageCount}',
-                  key: const Key('reader-page'),
+        title: _searching
+            ? _searchTitle()
+            : Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        actions: _searching
+            ? _searchActions()
+            : [
+                IconButton(
+                  key: const Key('reader-search'),
+                  tooltip: 'Search in this PDF',
+                  icon: const Icon(Icons.search),
+                  onPressed: _openSearch,
                 ),
-              ),
-            ),
-        ],
+                IconButton(
+                  key: const Key('reader-bookmark'),
+                  tooltip: marked
+                      ? 'Remove bookmark from this page'
+                      : 'Bookmark this page',
+                  icon: Icon(marked ? Icons.bookmark : Icons.bookmark_border),
+                  onPressed: () => _repo.toggleBookmark(book.id, current),
+                ),
+                IconButton(
+                  key: const Key('reader-bookmarks'),
+                  tooltip: 'Bookmarks',
+                  icon: Badge(
+                    isLabelVisible: marks.isNotEmpty,
+                    label: Text('${marks.length}'),
+                    child: const Icon(Icons.list_alt),
+                  ),
+                  onPressed: () => showModalBottomSheet<void>(
+                    context: context,
+                    showDragHandle: true,
+                    isScrollControlled: true,
+                    builder: (_) => _BookmarksSheet(
+                      bookId: book.id,
+                      current: current,
+                      onJump: (p) => _control.goTo?.call(p),
+                    ),
+                  ),
+                ),
+                if (book.pageCount > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: Center(
+                      child: Text(
+                        '${_page ?? (book.lastPage < 1 ? 1 : book.lastPage)} / ${book.pageCount}',
+                        key: const Key('reader-page'),
+                      ),
+                    ),
+                  ),
+              ],
       ),
       body: file.existsSync()
           ? ref.read(pdfViewBuilderProvider)(

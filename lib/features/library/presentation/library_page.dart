@@ -425,8 +425,9 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
       );
       if (n != null && n.trim().isNotEmpty) await repo.renameShelf(s.id, n);
     } else {
-      if (ref.read(libraryUiProvider).filter == ShelfFilter(s.id))
+      if (ref.read(libraryUiProvider).filter == ShelfFilter(s.id)) {
         ref.read(libraryUiProvider.notifier).setFilter(const AllBooks());
+      }
       await repo.deleteShelf(s.id);
     }
   }
@@ -602,7 +603,7 @@ class _ListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListView.separated(
     itemCount: books.length,
-    separatorBuilder: (_, __) => const Divider(height: 1),
+    separatorBuilder: (_, _) => const Divider(height: 1),
     itemBuilder: (_, i) {
       final b = books[i];
       final pct = (readingProgress(b) * 100).round();
@@ -719,8 +720,9 @@ class _BookSheet extends ConsumerWidget {
                       builder: (_) =>
                           _DetailsDialog(title: b.title, author: b.author),
                     );
-                    if (r != null)
+                    if (r != null) {
                       await repo.updateDetails(b.id, title: r.$1, author: r.$2);
+                    }
                   },
                 ),
               ],

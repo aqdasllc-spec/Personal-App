@@ -64,8 +64,9 @@ class BookSyncController extends Notifier<BookSyncState> {
     _busy(b.id, true);
     try {
       final file = ref.read(libraryRepositoryProvider).fileOf(b);
-      if (!await file.exists())
+      if (!await file.exists()) {
         throw CloudException('The PDF file is missing on this device.');
+      }
       await _cloud.upload(
         CloudBook(
           id: b.id,

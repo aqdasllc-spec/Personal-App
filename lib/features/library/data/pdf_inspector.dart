@@ -66,18 +66,66 @@ class _PdfView extends StatefulWidget {
 
 class _PdfViewState extends State<_PdfView> {
   final _controller = PdfViewerController();
+  late final _searcher = PdfTextSearcher(_controller);
+  String _query = '';
+
+  void _publish() {
+    final m = _searcher.matches.length;
+    widget.control.search.value = ReaderSearch(
+      query: _query,
+      count: m,
+      index: _searcher.currentIndex,
+      searching: _searcher.isSearching,
+    );
+  }
 
   @override
   void initState() {
     super.initState();
-    widget.control.goTo = (page) {
+    final c = widget.control;
+    c.goTo = (page) {
       if (_controller.isReady) _controller.goToPage(pageNumber: page);
+    };
+    _searcher.addListener(_publish);
+    c.startSearch = (q) {
+      _query = q.trim();
+      if (_query.isEmpty) {
+        _searcher.resetTextSearch();
+        c.search.value = const ReaderSearch();
+      } else {
+        c.search.value = ReaderSearch(query: _query, searching: true);
+        _searcher.startTextSearch(
+          _query,
+          caseInsensitive: true,
+          searchImmediately: true,
+        );
+      }
+    };
+    // wrap around at both ends
+    c.nextMatch = () async {
+      if (_searcher.matches.isEmpty) return;
+      if (await _searcher.goToNextMatch() == -1) {
+        await _searcher.goToMatchOfIndex(0);
+      }
+    };
+    c.prevMatch = () async {
+      if (_searcher.matches.isEmpty) return;
+      if (await _searcher.goToPrevMatch() == -1) {
+        await _searcher.goToMatchOfIndex(_searcher.matches.length - 1);
+      }
+    };
+    c.stopSearch = () {
+      _query = '';
+      _searcher.resetTextSearch();
+      c.search.value = const ReaderSearch();
     };
   }
 
   @override
   void dispose() {
-    widget.control.goTo = null;
+    final c = widget.control;
+    c.goTo = c.startSearch = c.nextMatch = c.prevMatch = c.stopSearch = null;
+    _searcher.dispose();
     super.dispose();
   }
 
@@ -87,6 +135,7 @@ class _PdfViewState extends State<_PdfView> {
     controller: _controller,
     initialPageNumber: widget.initialPage < 1 ? 1 : widget.initialPage,
     params: PdfViewerParams(
+      pagePaintCallbacks: [_searcher.pageTextMatchPaintCallback],
       onPageChanged: (n) {
         if (n != null) widget.onPage(n);
       },
