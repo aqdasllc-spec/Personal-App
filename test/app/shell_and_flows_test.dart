@@ -52,6 +52,7 @@ void main() {
       expect(find.byType(NavigationDestination), findsNWidgets(5));
       await t.tap(find.byTooltip('Settings'));
       await t.pumpAndSettle();
+      await t.scrollUntilVisible(find.text('App lock'), 200, scrollable: find.byType(Scrollable).first);
       expect(find.text('App lock'), findsOneWidget);
       expect(find.text('Local only'), findsWidgets);
     });

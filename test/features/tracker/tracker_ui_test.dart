@@ -354,7 +354,7 @@ void main() {
       await t.tap(find.byKey(const Key('apply-view')));
       await settle(t);
       expect(stateOf(c, x.tracker).records.map((r) => r.cells[x.p['name']]), ['Write intro', 'File taxes']);
-      expect(find.text('Filter · Sort · Group (1)'), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const Key('view-options')), matching: find.text('1')), findsOneWidget, reason: 'the active-filter count is a badge on the button');
       expect(find.text('2 records'), findsOneWidget);
     });
 

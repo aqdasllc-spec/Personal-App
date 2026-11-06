@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../design_system/components.dart';
 import '../../design_system/tokens.dart';
+import '../../features/tracker/application/tracker_controller.dart' show selectedTrackerProvider;
 import '../providers.dart';
 
 class _Dest {
@@ -31,6 +32,26 @@ class AdaptiveShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final idx = shell.currentIndex;
+    final width = MediaQuery.sizeOf(context).width;
+    // On narrow screens an open tracker replaces the tracker list, so Back should show the list again.
+    final trackerOpen = idx == 2 && width < 900 && ref.watch(selectedTrackerProvider) != null;
+    return PopScope(
+      // Back leaves the app only from Home; elsewhere it steps back one level first.
+      canPop: idx == 0 && !trackerOpen,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (trackerOpen) {
+          ref.read(selectedTrackerProvider.notifier).select(null);
+        } else {
+          shell.goBranch(0);
+        }
+      },
+      child: _layout(context, ref),
+    );
+  }
+
+  Widget _layout(BuildContext context, WidgetRef ref) {
     final width = MediaQuery.sizeOf(context).width;
     final wc = WindowClass.of(width);
     final c = context.colors;
@@ -61,17 +82,34 @@ class AdaptiveShell extends ConsumerWidget {
           ]),
         );
       case WindowClass.medium:
+        // Landscape phones are wide but short: six labelled destinations would overflow, so drop the
+        // labels when height is tight and let the rail scroll if it still doesn't fit.
+        final short = MediaQuery.sizeOf(context).height < 560;
         return Scaffold(
-          body: Row(children: [
-            NavigationRail(
-              selectedIndex: idx,
-              onDestinationSelected: _go,
-              labelType: NavigationRailLabelType.all,
-              destinations: [for (final d in _dests) NavigationRailDestination(icon: Icon(d.icon), selectedIcon: Icon(d.selectedIcon), label: Text(d.label, textAlign: TextAlign.center))],
-            ),
-            VerticalDivider(color: c.border),
-            Expanded(child: body),
-          ]),
+          body: SafeArea(
+            child: Row(children: [
+              LayoutBuilder(
+                builder: (context, box) => SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: box.maxHeight),
+                    child: IntrinsicHeight(
+                      child: NavigationRail(
+                        selectedIndex: idx,
+                        onDestinationSelected: _go,
+                        labelType: short ? NavigationRailLabelType.none : NavigationRailLabelType.all,
+                        destinations: [
+                          for (final d in _dests)
+                            NavigationRailDestination(icon: Tooltip(message: d.label, child: Icon(d.icon)), selectedIcon: Icon(d.selectedIcon), label: Text(d.label, textAlign: TextAlign.center)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              VerticalDivider(color: c.border),
+              Expanded(child: body),
+            ]),
+          ),
         );
       case WindowClass.compact:
         return Scaffold(

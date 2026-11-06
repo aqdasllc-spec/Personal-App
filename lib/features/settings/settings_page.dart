@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +6,7 @@ import '../../app/providers.dart';
 import '../../design_system/components.dart';
 import '../../design_system/tokens.dart';
 import '../auth/auth_repository.dart';
+import 'rotation.dart';
 
 /// Phase 1 settings: only what actually works today (account, sync, app lock).
 /// Backup, appearance, AI and notifications are added with their features.
@@ -17,6 +19,8 @@ class SettingsPage extends ConsumerWidget {
     final session = ref.watch(sessionProvider).value ?? ref.watch(authRepositoryProvider).current;
     final sync = ref.watch(syncControllerProvider);
     final lock = ref.watch(appLockProvider);
+    final rotation = ref.watch(rotationProvider);
+    final mobile = defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS;
 
     String when(DateTime? d) => d == null ? 'never' : '${d.toLocal()}'.split('.').first;
 
@@ -41,6 +45,28 @@ class SettingsPage extends ConsumerWidget {
           onTap: sync.phase == SyncPhase.localOnly ? null : () => ref.read(syncControllerProvider.notifier).syncNow(),
         ),
       ]),
+      if (mobile)
+        _Section('Display', [
+          Padding(
+            padding: const EdgeInsets.all(Space.s16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Screen rotation', style: Theme.of(context).textTheme.bodyLarge),
+              const SizedBox(height: Space.s4),
+              Text('Portrait only keeps the app upright even when you turn the phone.', style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: Space.s12),
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<RotationMode>(
+                  key: const Key('rotation'),
+                  showSelectedIcon: false,
+                  segments: const [ButtonSegment(value: RotationMode.auto, label: Text('Auto')), ButtonSegment(value: RotationMode.portrait, label: Text('Portrait'))],
+                  selected: {rotation},
+                  onSelectionChanged: (s) => ref.read(rotationProvider.notifier).set(s.first),
+                ),
+              ),
+            ]),
+          ),
+        ]),
       _Section('Security', [
         SwitchListTile(
           title: const Text('App lock'),

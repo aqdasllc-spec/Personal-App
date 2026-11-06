@@ -10,7 +10,17 @@ import 'cell_display.dart';
 import 'cell_editors.dart';
 import 'property_dialog.dart';
 
-double defaultWidth(te.PropertyDef p, {bool title = false}) {
+/// Column widths shrink on phones so more than one column is visible without scrolling.
+double defaultWidth(te.PropertyDef p, {bool title = false, bool compact = false}) {
+  if (compact) {
+    if (title) return 170;
+    return switch (p.type) {
+      te.PropertyType.checkbox => 80,
+      te.PropertyType.number || te.PropertyType.currency || te.PropertyType.percent => 100,
+      te.PropertyType.progress || te.PropertyType.date || te.PropertyType.dateRange => 120,
+      _ => 130,
+    };
+  }
   if (title) return 280;
   return switch (p.type) {
     te.PropertyType.checkbox => 96,
@@ -59,7 +69,9 @@ class _TrackerTableState extends ConsumerState<TrackerTable> {
   TrackerController get ctrl => ref.read(trackerControllerProvider(s.trackerId).notifier);
   List<te.PropertyDef> get cols => s.visibleProperties;
 
-  double _w(te.PropertyDef p) => _drag[p.id] ?? s.effectiveView.widths[p.id] ?? defaultWidth(p, title: p.id == s.titleProperty?.id);
+  bool get _phone => MediaQuery.sizeOf(context).width < 600;
+
+  double _w(te.PropertyDef p) => _drag[p.id] ?? s.effectiveView.widths[p.id] ?? defaultWidth(p, title: p.id == s.titleProperty?.id, compact: _phone);
 
   @override
   void dispose() {
@@ -211,7 +223,8 @@ class _TrackerTableState extends ConsumerState<TrackerTable> {
     final c = context.colors;
     final compact = s.effectiveView.compact;
     final rowH = compact ? 32.0 : 40.0;
-    const headerH = 36.0, gutterW = 84.0, addW = 56.0;
+    const headerH = 36.0, addW = 56.0;
+    final gutterW = _phone ? 80.0 : 84.0;
     final frozen = s.effectiveView.frozenColumns.clamp(0, cols.length);
     final nCols = 1 + cols.length + 1;
     final nRows = 1 + s.records.length + 1;
@@ -317,7 +330,7 @@ class _TrackerTableState extends ConsumerState<TrackerTable> {
                       visualDensity: VisualDensity.compact,
                       onChanged: (_) => HardwareKeyboard.instance.isShiftPressed ? ctrl.selectRange(r.id) : ctrl.toggleSelected(r.id),
                     ),
-                    Expanded(child: Text('$row', style: Theme.of(context).textTheme.bodySmall)),
+                    if (_phone) const Spacer() else Expanded(child: Text('$row', style: Theme.of(context).textTheme.bodySmall)),
                     Tooltip(message: 'Open record', child: InkWell(onTap: () => widget.onOpenRecord(r.id), child: Padding(padding: const EdgeInsets.all(4), child: Icon(Icons.open_in_full, size: 14, color: c.textMuted)))),
                   ]),
                   color: rowColor,

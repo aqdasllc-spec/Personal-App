@@ -12,6 +12,7 @@ import 'data/sync/sync_service.dart';
 import 'features/auth/auth_repository.dart';
 import 'features/security/app_lock.dart';
 import 'features/security/key_service.dart';
+import 'features/settings/rotation.dart';
 
 /// Supply at build time: --dart-define=SUPABASE_URL=https://xyz.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=...
 /// (The publishable/anon key is public by design; Row Level Security enforces access. Never put a
@@ -35,6 +36,9 @@ Future<void> main() async {
     await store.setState('app_lock_enabled', '0');
   }
 
+  final rotation = await loadRotationMode(store.state);
+  await SystemOrientationLock().apply(rotation);
+
   AuthRepository auth = LocalOnlyAuthRepository();
   SyncService? sync;
   if (_supabaseUrl.isNotEmpty && _supabaseKey.isNotEmpty) {
@@ -56,6 +60,7 @@ Future<void> main() async {
           persistEnabled: (v) => store.setState('app_lock_enabled', v ? '1' : '0'),
         )),
       syncControllerProvider.overrideWith(() => SyncController(sync)),
+      rotationProvider.overrideWith(() => RotationController(rotation)),
     ],
     child: const FolioApp(),
   ));

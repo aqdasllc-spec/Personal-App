@@ -35,6 +35,7 @@ class TrackerScreen extends ConsumerStatefulWidget {
 
 class _TrackerScreenState extends ConsumerState<TrackerScreen> {
   String? _open; // record shown in the detail panel
+  bool _searching = false; // search bar toggle in the compact landscape layout
   final _search = TextEditingController();
 
   @override
@@ -74,7 +75,9 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
   Widget _content(TrackerScreenState s) {
     final c = context.colors;
     final t = Theme.of(context).textTheme;
-    final wide = MediaQuery.sizeOf(context).width >= 1100;
+    final size = MediaQuery.sizeOf(context);
+    final short = size.height < 520; // landscape phone: every row of chrome costs precious height
+    final wide = size.width >= 1100;
     final layout = s.effectiveView.layout;
     final v = s.effectiveView;
     final activeFilters = v.filter.children.length + v.sorts.length + (v.groupBy != null ? 1 : 0);
@@ -104,99 +107,151 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
               Positioned(
                 left: 0,
                 right: 0,
-                top: 140,
+                top: short ? 80 : 140,
                 child: IgnorePointer(
-                  child: Column(children: [
-                    Text('No rows yet', style: t.titleMedium),
-                    const SizedBox(height: Space.s4),
-                    Text('Click “New row” to add the first one, then click any cell to edit it.', style: t.bodySmall, textAlign: TextAlign.center),
-                  ]),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Space.s32),
+                    child: Column(children: [
+                      Text('No rows yet', style: t.titleMedium),
+                      const SizedBox(height: Space.s4),
+                      Text('Tap “New row” to add the first one, then tap a cell to edit it.', style: t.bodySmall, textAlign: TextAlign.center),
+                    ]),
+                  ),
                 ),
               ),
             ])
           : table;
     }
 
-    final main = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(Space.s16, Space.s12, Space.s16, 0),
-        child: Row(children: [
-          if (widget.onBack != null) IconButton(tooltip: 'Back to trackers', onPressed: widget.onBack, icon: const Icon(Icons.arrow_back)),
-          Expanded(child: Text(widget.name, style: t.headlineSmall, maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Chip(label: Text('${s.total} record${s.total == 1 ? '' : 's'}'), visualDensity: VisualDensity.compact),
-          IconButton(tooltip: s.undoLabel == null ? 'Undo' : 'Undo: ${s.undoLabel}', onPressed: s.canUndo ? _ctrl.undo : null, icon: const Icon(Icons.undo)),
-          IconButton(tooltip: 'Redo', onPressed: s.canRedo ? _ctrl.redo : null, icon: const Icon(Icons.redo)),
-        ]),
-      ),
-      SizedBox(
-        height: 44,
-        child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: Space.s12), children: [
-          for (final e in s.views)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Space.s4, vertical: Space.s4),
-              child: GestureDetector(
-                onLongPress: () => _viewMenu(e),
-                onSecondaryTap: () => _viewMenu(e),
-                child: ChoiceChip(key: Key('view-${e.name}'), label: Text(e.name), selected: e.id == s.activeViewId, onSelected: (_) => _ctrl.setActiveView(e.id)),
-              ),
+    final narrow = size.width < 640;
+    final countText = '${s.total} record${s.total == 1 ? '' : 's'}';
+
+    final undoRedo = Row(mainAxisSize: MainAxisSize.min, children: [
+      IconButton(tooltip: s.undoLabel == null ? 'Undo' : 'Undo: ${s.undoLabel}', onPressed: s.canUndo ? _ctrl.undo : null, icon: const Icon(Icons.undo)),
+      IconButton(tooltip: 'Redo', onPressed: s.canRedo ? _ctrl.redo : null, icon: const Icon(Icons.redo)),
+    ]);
+    final back = widget.onBack == null ? null : IconButton(tooltip: 'Back to trackers', onPressed: widget.onBack, icon: const Icon(Icons.arrow_back));
+
+    final viewTabs = SizedBox(
+      height: 44,
+      child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: Space.s12), children: [
+        for (final e in s.views)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.s4, vertical: Space.s4),
+            child: GestureDetector(
+              onLongPress: () => _viewMenu(e),
+              onSecondaryTap: () => _viewMenu(e),
+              child: ChoiceChip(key: Key('view-${e.name}'), label: Text(e.name), selected: e.id == s.activeViewId, onSelected: (_) => _ctrl.setActiveView(e.id)),
             ),
-          PopupMenuButton<te.ViewLayout>(
-            key: const Key('new-view'),
-            tooltip: 'Add a view',
-            icon: const Icon(Icons.add),
-            onSelected: (l) => _ctrl.createView(_layoutLabel(l), l),
-            itemBuilder: (_) => [
-              for (final l in te.ViewLayout.values) PopupMenuItem(value: l, enabled: _implementedLayouts.contains(l), child: Text(_implementedLayouts.contains(l) ? _layoutLabel(l) : '${_layoutLabel(l)} (Phase 3)')),
-            ],
           ),
-        ]),
+        PopupMenuButton<te.ViewLayout>(
+          key: const Key('new-view'),
+          tooltip: 'Add a view',
+          icon: const Icon(Icons.add),
+          onSelected: (l) => _ctrl.createView(_layoutLabel(l), l),
+          itemBuilder: (_) => _layoutItems(),
+        ),
+      ]),
+    );
+
+    final searchField = TextField(
+      key: const Key('tracker-search'),
+      controller: _search,
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: 'Search this tracker',
+        prefixIcon: const Icon(Icons.search, size: 18),
+        suffixIcon: s.search.isEmpty ? null : IconButton(tooltip: 'Clear search', icon: const Icon(Icons.close, size: 18), onPressed: () { _search.clear(); _ctrl.setSearch(''); }),
       ),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(Space.s16, Space.s4, Space.s16, Space.s8),
-        child: LayoutBuilder(builder: (context, box) {
-          final narrow = box.maxWidth < 640;
-          final options = OutlinedButton.icon(
-            key: const Key('view-options'),
-            onPressed: () => showViewOptions(context, ref, s),
-            icon: const Icon(Icons.tune, size: 18),
-            label: Text(activeFilters == 0 ? (narrow ? 'Options' : 'Filter · Sort · Group') : (narrow ? 'Options ($activeFilters)' : 'Filter · Sort · Group ($activeFilters)')),
-          );
-          final search = TextField(
-            key: const Key('tracker-search'),
-            controller: _search,
-            decoration: InputDecoration(
-              isDense: true,
-              hintText: 'Search this tracker',
-              prefixIcon: const Icon(Icons.search, size: 18),
-              suffixIcon: s.search.isEmpty ? null : IconButton(tooltip: 'Clear search', icon: const Icon(Icons.close, size: 18), onPressed: () { _search.clear(); _ctrl.setSearch(''); }),
+      onChanged: (x) => _ctrl.setSearch(x),
+    );
+
+    Future<void> addRow() async {
+      final id = await _ctrl.addRecord();
+      if (id != null && s.titleProperty != null) _ctrl.setActive(ActiveCell(id, s.titleProperty!.id));
+    }
+
+    final Widget chrome;
+    if (short) {
+      // One slim bar: title, view switcher, and icon-only actions.
+      final current = s.views.where((v) => v.id == s.activeViewId).firstOrNull;
+      chrome = Column(children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Space.s8),
+          child: Row(children: [
+            ?back,
+            Expanded(child: Text('${widget.name} · $countText', style: t.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis)),
+            PopupMenuButton<String>(
+              key: const Key('view-switch'),
+              tooltip: 'Switch view',
+              onSelected: (v) {
+                if (v.startsWith('v:')) _ctrl.setActiveView(v.substring(2));
+                if (v.startsWith('n:')) _ctrl.createView(_layoutLabel(te.ViewLayout.values.byName(v.substring(2))), te.ViewLayout.values.byName(v.substring(2)));
+              },
+              itemBuilder: (_) => [
+                for (final e in s.views) PopupMenuItem(value: 'v:${e.id}', child: Text(e.name, style: TextStyle(fontWeight: e.id == s.activeViewId ? FontWeight.w700 : null))),
+                const PopupMenuDivider(),
+                for (final l in te.ViewLayout.values) PopupMenuItem(value: 'n:${l.name}', enabled: _implementedLayouts.contains(l), child: Text('New ${_layoutLabel(l).toLowerCase()} view${_implementedLayouts.contains(l) ? '' : ' (Phase 3)'}')),
+              ],
+              child: Padding(padding: const EdgeInsets.symmetric(horizontal: Space.s8), child: Row(mainAxisSize: MainAxisSize.min, children: [Text(current?.name ?? 'View'), const Icon(Icons.arrow_drop_down)])),
             ),
-            onChanged: (x) => _ctrl.setSearch(x),
-          );
-          final add = FilledButton.icon(
-            key: const Key('add-record'),
-            onPressed: () async {
-              final id = await _ctrl.addRecord();
-              if (id != null && s.titleProperty != null) _ctrl.setActive(ActiveCell(id, s.titleProperty!.id));
-            },
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('New'),
-          );
-          if (narrow) {
-            return Column(children: [
-              Row(children: [
-                Flexible(child: options),
-                // the table's own "+" column is off-screen on a phone, so offer it here too
-                IconButton(tooltip: 'Add property', onPressed: () => showPropertyDialog(context, ref, s), icon: const Icon(Icons.view_column_outlined)),
-                const Spacer(),
-                add,
+            IconButton(key: const Key('view-options'), tooltip: activeFilters == 0 ? 'Filter, sort, group' : 'Filter, sort, group ($activeFilters active)', onPressed: () => showViewOptions(context, ref, s), icon: Badge(isLabelVisible: activeFilters > 0, label: Text('$activeFilters'), child: const Icon(Icons.tune))),
+            IconButton(tooltip: 'Add property', onPressed: () => showPropertyDialog(context, ref, s), icon: const Icon(Icons.view_column_outlined)),
+            IconButton(key: const Key('toggle-search'), tooltip: 'Search', onPressed: () => setState(() => _searching = !_searching), icon: Icon(_searching ? Icons.search_off : Icons.search)),
+            IconButton.filled(key: const Key('add-record'), tooltip: 'New row', onPressed: addRow, icon: const Icon(Icons.add)),
+            undoRedo,
+          ]),
+        ),
+        if (_searching || s.search.isNotEmpty) Padding(padding: const EdgeInsets.fromLTRB(Space.s16, 0, Space.s16, Space.s4), child: searchField),
+      ]);
+    } else {
+      // The active-filter count is a badge, not part of the label, so the button never changes width
+      // (a label like "Options (1)" wrapped or overflowed on phones).
+      final options = OutlinedButton.icon(
+        key: const Key('view-options'),
+        onPressed: () => showViewOptions(context, ref, s),
+        icon: Badge(isLabelVisible: activeFilters > 0, label: Text('$activeFilters'), child: const Icon(Icons.tune, size: 18)),
+        label: Text(narrow ? 'Options' : 'Filter · Sort · Group', maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis),
+      );
+      final add = FilledButton.icon(key: const Key('add-record'), onPressed: addRow, icon: const Icon(Icons.add, size: 18), label: const Text('New', softWrap: false));
+      chrome = Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(Space.s8, Space.s12, Space.s8, 0),
+          child: Row(children: [
+            ?back,
+            const SizedBox(width: Space.s4),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(widget.name, style: t.headlineSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                if (narrow) Text(countText, style: t.bodySmall),
               ]),
-              const SizedBox(height: Space.s8),
-              search,
-            ]);
-          }
-          return Row(children: [options, const SizedBox(width: Space.s8), Expanded(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 320), child: search)), const Spacer(), add]);
-        }),
-      ),
+            ),
+            if (!narrow) Chip(label: Text(countText), visualDensity: VisualDensity.compact),
+            undoRedo,
+          ]),
+        ),
+        viewTabs,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(Space.s16, Space.s4, Space.s16, Space.s8),
+          child: narrow
+              ? Column(children: [
+                  Row(children: [
+                    options,
+                    // the table's own "+" column can be off-screen on a phone, so offer it here too
+                    IconButton(tooltip: 'Add property', onPressed: () => showPropertyDialog(context, ref, s), icon: const Icon(Icons.view_column_outlined)),
+                    const Spacer(),
+                    add,
+                  ]),
+                  const SizedBox(height: Space.s8),
+                  searchField,
+                ])
+              : Row(children: [options, const SizedBox(width: Space.s8), Expanded(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 320), child: searchField)), const Spacer(), add]),
+        ),
+      ]);
+    }
+
+    final main = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      chrome,
       Expanded(child: Stack(children: [
         Positioned.fill(child: body),
         if (s.selected.isNotEmpty) Positioned(left: 0, right: 0, bottom: Space.s16, child: Center(child: _BulkBar(state: s))),
@@ -213,6 +268,10 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
     }
     return main;
   }
+
+  List<PopupMenuEntry<te.ViewLayout>> _layoutItems() => [
+        for (final l in te.ViewLayout.values) PopupMenuItem(value: l, enabled: _implementedLayouts.contains(l), child: Text(_implementedLayouts.contains(l) ? _layoutLabel(l) : '${_layoutLabel(l)} (Phase 3)')),
+      ];
 
   Future<void> _viewMenu(ViewEntry e) async {
     final choice = await showDialog<String>(
