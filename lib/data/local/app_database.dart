@@ -62,6 +62,44 @@ class Events extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// A PDF in the library. The file itself lives in the app's private library folder as
+/// `<id>.pdf` (the original is copied, never modified). Library data is device-local for now:
+/// the file bytes are not synced, so neither is this table.
+@DataClassName('BookRow')
+@TableIndex(name: 'books_shelf', columns: {#shelfId})
+@TableIndex(name: 'books_hash', columns: {#sha256})
+class Books extends Table {
+  TextColumn get id => text()();
+  TextColumn get title => text().withDefault(const Constant(''))();
+  TextColumn get author => text().withDefault(const Constant(''))();
+  TextColumn get fileName => text().withDefault(const Constant(''))();
+  IntColumn get pageCount => integer().withDefault(const Constant(0))();
+  IntColumn get sizeBytes => integer().withDefault(const Constant(0))();
+  TextColumn get sha256 => text().withDefault(const Constant(''))();
+  TextColumn get shelfId => text().nullable()();
+  IntColumn get favorite => integer().withDefault(const Constant(0))();
+
+  /// Last page read (1-based; 0 = never opened).
+  IntColumn get lastPage => integer().withDefault(const Constant(0))();
+  IntColumn get lastOpenedAt => integer().nullable()();
+  IntColumn get addedAt => integer()();
+  IntColumn get deletedAt => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// A named bookshelf / collection.
+@DataClassName('ShelfRow')
+class Shelves extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  IntColumn get createdAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// HLC of the value currently held for each synced field (generic, so entity tables
 /// need no per-column clock columns).
 class FieldMeta extends Table {
@@ -112,12 +150,12 @@ class LocalConflicts extends Table {
   IntColumn get resolvedAt => integer().nullable()();
 }
 
-@DriftDatabase(tables: [Tasks, Events, FieldMeta, SyncOutbox, SyncState, LocalConflicts])
+@DriftDatabase(tables: [Tasks, Events, Books, Shelves, FieldMeta, SyncOutbox, SyncState, LocalConflicts])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -162,6 +200,13 @@ class AppDatabase extends _$AppDatabase {
             await m.createIndex(schema.tasksPlanned);
             await m.createTable(schema.events);
             await m.createIndex(schema.eventsStart);
+          },
+          from4To5: (m, schema) async {
+            // v5: Library - books and shelves (device-local).
+            await m.createTable(schema.books);
+            await m.createTable(schema.shelves);
+            await m.createIndex(schema.booksShelf);
+            await m.createIndex(schema.booksHash);
           },
         ),
         beforeOpen: (details) async {

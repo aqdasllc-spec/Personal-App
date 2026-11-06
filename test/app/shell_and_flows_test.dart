@@ -30,7 +30,9 @@ void main() {
       }
       await t.tap(find.bySemanticsLabel('Library').first);
       await t.pumpAndSettle();
-      expect(find.text('Import PDFs, arrange bookshelves and read with annotations.\nPlanned for the next phase.'), findsOneWidget);
+      expect(find.text('Your library is empty'), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 1));
       sem.dispose();
     });
 

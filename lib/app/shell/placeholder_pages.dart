@@ -17,9 +17,3 @@ class HomePlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const _Soon(Icons.home_outlined, 'Command Center', 'a later phase', 'Today\'s tasks, upcoming deadlines and your reading progress will gather here.');
 }
-
-class LibraryPlaceholder extends StatelessWidget {
-  const LibraryPlaceholder({super.key});
-  @override
-  Widget build(BuildContext context) => const _Soon(Icons.auto_stories_outlined, 'Library', 'the next phase', 'Import PDFs, arrange bookshelves and read with annotations.');
-}

@@ -9,6 +9,8 @@ import '../features/settings/settings_page.dart';
 import 'providers.dart';
 import '../features/planner/presentation/planner_page.dart';
 import 'shell/adaptive_shell.dart';
+import '../features/library/presentation/library_page.dart';
+import '../features/library/presentation/reader_page.dart';
 import 'shell/placeholder_pages.dart';
 
 abstract final class Routes {
@@ -20,6 +22,8 @@ abstract final class Routes {
   static const settings = '/settings';
 }
 
+final _rootKey = GlobalKey<NavigatorState>();
+
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier<int>(0);
   ref.listen(sessionProvider, (_, __) => refresh.value++);
@@ -27,6 +31,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.onDispose(refresh.dispose);
 
   return GoRouter(
+    navigatorKey: _rootKey,
     initialLocation: Routes.home,
     refreshListenable: refresh,
     redirect: (context, state) {
@@ -45,7 +50,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, shell) => AdaptiveShell(shell: shell),
         branches: [
           StatefulShellBranch(routes: [GoRoute(path: Routes.home, builder: (_, __) => const HomePlaceholder())]),
-          StatefulShellBranch(routes: [GoRoute(path: Routes.library, builder: (_, __) => const LibraryPlaceholder())]),
+          StatefulShellBranch(routes: [GoRoute(
+            path: Routes.library,
+            builder: (_, __) => const LibraryPage(),
+            routes: [GoRoute(path: 'read/:id', parentNavigatorKey: _rootKey, builder: (_, s) => ReaderPage(bookId: s.pathParameters['id']!))],
+          )]),
           StatefulShellBranch(routes: [GoRoute(path: Routes.planner, builder: (_, __) => const PlannerPage())]),
           StatefulShellBranch(routes: [GoRoute(path: Routes.settings, builder: (_, __) => const SettingsPage())]),
         ],

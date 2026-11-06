@@ -17,6 +17,8 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    - spikes/**
+    - packages/**
 
 linter:
   # The lint rules applied to this project can be customized in the
@@ -36,8 +38,3 @@ linter:
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
 
-analyzer:
-  exclude:
-    - spikes/**
-    - packages/**
-    - build/**

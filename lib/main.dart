@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'features/library/application/library_controller.dart';
+import 'features/library/data/library_repository.dart';
+import 'features/library/data/pdf_inspector.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -49,6 +52,10 @@ Future<void> main() async {
     sync = SyncService(store, SupabaseSyncTransport(Supabase.instance.client));
   }
 
+  final libraryDir = await resolveLibraryDirectory();
+  // Books removed in an earlier session are deleted for good now (the Undo window is long over).
+  await LibraryRepository(db, directory: libraryDir, inspector: PdfrxInspector()).purge();
+
   runApp(ProviderScope(
     overrides: [
       databaseProvider.overrideWithValue(db),
@@ -64,6 +71,7 @@ Future<void> main() async {
       syncControllerProvider.overrideWith(() => SyncController(sync)),
       rotationProvider.overrideWith(() => RotationController(rotation)),
       reminderSchedulerProvider.overrideWithValue(createReminderScheduler()),
+      libraryDirectoryProvider.overrideWithValue(libraryDir),
     ],
     child: const FolioApp(),
   ));

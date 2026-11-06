@@ -1455,6 +1455,1002 @@ class EventsCompanion extends UpdateCompanion<EventRow> {
   }
 }
 
+class $BooksTable extends Books with TableInfo<$BooksTable, BookRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BooksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _authorMeta = const VerificationMeta('author');
+  @override
+  late final GeneratedColumn<String> author = GeneratedColumn<String>(
+    'author',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _fileNameMeta = const VerificationMeta(
+    'fileName',
+  );
+  @override
+  late final GeneratedColumn<String> fileName = GeneratedColumn<String>(
+    'file_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _pageCountMeta = const VerificationMeta(
+    'pageCount',
+  );
+  @override
+  late final GeneratedColumn<int> pageCount = GeneratedColumn<int>(
+    'page_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _sizeBytesMeta = const VerificationMeta(
+    'sizeBytes',
+  );
+  @override
+  late final GeneratedColumn<int> sizeBytes = GeneratedColumn<int>(
+    'size_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _sha256Meta = const VerificationMeta('sha256');
+  @override
+  late final GeneratedColumn<String> sha256 = GeneratedColumn<String>(
+    'sha256',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _shelfIdMeta = const VerificationMeta(
+    'shelfId',
+  );
+  @override
+  late final GeneratedColumn<String> shelfId = GeneratedColumn<String>(
+    'shelf_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _favoriteMeta = const VerificationMeta(
+    'favorite',
+  );
+  @override
+  late final GeneratedColumn<int> favorite = GeneratedColumn<int>(
+    'favorite',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastPageMeta = const VerificationMeta(
+    'lastPage',
+  );
+  @override
+  late final GeneratedColumn<int> lastPage = GeneratedColumn<int>(
+    'last_page',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastOpenedAtMeta = const VerificationMeta(
+    'lastOpenedAt',
+  );
+  @override
+  late final GeneratedColumn<int> lastOpenedAt = GeneratedColumn<int>(
+    'last_opened_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _addedAtMeta = const VerificationMeta(
+    'addedAt',
+  );
+  @override
+  late final GeneratedColumn<int> addedAt = GeneratedColumn<int>(
+    'added_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    title,
+    author,
+    fileName,
+    pageCount,
+    sizeBytes,
+    sha256,
+    shelfId,
+    favorite,
+    lastPage,
+    lastOpenedAt,
+    addedAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'books';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BookRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    }
+    if (data.containsKey('author')) {
+      context.handle(
+        _authorMeta,
+        author.isAcceptableOrUnknown(data['author']!, _authorMeta),
+      );
+    }
+    if (data.containsKey('file_name')) {
+      context.handle(
+        _fileNameMeta,
+        fileName.isAcceptableOrUnknown(data['file_name']!, _fileNameMeta),
+      );
+    }
+    if (data.containsKey('page_count')) {
+      context.handle(
+        _pageCountMeta,
+        pageCount.isAcceptableOrUnknown(data['page_count']!, _pageCountMeta),
+      );
+    }
+    if (data.containsKey('size_bytes')) {
+      context.handle(
+        _sizeBytesMeta,
+        sizeBytes.isAcceptableOrUnknown(data['size_bytes']!, _sizeBytesMeta),
+      );
+    }
+    if (data.containsKey('sha256')) {
+      context.handle(
+        _sha256Meta,
+        sha256.isAcceptableOrUnknown(data['sha256']!, _sha256Meta),
+      );
+    }
+    if (data.containsKey('shelf_id')) {
+      context.handle(
+        _shelfIdMeta,
+        shelfId.isAcceptableOrUnknown(data['shelf_id']!, _shelfIdMeta),
+      );
+    }
+    if (data.containsKey('favorite')) {
+      context.handle(
+        _favoriteMeta,
+        favorite.isAcceptableOrUnknown(data['favorite']!, _favoriteMeta),
+      );
+    }
+    if (data.containsKey('last_page')) {
+      context.handle(
+        _lastPageMeta,
+        lastPage.isAcceptableOrUnknown(data['last_page']!, _lastPageMeta),
+      );
+    }
+    if (data.containsKey('last_opened_at')) {
+      context.handle(
+        _lastOpenedAtMeta,
+        lastOpenedAt.isAcceptableOrUnknown(
+          data['last_opened_at']!,
+          _lastOpenedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('added_at')) {
+      context.handle(
+        _addedAtMeta,
+        addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_addedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BookRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BookRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      author: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author'],
+      )!,
+      fileName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_name'],
+      )!,
+      pageCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}page_count'],
+      )!,
+      sizeBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}size_bytes'],
+      )!,
+      sha256: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sha256'],
+      )!,
+      shelfId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}shelf_id'],
+      ),
+      favorite: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}favorite'],
+      )!,
+      lastPage: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_page'],
+      )!,
+      lastOpenedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_opened_at'],
+      ),
+      addedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}added_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  $BooksTable createAlias(String alias) {
+    return $BooksTable(attachedDatabase, alias);
+  }
+}
+
+class BookRow extends DataClass implements Insertable<BookRow> {
+  final String id;
+  final String title;
+  final String author;
+  final String fileName;
+  final int pageCount;
+  final int sizeBytes;
+  final String sha256;
+  final String? shelfId;
+  final int favorite;
+
+  /// Last page read (1-based; 0 = never opened).
+  final int lastPage;
+  final int? lastOpenedAt;
+  final int addedAt;
+  final int? deletedAt;
+  const BookRow({
+    required this.id,
+    required this.title,
+    required this.author,
+    required this.fileName,
+    required this.pageCount,
+    required this.sizeBytes,
+    required this.sha256,
+    this.shelfId,
+    required this.favorite,
+    required this.lastPage,
+    this.lastOpenedAt,
+    required this.addedAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['title'] = Variable<String>(title);
+    map['author'] = Variable<String>(author);
+    map['file_name'] = Variable<String>(fileName);
+    map['page_count'] = Variable<int>(pageCount);
+    map['size_bytes'] = Variable<int>(sizeBytes);
+    map['sha256'] = Variable<String>(sha256);
+    if (!nullToAbsent || shelfId != null) {
+      map['shelf_id'] = Variable<String>(shelfId);
+    }
+    map['favorite'] = Variable<int>(favorite);
+    map['last_page'] = Variable<int>(lastPage);
+    if (!nullToAbsent || lastOpenedAt != null) {
+      map['last_opened_at'] = Variable<int>(lastOpenedAt);
+    }
+    map['added_at'] = Variable<int>(addedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    return map;
+  }
+
+  BooksCompanion toCompanion(bool nullToAbsent) {
+    return BooksCompanion(
+      id: Value(id),
+      title: Value(title),
+      author: Value(author),
+      fileName: Value(fileName),
+      pageCount: Value(pageCount),
+      sizeBytes: Value(sizeBytes),
+      sha256: Value(sha256),
+      shelfId: shelfId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(shelfId),
+      favorite: Value(favorite),
+      lastPage: Value(lastPage),
+      lastOpenedAt: lastOpenedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastOpenedAt),
+      addedAt: Value(addedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory BookRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BookRow(
+      id: serializer.fromJson<String>(json['id']),
+      title: serializer.fromJson<String>(json['title']),
+      author: serializer.fromJson<String>(json['author']),
+      fileName: serializer.fromJson<String>(json['fileName']),
+      pageCount: serializer.fromJson<int>(json['pageCount']),
+      sizeBytes: serializer.fromJson<int>(json['sizeBytes']),
+      sha256: serializer.fromJson<String>(json['sha256']),
+      shelfId: serializer.fromJson<String?>(json['shelfId']),
+      favorite: serializer.fromJson<int>(json['favorite']),
+      lastPage: serializer.fromJson<int>(json['lastPage']),
+      lastOpenedAt: serializer.fromJson<int?>(json['lastOpenedAt']),
+      addedAt: serializer.fromJson<int>(json['addedAt']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'title': serializer.toJson<String>(title),
+      'author': serializer.toJson<String>(author),
+      'fileName': serializer.toJson<String>(fileName),
+      'pageCount': serializer.toJson<int>(pageCount),
+      'sizeBytes': serializer.toJson<int>(sizeBytes),
+      'sha256': serializer.toJson<String>(sha256),
+      'shelfId': serializer.toJson<String?>(shelfId),
+      'favorite': serializer.toJson<int>(favorite),
+      'lastPage': serializer.toJson<int>(lastPage),
+      'lastOpenedAt': serializer.toJson<int?>(lastOpenedAt),
+      'addedAt': serializer.toJson<int>(addedAt),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+    };
+  }
+
+  BookRow copyWith({
+    String? id,
+    String? title,
+    String? author,
+    String? fileName,
+    int? pageCount,
+    int? sizeBytes,
+    String? sha256,
+    Value<String?> shelfId = const Value.absent(),
+    int? favorite,
+    int? lastPage,
+    Value<int?> lastOpenedAt = const Value.absent(),
+    int? addedAt,
+    Value<int?> deletedAt = const Value.absent(),
+  }) => BookRow(
+    id: id ?? this.id,
+    title: title ?? this.title,
+    author: author ?? this.author,
+    fileName: fileName ?? this.fileName,
+    pageCount: pageCount ?? this.pageCount,
+    sizeBytes: sizeBytes ?? this.sizeBytes,
+    sha256: sha256 ?? this.sha256,
+    shelfId: shelfId.present ? shelfId.value : this.shelfId,
+    favorite: favorite ?? this.favorite,
+    lastPage: lastPage ?? this.lastPage,
+    lastOpenedAt: lastOpenedAt.present ? lastOpenedAt.value : this.lastOpenedAt,
+    addedAt: addedAt ?? this.addedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  BookRow copyWithCompanion(BooksCompanion data) {
+    return BookRow(
+      id: data.id.present ? data.id.value : this.id,
+      title: data.title.present ? data.title.value : this.title,
+      author: data.author.present ? data.author.value : this.author,
+      fileName: data.fileName.present ? data.fileName.value : this.fileName,
+      pageCount: data.pageCount.present ? data.pageCount.value : this.pageCount,
+      sizeBytes: data.sizeBytes.present ? data.sizeBytes.value : this.sizeBytes,
+      sha256: data.sha256.present ? data.sha256.value : this.sha256,
+      shelfId: data.shelfId.present ? data.shelfId.value : this.shelfId,
+      favorite: data.favorite.present ? data.favorite.value : this.favorite,
+      lastPage: data.lastPage.present ? data.lastPage.value : this.lastPage,
+      lastOpenedAt: data.lastOpenedAt.present
+          ? data.lastOpenedAt.value
+          : this.lastOpenedAt,
+      addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BookRow(')
+          ..write('id: $id, ')
+          ..write('title: $title, ')
+          ..write('author: $author, ')
+          ..write('fileName: $fileName, ')
+          ..write('pageCount: $pageCount, ')
+          ..write('sizeBytes: $sizeBytes, ')
+          ..write('sha256: $sha256, ')
+          ..write('shelfId: $shelfId, ')
+          ..write('favorite: $favorite, ')
+          ..write('lastPage: $lastPage, ')
+          ..write('lastOpenedAt: $lastOpenedAt, ')
+          ..write('addedAt: $addedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    title,
+    author,
+    fileName,
+    pageCount,
+    sizeBytes,
+    sha256,
+    shelfId,
+    favorite,
+    lastPage,
+    lastOpenedAt,
+    addedAt,
+    deletedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BookRow &&
+          other.id == this.id &&
+          other.title == this.title &&
+          other.author == this.author &&
+          other.fileName == this.fileName &&
+          other.pageCount == this.pageCount &&
+          other.sizeBytes == this.sizeBytes &&
+          other.sha256 == this.sha256 &&
+          other.shelfId == this.shelfId &&
+          other.favorite == this.favorite &&
+          other.lastPage == this.lastPage &&
+          other.lastOpenedAt == this.lastOpenedAt &&
+          other.addedAt == this.addedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class BooksCompanion extends UpdateCompanion<BookRow> {
+  final Value<String> id;
+  final Value<String> title;
+  final Value<String> author;
+  final Value<String> fileName;
+  final Value<int> pageCount;
+  final Value<int> sizeBytes;
+  final Value<String> sha256;
+  final Value<String?> shelfId;
+  final Value<int> favorite;
+  final Value<int> lastPage;
+  final Value<int?> lastOpenedAt;
+  final Value<int> addedAt;
+  final Value<int?> deletedAt;
+  final Value<int> rowid;
+  const BooksCompanion({
+    this.id = const Value.absent(),
+    this.title = const Value.absent(),
+    this.author = const Value.absent(),
+    this.fileName = const Value.absent(),
+    this.pageCount = const Value.absent(),
+    this.sizeBytes = const Value.absent(),
+    this.sha256 = const Value.absent(),
+    this.shelfId = const Value.absent(),
+    this.favorite = const Value.absent(),
+    this.lastPage = const Value.absent(),
+    this.lastOpenedAt = const Value.absent(),
+    this.addedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BooksCompanion.insert({
+    required String id,
+    this.title = const Value.absent(),
+    this.author = const Value.absent(),
+    this.fileName = const Value.absent(),
+    this.pageCount = const Value.absent(),
+    this.sizeBytes = const Value.absent(),
+    this.sha256 = const Value.absent(),
+    this.shelfId = const Value.absent(),
+    this.favorite = const Value.absent(),
+    this.lastPage = const Value.absent(),
+    this.lastOpenedAt = const Value.absent(),
+    required int addedAt,
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       addedAt = Value(addedAt);
+  static Insertable<BookRow> custom({
+    Expression<String>? id,
+    Expression<String>? title,
+    Expression<String>? author,
+    Expression<String>? fileName,
+    Expression<int>? pageCount,
+    Expression<int>? sizeBytes,
+    Expression<String>? sha256,
+    Expression<String>? shelfId,
+    Expression<int>? favorite,
+    Expression<int>? lastPage,
+    Expression<int>? lastOpenedAt,
+    Expression<int>? addedAt,
+    Expression<int>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (title != null) 'title': title,
+      if (author != null) 'author': author,
+      if (fileName != null) 'file_name': fileName,
+      if (pageCount != null) 'page_count': pageCount,
+      if (sizeBytes != null) 'size_bytes': sizeBytes,
+      if (sha256 != null) 'sha256': sha256,
+      if (shelfId != null) 'shelf_id': shelfId,
+      if (favorite != null) 'favorite': favorite,
+      if (lastPage != null) 'last_page': lastPage,
+      if (lastOpenedAt != null) 'last_opened_at': lastOpenedAt,
+      if (addedAt != null) 'added_at': addedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BooksCompanion copyWith({
+    Value<String>? id,
+    Value<String>? title,
+    Value<String>? author,
+    Value<String>? fileName,
+    Value<int>? pageCount,
+    Value<int>? sizeBytes,
+    Value<String>? sha256,
+    Value<String?>? shelfId,
+    Value<int>? favorite,
+    Value<int>? lastPage,
+    Value<int?>? lastOpenedAt,
+    Value<int>? addedAt,
+    Value<int?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return BooksCompanion(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      author: author ?? this.author,
+      fileName: fileName ?? this.fileName,
+      pageCount: pageCount ?? this.pageCount,
+      sizeBytes: sizeBytes ?? this.sizeBytes,
+      sha256: sha256 ?? this.sha256,
+      shelfId: shelfId ?? this.shelfId,
+      favorite: favorite ?? this.favorite,
+      lastPage: lastPage ?? this.lastPage,
+      lastOpenedAt: lastOpenedAt ?? this.lastOpenedAt,
+      addedAt: addedAt ?? this.addedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (author.present) {
+      map['author'] = Variable<String>(author.value);
+    }
+    if (fileName.present) {
+      map['file_name'] = Variable<String>(fileName.value);
+    }
+    if (pageCount.present) {
+      map['page_count'] = Variable<int>(pageCount.value);
+    }
+    if (sizeBytes.present) {
+      map['size_bytes'] = Variable<int>(sizeBytes.value);
+    }
+    if (sha256.present) {
+      map['sha256'] = Variable<String>(sha256.value);
+    }
+    if (shelfId.present) {
+      map['shelf_id'] = Variable<String>(shelfId.value);
+    }
+    if (favorite.present) {
+      map['favorite'] = Variable<int>(favorite.value);
+    }
+    if (lastPage.present) {
+      map['last_page'] = Variable<int>(lastPage.value);
+    }
+    if (lastOpenedAt.present) {
+      map['last_opened_at'] = Variable<int>(lastOpenedAt.value);
+    }
+    if (addedAt.present) {
+      map['added_at'] = Variable<int>(addedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BooksCompanion(')
+          ..write('id: $id, ')
+          ..write('title: $title, ')
+          ..write('author: $author, ')
+          ..write('fileName: $fileName, ')
+          ..write('pageCount: $pageCount, ')
+          ..write('sizeBytes: $sizeBytes, ')
+          ..write('sha256: $sha256, ')
+          ..write('shelfId: $shelfId, ')
+          ..write('favorite: $favorite, ')
+          ..write('lastPage: $lastPage, ')
+          ..write('lastOpenedAt: $lastOpenedAt, ')
+          ..write('addedAt: $addedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ShelvesTable extends Shelves with TableInfo<$ShelvesTable, ShelfRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ShelvesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, name, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'shelves';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ShelfRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ShelfRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ShelfRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ShelvesTable createAlias(String alias) {
+    return $ShelvesTable(attachedDatabase, alias);
+  }
+}
+
+class ShelfRow extends DataClass implements Insertable<ShelfRow> {
+  final String id;
+  final String name;
+  final int createdAt;
+  const ShelfRow({
+    required this.id,
+    required this.name,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['created_at'] = Variable<int>(createdAt);
+    return map;
+  }
+
+  ShelvesCompanion toCompanion(bool nullToAbsent) {
+    return ShelvesCompanion(
+      id: Value(id),
+      name: Value(name),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory ShelfRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ShelfRow(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'createdAt': serializer.toJson<int>(createdAt),
+    };
+  }
+
+  ShelfRow copyWith({String? id, String? name, int? createdAt}) => ShelfRow(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  ShelfRow copyWithCompanion(ShelvesCompanion data) {
+    return ShelfRow(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ShelfRow(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ShelfRow &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.createdAt == this.createdAt);
+}
+
+class ShelvesCompanion extends UpdateCompanion<ShelfRow> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<int> createdAt;
+  final Value<int> rowid;
+  const ShelvesCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ShelvesCompanion.insert({
+    required String id,
+    required String name,
+    required int createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       createdAt = Value(createdAt);
+  static Insertable<ShelfRow> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<int>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ShelvesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<int>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return ShelvesCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ShelvesCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $FieldMetaTable extends FieldMeta
     with TableInfo<$FieldMetaTable, FieldMetaData> {
   @override
@@ -3219,6 +4215,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $TasksTable tasks = $TasksTable(this);
   late final $EventsTable events = $EventsTable(this);
+  late final $BooksTable books = $BooksTable(this);
+  late final $ShelvesTable shelves = $ShelvesTable(this);
   late final $FieldMetaTable fieldMeta = $FieldMetaTable(this);
   late final $SyncOutboxTable syncOutbox = $SyncOutboxTable(this);
   late final $SyncStateTable syncState = $SyncStateTable(this);
@@ -3235,6 +4233,14 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'events_start',
     'CREATE INDEX events_start ON events (start_at)',
   );
+  late final Index booksShelf = Index(
+    'books_shelf',
+    'CREATE INDEX books_shelf ON books (shelf_id)',
+  );
+  late final Index booksHash = Index(
+    'books_hash',
+    'CREATE INDEX books_hash ON books (sha256)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3242,6 +4248,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     tasks,
     events,
+    books,
+    shelves,
     fieldMeta,
     syncOutbox,
     syncState,
@@ -3249,6 +4257,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     tasksDue,
     tasksPlanned,
     eventsStart,
+    booksShelf,
+    booksHash,
   ];
 }
 
@@ -3944,6 +4954,523 @@ typedef $$EventsTableProcessedTableManager =
       $$EventsTableUpdateCompanionBuilder,
       (EventRow, BaseReferences<_$AppDatabase, $EventsTable, EventRow>),
       EventRow,
+      PrefetchHooks Function()
+    >;
+typedef $$BooksTableCreateCompanionBuilder = BooksCompanion Function({
+  required String id,
+  Value<String> title,
+  Value<String> author,
+  Value<String> fileName,
+  Value<int> pageCount,
+  Value<int> sizeBytes,
+  Value<String> sha256,
+  Value<String?> shelfId,
+  Value<int> favorite,
+  Value<int> lastPage,
+  Value<int?> lastOpenedAt,
+  required int addedAt,
+  Value<int?> deletedAt,
+  Value<int> rowid,
+});
+typedef $$BooksTableUpdateCompanionBuilder = BooksCompanion Function({
+  Value<String> id,
+  Value<String> title,
+  Value<String> author,
+  Value<String> fileName,
+  Value<int> pageCount,
+  Value<int> sizeBytes,
+  Value<String> sha256,
+  Value<String?> shelfId,
+  Value<int> favorite,
+  Value<int> lastPage,
+  Value<int?> lastOpenedAt,
+  Value<int> addedAt,
+  Value<int?> deletedAt,
+  Value<int> rowid,
+});
+
+class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
+  $$BooksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get author => $composableBuilder(
+    column: $table.author,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fileName => $composableBuilder(
+    column: $table.fileName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get pageCount => $composableBuilder(
+    column: $table.pageCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sizeBytes => $composableBuilder(
+    column: $table.sizeBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sha256 => $composableBuilder(
+    column: $table.sha256,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get shelfId => $composableBuilder(
+    column: $table.shelfId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get favorite => $composableBuilder(
+    column: $table.favorite,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastPage => $composableBuilder(
+    column: $table.lastPage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastOpenedAt => $composableBuilder(
+    column: $table.lastOpenedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$BooksTableOrderingComposer
+    extends Composer<_$AppDatabase, $BooksTable> {
+  $$BooksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get author => $composableBuilder(
+    column: $table.author,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fileName => $composableBuilder(
+    column: $table.fileName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get pageCount => $composableBuilder(
+    column: $table.pageCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sizeBytes => $composableBuilder(
+    column: $table.sizeBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sha256 => $composableBuilder(
+    column: $table.sha256,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get shelfId => $composableBuilder(
+    column: $table.shelfId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get favorite => $composableBuilder(
+    column: $table.favorite,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastPage => $composableBuilder(
+    column: $table.lastPage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastOpenedAt => $composableBuilder(
+    column: $table.lastOpenedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$BooksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BooksTable> {
+  $$BooksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get author =>
+      $composableBuilder(column: $table.author, builder: (column) => column);
+
+  GeneratedColumn<String> get fileName =>
+      $composableBuilder(column: $table.fileName, builder: (column) => column);
+
+  GeneratedColumn<int> get pageCount =>
+      $composableBuilder(column: $table.pageCount, builder: (column) => column);
+
+  GeneratedColumn<int> get sizeBytes =>
+      $composableBuilder(column: $table.sizeBytes, builder: (column) => column);
+
+  GeneratedColumn<String> get sha256 =>
+      $composableBuilder(column: $table.sha256, builder: (column) => column);
+
+  GeneratedColumn<String> get shelfId =>
+      $composableBuilder(column: $table.shelfId, builder: (column) => column);
+
+  GeneratedColumn<int> get favorite =>
+      $composableBuilder(column: $table.favorite, builder: (column) => column);
+
+  GeneratedColumn<int> get lastPage =>
+      $composableBuilder(column: $table.lastPage, builder: (column) => column);
+
+  GeneratedColumn<int> get lastOpenedAt => $composableBuilder(
+    column: $table.lastOpenedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get addedAt =>
+      $composableBuilder(column: $table.addedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+}
+
+class $$BooksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BooksTable,
+          BookRow,
+          $$BooksTableFilterComposer,
+          $$BooksTableOrderingComposer,
+          $$BooksTableAnnotationComposer,
+          $$BooksTableCreateCompanionBuilder,
+          $$BooksTableUpdateCompanionBuilder,
+          (BookRow, BaseReferences<_$AppDatabase, $BooksTable, BookRow>),
+          BookRow,
+          PrefetchHooks Function()
+        > {
+  $$BooksTableTableManager(_$AppDatabase db, $BooksTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BooksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BooksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BooksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String> author = const Value.absent(),
+                Value<String> fileName = const Value.absent(),
+                Value<int> pageCount = const Value.absent(),
+                Value<int> sizeBytes = const Value.absent(),
+                Value<String> sha256 = const Value.absent(),
+                Value<String?> shelfId = const Value.absent(),
+                Value<int> favorite = const Value.absent(),
+                Value<int> lastPage = const Value.absent(),
+                Value<int?> lastOpenedAt = const Value.absent(),
+                Value<int> addedAt = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BooksCompanion(
+                id: id,
+                title: title,
+                author: author,
+                fileName: fileName,
+                pageCount: pageCount,
+                sizeBytes: sizeBytes,
+                sha256: sha256,
+                shelfId: shelfId,
+                favorite: favorite,
+                lastPage: lastPage,
+                lastOpenedAt: lastOpenedAt,
+                addedAt: addedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String> title = const Value.absent(),
+                Value<String> author = const Value.absent(),
+                Value<String> fileName = const Value.absent(),
+                Value<int> pageCount = const Value.absent(),
+                Value<int> sizeBytes = const Value.absent(),
+                Value<String> sha256 = const Value.absent(),
+                Value<String?> shelfId = const Value.absent(),
+                Value<int> favorite = const Value.absent(),
+                Value<int> lastPage = const Value.absent(),
+                Value<int?> lastOpenedAt = const Value.absent(),
+                required int addedAt,
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BooksCompanion.insert(
+                id: id,
+                title: title,
+                author: author,
+                fileName: fileName,
+                pageCount: pageCount,
+                sizeBytes: sizeBytes,
+                sha256: sha256,
+                shelfId: shelfId,
+                favorite: favorite,
+                lastPage: lastPage,
+                lastOpenedAt: lastOpenedAt,
+                addedAt: addedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$BooksTable, BookRow>(table),
+                  BaseReferences<_$AppDatabase, $BooksTable, BookRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$BooksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BooksTable,
+      BookRow,
+      $$BooksTableFilterComposer,
+      $$BooksTableOrderingComposer,
+      $$BooksTableAnnotationComposer,
+      $$BooksTableCreateCompanionBuilder,
+      $$BooksTableUpdateCompanionBuilder,
+      (BookRow, BaseReferences<_$AppDatabase, $BooksTable, BookRow>),
+      BookRow,
+      PrefetchHooks Function()
+    >;
+typedef $$ShelvesTableCreateCompanionBuilder = ShelvesCompanion Function({
+  required String id,
+  required String name,
+  required int createdAt,
+  Value<int> rowid,
+});
+typedef $$ShelvesTableUpdateCompanionBuilder = ShelvesCompanion Function({
+  Value<String> id,
+  Value<String> name,
+  Value<int> createdAt,
+  Value<int> rowid,
+});
+
+class $$ShelvesTableFilterComposer
+    extends Composer<_$AppDatabase, $ShelvesTable> {
+  $$ShelvesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ShelvesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ShelvesTable> {
+  $$ShelvesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ShelvesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ShelvesTable> {
+  $$ShelvesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$ShelvesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ShelvesTable,
+          ShelfRow,
+          $$ShelvesTableFilterComposer,
+          $$ShelvesTableOrderingComposer,
+          $$ShelvesTableAnnotationComposer,
+          $$ShelvesTableCreateCompanionBuilder,
+          $$ShelvesTableUpdateCompanionBuilder,
+          (ShelfRow, BaseReferences<_$AppDatabase, $ShelvesTable, ShelfRow>),
+          ShelfRow,
+          PrefetchHooks Function()
+        > {
+  $$ShelvesTableTableManager(_$AppDatabase db, $ShelvesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ShelvesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ShelvesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ShelvesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ShelvesCompanion(
+                id: id,
+                name: name,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                required int createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => ShelvesCompanion.insert(
+                id: id,
+                name: name,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ShelvesTable, ShelfRow>(table),
+                  BaseReferences<_$AppDatabase, $ShelvesTable, ShelfRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ShelvesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ShelvesTable,
+      ShelfRow,
+      $$ShelvesTableFilterComposer,
+      $$ShelvesTableOrderingComposer,
+      $$ShelvesTableAnnotationComposer,
+      $$ShelvesTableCreateCompanionBuilder,
+      $$ShelvesTableUpdateCompanionBuilder,
+      (ShelfRow, BaseReferences<_$AppDatabase, $ShelvesTable, ShelfRow>),
+      ShelfRow,
       PrefetchHooks Function()
     >;
 typedef $$FieldMetaTableCreateCompanionBuilder = FieldMetaCompanion Function({
@@ -4901,6 +6428,10 @@ class $AppDatabaseManager {
       $$TasksTableTableManager(_db, _db.tasks);
   $$EventsTableTableManager get events =>
       $$EventsTableTableManager(_db, _db.events);
+  $$BooksTableTableManager get books =>
+      $$BooksTableTableManager(_db, _db.books);
+  $$ShelvesTableTableManager get shelves =>
+      $$ShelvesTableTableManager(_db, _db.shelves);
   $$FieldMetaTableTableManager get fieldMeta =>
       $$FieldMetaTableTableManager(_db, _db.fieldMeta);
   $$SyncOutboxTableTableManager get syncOutbox =>

@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:drift/drift.dart' show driftRuntimeOptions;
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:folio/features/library/application/library_controller.dart';
+import 'package:folio/features/library/data/library_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -15,6 +18,16 @@ import 'package:folio/data/sync/sync_service.dart';
 import 'package:folio/features/auth/auth_repository.dart';
 import 'package:folio/features/security/app_lock.dart';
 import 'package:sync_engine/sync_engine.dart';
+
+/// Reads "pages=N" from the file's text instead of running a PDF engine.
+class FakePdfInspector implements PdfInspector {
+  @override
+  Future<PdfInfo?> inspect(String path) async {
+    final text = await File(path).readAsString();
+    final m = RegExp(r'pages=(\d+)').firstMatch(text);
+    return m == null ? null : PdfInfo(pageCount: int.parse(m.group(1)!));
+  }
+}
 
 class FakeAuthenticator implements Authenticator {
   bool available = true;
@@ -92,6 +105,10 @@ class TestEnv {
 
   bool _lockEnabled = false;
 
+  /// Library test doubles: a temp folder, a fake page counter, a fake picker and a stub reader.
+  late final Directory libraryDir = Directory.systemTemp.createTempSync('folio_lib');
+  List<String> picked = [];
+
   List<Override> get overrides => [
         databaseProvider.overrideWithValue(db),
         syncedStoreProvider.overrideWithValue(store),
@@ -100,6 +117,13 @@ class TestEnv {
         authenticatorProvider.overrideWithValue(authenticator),
         appLockProvider.overrideWith(() => AppLockController(authenticator: authenticator, startEnabled: _lockEnabled)),
         syncControllerProvider.overrideWith(() => SyncController(sync, interval: const Duration(days: 1))),
+        libraryDirectoryProvider.overrideWithValue(libraryDir),
+        pdfInspectorProvider.overrideWithValue(FakePdfInspector()),
+        pdfPickerProvider.overrideWithValue(() async => picked),
+        pdfViewBuilderProvider.overrideWithValue((context, file, initial, onPage) => Column(children: [
+              Text('PDF view page $initial'),
+              TextButton(onPressed: () => onPage(7), child: const Text('go to page 7')),
+            ])),
       ];
 
   Widget get app => ProviderScope(overrides: overrides, child: const FolioApp());
