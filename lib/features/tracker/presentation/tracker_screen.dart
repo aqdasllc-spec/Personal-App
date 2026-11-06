@@ -183,7 +183,13 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
           );
           if (narrow) {
             return Column(children: [
-              Row(children: [Flexible(child: options), const Spacer(), add]),
+              Row(children: [
+                Flexible(child: options),
+                // the table's own "+" column is off-screen on a phone, so offer it here too
+                IconButton(tooltip: 'Add property', onPressed: () => showPropertyDialog(context, ref, s), icon: const Icon(Icons.view_column_outlined)),
+                const Spacer(),
+                add,
+              ]),
               const SizedBox(height: Space.s8),
               search,
             ]);
@@ -211,9 +217,9 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen> {
   Future<void> _viewMenu(ViewEntry e) async {
     final choice = await showDialog<String>(
       context: context,
-      builder: (_) => SimpleDialog(title: Text(e.name), children: [
-        SimpleDialogOption(onPressed: () => Navigator.pop(context, 'rename'), child: const Text('Rename view')),
-        SimpleDialogOption(onPressed: () => Navigator.pop(context, 'delete'), child: const Text('Delete view')),
+      builder: (dialogContext) => SimpleDialog(title: Text(e.name), children: [
+        SimpleDialogOption(onPressed: () => Navigator.pop(dialogContext, 'rename'), child: const Text('Rename view')),
+        SimpleDialogOption(onPressed: () => Navigator.pop(dialogContext, 'delete'), child: const Text('Delete view')),
       ]),
     );
     if (!mounted) return;

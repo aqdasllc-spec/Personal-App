@@ -88,10 +88,10 @@ class _TrackerList extends ConsumerWidget {
                     case 'delete':
                       final ok = await showDialog<bool>(
                         context: context,
-                        builder: (_) => AlertDialog(
+                        builder: (dialogContext) => AlertDialog(
                           title: Text('Delete "${t.name}"?'),
                           content: const Text('The tracker and its records will be removed from all your devices.'),
-                          actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete'))],
+                          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Delete'))],
                         ),
                       );
                       if (ok == true) {
@@ -119,13 +119,13 @@ Future<void> showNewTrackerDialog(BuildContext context, WidgetRef ref) async {
   final repo = ref.read(trackerRepositoryProvider);
   final picked = await showDialog<te.TrackerTemplate>(
     context: context,
-    builder: (_) => SimpleDialog(
+    builder: (dialogContext) => SimpleDialog(
       title: const Text('New tracker'),
       children: [
         for (final t in te.builtInTemplates)
           SimpleDialogOption(
             key: Key('template-${t.id}'),
-            onPressed: () => Navigator.pop(context, t),
+            onPressed: () => Navigator.pop(dialogContext, t),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(t.name, style: Theme.of(context).textTheme.titleMedium),
               Text(t.description, style: Theme.of(context).textTheme.bodySmall),

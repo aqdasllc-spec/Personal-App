@@ -60,3 +60,6 @@ Add it to `lib/data/sync/synced_tables.dart` (field → column allow-list) and t
 
 ## Secrets
 Only the Supabase URL and publishable key are compiled into the app. Database encryption key lives in the OS secure store (`DatabaseKeyService`). Do not commit `.env` files or service-role keys.
+
+## Testing rule: go through the real shell
+Widget tests that pump a screen inside a bare `MaterialApp` can hide navigation bugs (e.g. `Navigator.pop(outerContext)` in a dialog works there but pops the *page* inside the app's nested shell navigator → blank screen). Every dialog/sheet must pop with **its own** `dialogContext`, and each user flow needs at least one test that starts from `TestEnv.app` (the real router + shell) — see `test/app/goals_flow_test.dart`.
