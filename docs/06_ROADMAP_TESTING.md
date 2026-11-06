@@ -8,6 +8,7 @@ Sections: **Home, Library, Planner, Settings**. The tracker engine (old Phase 2)
 | 0 Spikes | PDF, encrypted DB, sync model, schema benchmark | done on Linux (see §2b) |
 | 1 Foundation | app shell, design system, encrypted DB, sync core (client + Supabase SQL), auth, app lock, settings, rotation | done and tested headless; **not yet run against live Supabase** |
 | ~~2 Tracker Engine~~ | ~~custom trackers~~ | **removed** |
+| **4 Planner — BUILT (2026-11-06), see §1d** | tasks, events, repeat, time blocks, reminders, Day/Week/Month/Year | built; **not yet tried on a real phone** |
 | 3 Library & Reader | import PDFs, content-addressed store, covers, shelves (shelf/grid/list), PDF reader (render, thumbnails, outline, search, tabs), annotations, bookmarks, progress, export | next |
 | 4 Planner | tasks (table exists), events, day/week/month/year views, recurrence, time blocks, reminders & notifications | after Library |
 | 5 Home | dashboard widgets over tasks, deadlines, reading progress, recents; global search | after Planner |
@@ -15,6 +16,11 @@ Sections: **Home, Library, Planner, Settings**. The tracker engine (old Phase 2)
 | 7 Release | cross-platform QA, security review, performance, store release | — |
 
 *Order note:* the Planner is small compared with the PDF reader; if you want something useful on your phone sooner, Planner first is reasonable — say so.
+
+## 1d. Planner status (2026-11-06)
+**Done and verified here (headless):** DB v4 with tested upgrade paths from v1/v2/v3; repeat rules (daily, weekly with weekdays, monthly with month-end clamping, yearly with 29 Feb, count/until) — tested in UTC, Berlin, New York, Auckland and Kolkata, including daylight-saving boundaries; day agenda (due/planned/all-day/overdue/midnight clipping), month/year counts, overlap layout, reminder selection (cap 60); repository with validation, diff-only writes and "completing a repeating task advances it"; two-device sync (merge of different fields, conflict log for the same field, delete/restore); UI: quick add, task/event editors, Day/Week/Month/Year views, undo, phone/landscape/desktop layouts; reminder planning with a fake scheduler (re-planned on change, not re-sent when unchanged).
+**Built but NOT verified on a device:** real notifications. `LocalNotificationsScheduler` (Android/iOS/macOS) compiles and the APK contains the permissions/receivers, but I have not seen a notification fire. Scheduling is *inexact while idle*: Android may deliver a reminder a few minutes late when dozing (no special exact-alarm permission needed). Windows/Linux use a no-op scheduler (reminders saved, nothing fires) until set up there.
+**Not done:** tapping a notification does not open the item (it just opens the app); editing a single occurrence of a repeating event/task (rules apply to the whole series); events with colours (stored, no picker); drag-to-reschedule and drag-to-resize time blocks; week start day is fixed to Monday; 12/24-hour follows 24 h; the Home dashboard does not yet show planner items; no search across tasks yet; all non-deleted tasks are loaded into memory (fine for personal use, revisit past ~10k).
 
 ## 1b. Phase 1 status (updated 2026-11-06)
 **Done and verified here (Linux, headless):**
