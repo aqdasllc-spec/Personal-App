@@ -109,6 +109,14 @@ class TestEnv {
   late final Directory libraryDir = Directory.systemTemp.createTempSync('folio_lib');
   List<String> picked = [];
 
+  /// Writes a fake PDF (the fake inspector reads the page count from its text).
+  Future<String> writePdf(String name, int pages) async {
+    final dir = await Directory.systemTemp.createTemp('pdf');
+    final f = File('${dir.path}/$name');
+    await f.writeAsString('pages=$pages');
+    return f.path;
+  }
+
   List<Override> get overrides => [
         databaseProvider.overrideWithValue(db),
         syncedStoreProvider.overrideWithValue(store),

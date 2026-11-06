@@ -39,6 +39,8 @@ void main() {
       expect(find.text('Knowledge'), findsNothing);
       expect(t.takeException(), isNull);
       await _dispose(t);
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 1));
     });
   });
 
@@ -52,11 +54,13 @@ void main() {
         await t.pumpAndSettle();
         await t.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text(tab)));
         await settle(t);
-        expect(find.text('Command Center'), findsNothing);
+        expect(find.byKey(const Key('home-quick-add')), findsNothing);
         await t.binding.handlePopRoute();
         await settle(t);
-        expect(find.text('Command Center'), findsOneWidget);
+        expect(find.byKey(const Key('home-quick-add')), findsOneWidget);
         await _dispose(t);
+        await t.pumpWidget(const SizedBox());
+        await t.pump(const Duration(seconds: 1));
       });
     }
   });
@@ -75,6 +79,8 @@ void main() {
         expect(t.takeException(), isNull, reason: 'overflow on $dest');
       }
       await _dispose(t);
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 1));
     });
   });
 
@@ -98,6 +104,8 @@ void main() {
       expect(lock.applied.last, RotationMode.auto);
       expect(await t.runAsync(() => loadRotationMode(env.store.state)), RotationMode.auto);
       await _dispose(t);
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 1));
     });
   });
 }

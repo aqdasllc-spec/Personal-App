@@ -17,6 +17,9 @@ Sections: **Home, Library, Planner, Settings**. The tracker engine (old Phase 2)
 
 *Order note:* the Planner is small compared with the PDF reader; if you want something useful on your phone sooner, Planner first is reasonable — say so.
 
+## 1f. Home (2026-11-06)
+**Built:** greeting + date, quick-add task for today, Today card (overdue, events, tasks with tick boxes, "N of M done"), Coming up (next 7 days), Continue reading (recent books, tap to resume). Tested headless (portrait, wide, landscape); not yet tried on a phone.
+
 ## 1e. Library status (2026-11-06) — first slice
 **Built:** import PDFs (file picker, copied into the app's private folder, originals untouched, duplicate detection by SHA-256, unreadable files reported), shelf / grid / list views, search (title/author/file name), favourites, named shelves (create/rename/delete — books are kept), edit title/author, remove with Undo (purged on next start), reader (pdfrx/PDFium) that reopens on the last page and records recently-opened. DB v5 (local only; the library is **not synced** — PDF bytes are not uploaded).
 **Verified:** repository + widget tests with a fake page counter / fake reader (147 tests green on Linux); the Android release APK builds and contains `libpdfium.so`.

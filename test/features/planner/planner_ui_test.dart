@@ -500,7 +500,7 @@ void main() {
       await openPlanner(t);
       await t.binding.handlePopRoute();
       await settleP(t);
-      expect(find.text('Command Center'), findsOneWidget);
+      expect(find.byKey(const Key('home-quick-add')), findsOneWidget);
       await dispose(t);
     });
   });

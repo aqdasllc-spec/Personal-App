@@ -11,7 +11,7 @@ import '../features/planner/presentation/planner_page.dart';
 import 'shell/adaptive_shell.dart';
 import '../features/library/presentation/library_page.dart';
 import '../features/library/presentation/reader_page.dart';
-import 'shell/placeholder_pages.dart';
+import '../features/home/home_page.dart';
 
 abstract final class Routes {
   static const signIn = '/sign-in';
@@ -49,7 +49,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AdaptiveShell(shell: shell),
         branches: [
-          StatefulShellBranch(routes: [GoRoute(path: Routes.home, builder: (_, __) => const HomePlaceholder())]),
+          StatefulShellBranch(routes: [GoRoute(path: Routes.home, builder: (_, __) => const HomePage())]),
           StatefulShellBranch(routes: [GoRoute(
             path: Routes.library,
             builder: (_, __) => const LibraryPage(),

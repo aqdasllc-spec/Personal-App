@@ -43,6 +43,8 @@ void main() {
       await t.pumpAndSettle();
       expect(find.byType(NavigationRail), findsOneWidget);
       expect(find.byType(NavigationBar), findsNothing);
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 1));
     });
 
     testWidgets('compact: bottom bar with the four sections including Settings', (t) async {
@@ -59,6 +61,8 @@ void main() {
       await t.scrollUntilVisible(find.text('App lock'), 200, scrollable: find.byType(Scrollable).first);
       expect(find.text('App lock'), findsOneWidget);
       expect(find.text('Local only'), findsWidgets);
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 1));
     });
 
     testWidgets('dark theme renders the shell without errors', (t) async {
@@ -72,6 +76,8 @@ void main() {
       expect(Theme.of(ctx).brightness, Brightness.dark);
       expect(ctx.colors.bg, FolioColors.dark.bg);
       expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 1));
     });
   });
 
@@ -86,6 +92,8 @@ void main() {
       await t.pumpAndSettle();
       expect(find.text('Enter your email address.'), findsOneWidget);
       expect(env.auth.calls, isEmpty);
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 1));
     });
 
     testWidgets('successful sign-in lands on Home', (t) async {
@@ -98,7 +106,9 @@ void main() {
       await t.tap(find.text('Sign in'));
       await t.pumpAndSettle();
       expect(env.auth.calls, ['signIn:sam@example.com']);
-      expect(find.text('Command Center'), findsOneWidget);
+      expect(find.byKey(const Key('home-quick-add')), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 1));
     });
 
     testWidgets('server failure is shown in plain language and stays on the page', (t) async {
@@ -113,6 +123,8 @@ void main() {
       await t.pumpAndSettle();
       expect(find.text('Email or password is incorrect.'), findsOneWidget);
       expect(find.text('Welcome back'), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 1));
     });
 
     testWidgets('sign-up enforces the password policy and explains email confirmation', (t) async {
@@ -133,6 +145,8 @@ void main() {
       await t.tap(find.text('Create account'));
       await t.pumpAndSettle();
       expect(find.textContaining('Check your inbox'), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 1));
     });
 
     testWidgets('"Use without an account" enters the app in local-only mode', (t) async {
@@ -143,7 +157,9 @@ void main() {
       await t.ensureVisible(find.text('Use without an account'));
       await t.tap(find.text('Use without an account'));
       await t.pumpAndSettle();
-      expect(find.text('Command Center'), findsOneWidget);
+      expect(find.byKey(const Key('home-quick-add')), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 1));
     });
 
     testWidgets('signing out from Settings returns to sign-in', (t) async {
@@ -158,6 +174,8 @@ void main() {
       await t.pumpAndSettle();
       expect(find.text('Welcome back'), findsOneWidget);
       sem.dispose();
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 1));
     });
   });
 
@@ -168,7 +186,7 @@ void main() {
       await t.pumpWidget(env.app);
       await t.pumpAndSettle();
       expect(find.text('Folio is locked'), findsOneWidget);
-      expect(find.text('Command Center'), findsNothing, reason: 'content must not be visible while locked');
+      expect(find.byKey(const Key('home-quick-add')), findsNothing, reason: 'content must not be visible while locked');
       env.authenticator.succeed = false;
       await t.tap(find.text('Unlock'));
       await t.pumpAndSettle();
@@ -176,7 +194,9 @@ void main() {
       env.authenticator.succeed = true;
       await t.tap(find.text('Unlock'));
       await t.pumpAndSettle();
-      expect(find.text('Command Center'), findsOneWidget);
+      expect(find.byKey(const Key('home-quick-add')), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 1));
     });
   });
 
