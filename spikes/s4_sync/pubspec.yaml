@@ -1,0 +1,5 @@
+name: s4_sync
+description: Spike S-4 - HLC + outbox + field-level LWW with conflict log; randomized convergence test. Throwaway.
+publish_to: none
+environment:
+  sdk: ^3.13.0

@@ -29,6 +29,19 @@ I recommend **two changes** to your order (justified by dependencies; your call,
 | S-6 | Local notifications (scheduled, recurring) incl. Windows/macOS behaviour when app closed; Android exact-alarm limits | Fires within 1 min on all 4 |
 | S-7 | 10k × 20 cells-as-rows benchmark in SQLite (filter/sort/group, table scroll) | p95 query < 50 ms |
 
+## 2b. Phase 0 results (2026-11-06, Linux only — full detail in `spikes/RESULTS.md`)
+| Spike | Result |
+|---|---|
+| S-1 | Partial pass: PDFium render/text/search OK headless; widget, large files, other platforms untested |
+| S-2 | Pass on Linux: real annotations written & read by pypdf + poppler; Acrobat/Preview/Edge/Chrome + other platforms untested |
+| S-3 | Pass on Linux: sqlite3mc and sqlcipher both encrypt, FTS5 works, isolates work; other platforms + Drift untested |
+| S-4 | Pass at model level (5 000 randomized runs); found and fixed a silent-overwrite bug; sets/text-merge/Postgres RPC untested |
+| S-5 | Not started |
+| S-6 | Not started (needs devices) |
+| S-7 | Pass: 10k records p95 < 10 ms; 100k has slow unfiltered aggregates |
+
+**Phase 0 is therefore not fully closed**: the remaining checks need real devices/OSes. Phase 1 can begin on Linux-verified foundations, with these checks added to the Phase 1 exit criteria and `docs/validation-matrix.md`.
+
 ## 3. Testing strategy
 - **Unit:** domain, formula parser/evaluator, filter/sort engine, rollups, HLC & merge, CSV codecs. Target ≥ 90 % in `packages/*`, ≥ 70 % overall.
 - **Property-based:** random formula ASTs (parse∘print identity, no crashes, bounded time); random concurrent op sequences converge and lose no data (every dropped value appears in `conflicts`).

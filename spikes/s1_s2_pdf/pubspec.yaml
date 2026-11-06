@@ -1,0 +1,9 @@
+name: s1_s2_pdf
+description: Spike S-1/S-2 - pdfrx_engine (PDFium) render/text/search and annotation-write feasibility. Throwaway.
+publish_to: none
+environment:
+  sdk: ^3.13.0
+dependencies:
+  pdfrx_engine: ^0.9.1
+  pdfium_dart: any
+  ffi: ^2.1.0

@@ -1,0 +1,19 @@
+# Cross-platform validation matrix
+
+A capability is promised to users only when every column it claims is ✅ with evidence. ⬜ = not tested. Updated 2026-11-06.
+
+| Capability | Linux (dev/CI) | Windows | macOS | Android | iOS | Evidence |
+|---|---|---|---|---|---|---|
+| PDFium render / text / search (engine level) | ✅ | ⬜ | ⬜ | ⬜ | ⬜ | spikes/s1_s2_pdf |
+| pdfrx viewer widget, 500 MB PDF, 3000 pages | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | — |
+| Write real PDF annotations (highlight/underline/ink/note) | ✅ | ⬜ | ⬜ | ⬜ | ⬜ | spikes/s1_s2_pdf/evidence |
+| Annotated PDF opens correctly in external viewer | ✅ poppler | ⬜ Acrobat/Edge | ⬜ Preview | ⬜ | ⬜ | evidence PNG |
+| Encrypted SQLite (sqlite3mc / sqlcipher) + FTS5 | ✅ | ⬜ | ⬜ | ⬜ | ⬜ | spikes/s3_s7_sqlite |
+| Drift on encrypted DB, migrations | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | — |
+| Tracker schema query performance @10k | ✅ (container CPU) | ⬜ | ⬜ | ⬜ mid-range device | ⬜ | spikes/RESULTS.md |
+| Sync convergence model | ✅ (pure Dart) | n/a | n/a | n/a | n/a | spikes/s4_sync |
+| Supabase RLS isolation tests | ⬜ | n/a | n/a | n/a | n/a | — |
+| Local notifications (scheduled/recurring) | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | — |
+| Biometric unlock | n/a | ⬜ | ⬜ | ⬜ | ⬜ | — |
+| Secure storage | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | — |
+| OCR | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | — |

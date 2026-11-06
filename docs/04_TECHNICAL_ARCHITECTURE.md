@@ -10,7 +10,7 @@
 | Routing | go_router | 18.1.3 | Deep links (`folio://note/<id>`), desktop multi-pane routes. |
 | Local DB | **Drift** over SQLite | drift 2.35.3, sqlite3 3.9.0 | Typed queries, reactive streams, migrations with schema tests, FTS5. |
 | SQLite binaries | `package:sqlite3` v3 (native-assets build hooks) | sqlite3 3.9.0 | **`sqlite3_flutter_libs` and `sqlcipher_flutter_libs` are now EOL ("0.x+eol… update to package:sqlite3 3.x")**, so we must NOT depend on them. |
-| DB encryption | SQLCipher via sqlite3 3.x ⚠ | — | The EOL notice implies SQLCipher is reachable through sqlite3 3.x hooks, but I did not verify the exact config on all 4 platforms. Fallback: rely on OS file protection + app-level encryption of attachments/backups, and a DB-key in secure storage (see 05). |
+| DB encryption | **SQLite3MultipleCiphers or SQLCipher via `package:sqlite3` 3.x** (`hooks: user_defines: sqlite3: source: sqlite3mc`) | — | **Spike S-3: verified on Linux** (encrypted on disk, FTS5 works, wrong key rejected, works from a second isolate); package docs list all native platforms. ⚠ Not yet built on Win/mac/iOS/Android or under Drift. Fallback: OS file protection + encrypted blobs/backups. See `spikes/RESULTS.md`. |
 | Cloud | Supabase (Postgres, Auth, Storage, Edge Functions) | supabase_flutter 2.18.3 | Requested. Android/iOS/macOS/Windows listed as supported platforms. |
 | PDF | **pdfrx** (PDFium) | pdfrx 2.12.0 (MIT), pdfrx_engine 0.9.1 | See §6. |
 | Secure storage | flutter_secure_storage | 11.2.0 | Keychain / Keystore / Windows DPAPI-credential store. |
@@ -92,7 +92,7 @@ tracker_templates (id, name, payload_json, builtin)         -- data, not code
 - *Per-field sync and conflicts.* Two devices editing different cells of one row merge cleanly; only the same cell conflicts (§7). A single JSON blob per record would force row-level conflicts.
 - *Indexable filter/sort/group in SQL.* `CREATE INDEX cells_prop_num ON cells(property_id, v_num)` and `…(property_id, v_text)` make filtering a 10 000-row tracker an index range scan, not a Dart loop.
 - *No DDL at runtime.* Adding a property is an `INSERT`, which is safe for migrations, sync and Postgres (no per-user table creation).
-- *Cost:* a record read needs N cell rows (mitigated by one query `WHERE record_id IN (page)` and an in-memory cache keyed by record). Table view loads only visible columns × visible rows. A hot-path benchmark (10k records × 20 props) is a Phase 3 exit criterion.
+- *Cost:* a record read needs N cell rows (mitigated by one query `WHERE record_id IN (page)` and an in-memory cache keyed by record). Table view loads only visible columns × visible rows. Spike S-7 measured this: at 10k records × 20 props every filter/sort/group/page query is p95 < 10 ms; at 100k records paging stays ~1 ms but unfiltered full-column sort/group/aggregate are 70–140 ms (mitigations in `spikes/RESULTS.md`). Device benchmarks remain a Phase 2 exit criterion.
 - *Rejected:* table-per-tracker (runtime DDL, sync complexity), pure JSON1 expression indexes (index per user property is impractical).
 
 **Postgres mirror (Supabase):** identical tables, `cells.v_json` as `jsonb`, `uuid` ids, RLS `owner_id = auth.uid()` on every table, composite indexes the same as local. A `change_log`-driven pull API (see §7).
@@ -144,9 +144,9 @@ Virtualised `TableView`/`SliverList`, keyset pagination (not OFFSET), `WHERE rec
 | `pdf` + `printing` | Dart PDF *generation* | all | not a reader | — | can't edit existing pages | Useful only for flattened export fallback. |
 | Apryse/PSPDFKit-class SDKs | commercial | native SDKs, Flutter wrappers vary | full | full | full | Costly; evaluate only if spikes fail. |
 
-**Recommendation (pending spike S-1/S-2):** **pdfrx** for rendering, text, search, outline, thumbnails, with **our own annotation layer**:
+**Recommendation (S-1/S-2 partially validated on Linux — see `spikes/RESULTS.md`):** **pdfrx** for rendering, text, search, outline, thumbnails, with **our own annotation layer**:
 - Selection → quad-points in PDF user space → stored in `annotations`; drawn as an overlay in the viewer's page-overlay hook; ink stored as simplified strokes (Douglas-Peucker + pressure), sticky notes as anchored pins. This is non-destructive, instantly syncable, searchable and works identically on all platforms.
-- **Export annotated PDF** ⚠: preferred path writes *real* PDF annotation objects through PDFium's annotation API (FPDFPage_CreateAnnot…) via FFI on top of pdfium_dart — **I have not verified that these bindings are exposed or work on all four platforms**. Fallback (guaranteed): vector-flatten overlay into a copy using PDF content-stream append, or raster-flatten pages with `pdf`. Spike S-2 decides; the UI will say "export with editable annotations" only if S-2 passes.
+- **Export annotated PDF** ⚠: preferred path writes *real* PDF annotation objects through PDFium's annotation API via FFI on `pdfium_dart`. **Spike S-2 (Linux): verified** — the bindings expose `FPDFPage_CreateAnnot`, `FPDFAnnot_AppendAttachmentPoints`, `FPDFAnnot_AddInkStroke`, `FPDFAnnot_SetStringValue`, `FPDF_SaveAsCopy`; highlight/underline/ink/note were written to a copy and read correctly by pypdf and rendered correctly by poppler. **Still unverified:** Acrobat/Preview/Edge/Chrome, and the other 4 target platforms. Fallback (guaranteed): vector-flatten overlay into a copy using PDF content-stream append, or raster-flatten pages with `pdf`. Spike S-2 decides; the UI will say "export with editable annotations" only if S-2 passes.
 - Syncfusion remains the fallback if S-1/S-2 fail; the annotation *model* is engine-agnostic (`AnnotationRepository`), and the reader sits behind a `PdfEngine` interface so the swap is contained.
 
 ## 7. Offline-first sync

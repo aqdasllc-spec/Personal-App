@@ -1,0 +1,11 @@
+name: s3_s7_sqlite
+description: Spike S-3 (sqlite3 3.x, FTS5, SQLCipher on Linux) and S-7 (cells-as-rows benchmark). Throwaway.
+publish_to: none
+environment:
+  sdk: ^3.13.0
+dependencies:
+  sqlite3: ^3.9.0
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlite3mc
