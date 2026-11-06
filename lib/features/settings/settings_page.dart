@@ -6,6 +6,7 @@ import '../../app/providers.dart';
 import '../../design_system/components.dart';
 import '../../design_system/tokens.dart';
 import '../auth/auth_repository.dart';
+import 'backup_tiles.dart';
 import 'notifications_tiles.dart';
 import 'rotation.dart';
 
@@ -69,6 +70,7 @@ class SettingsPage extends ConsumerWidget {
           ),
         ]),
       _Section('Notifications', const [NotificationsTiles()]),
+      _Section('Backup', const [BackupTiles()]),
       _Section('Security', [
         SwitchListTile(
           title: const Text('App lock'),

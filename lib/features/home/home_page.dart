@@ -6,6 +6,7 @@ import '../../app/router.dart';
 import '../../data/local/app_database.dart';
 import '../../design_system/components.dart';
 import '../../design_system/tokens.dart';
+import '../backup/backup_controller.dart';
 import '../library/application/library_controller.dart';
 import '../library/presentation/book_visuals.dart';
 import '../planner/application/planner_controller.dart';
@@ -46,6 +47,7 @@ class HomePage extends ConsumerWidget {
                 const SizedBox(height: Space.s16),
                 const _QuickAdd(),
                 const SizedBox(height: Space.s16),
+                const _BackupNudge(),
                 if (wide)
                   Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Expanded(child: cards[0]),
@@ -264,6 +266,35 @@ class _ReadingCard extends ConsumerWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Reminds you to back up once there is something worth losing (never backed up, or not for 14 days).
+class _BackupNudge extends ConsumerWidget {
+  const _BackupNudge();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sum = ref.watch(dataSummaryProvider).value;
+    final last = ref.watch(lastBackupProvider);
+    if (sum == null || last.isLoading) return const SizedBox.shrink();
+    final has = sum.tasks + sum.events + sum.books > 0;
+    final stale = last.value == null || DateTime.now().difference(last.value!).inDays >= 14;
+    if (!has || !stale) return const SizedBox.shrink();
+    final c = context.colors;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Space.s16),
+      child: Container(
+        key: const Key('home-backup-nudge'),
+        padding: const EdgeInsets.all(Space.s12),
+        decoration: BoxDecoration(color: c.accentSoft, borderRadius: BorderRadius.circular(Radii.card)),
+        child: Row(children: [
+          const Icon(Icons.shield_outlined),
+          const SizedBox(width: Space.s12),
+          Expanded(child: Text(last.value == null ? 'Your data lives only on this device. Make a backup.' : 'It has been a while since your last backup.')),
+          TextButton(onPressed: () => context.go(Routes.settings), child: const Text('Back up')),
+        ]),
+      ),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:drift/drift.dart' show driftRuntimeOptions;
 import 'dart:io';
+import 'package:folio/features/backup/backup_service.dart';
 import 'package:flutter/material.dart';
 import 'package:folio/features/library/application/library_controller.dart';
 import 'package:folio/features/library/data/library_repository.dart';
@@ -144,3 +145,6 @@ Future<void> settle(WidgetTester t) async {
   }
   await t.pumpAndSettle();
 }
+
+/// A BackupService over a TestEnv's database (for building backup files in tests).
+BackupService BackupServiceFor(TestEnv e) => BackupService(e.db, e.store, libraryDir: e.libraryDir);

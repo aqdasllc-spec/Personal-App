@@ -17,6 +17,11 @@ Sections: **Home, Library, Planner, Settings**. The tracker engine (old Phase 2)
 
 *Order note:* the Planner is small compared with the PDF reader; if you want something useful on your phone sooner, Planner first is reasonable — say so.
 
+## 1g. Backup & restore (2026-11-06)
+**Built:** Settings → Backup: "Back up now" writes ONE `.folio` file (zip: manifest, data.json with SHA-256 check, every PDF) and opens the system share sheet (save to Files/Drive, send). "Restore from a file" validates the file (not a backup / damaged / tampered / made by a newer app are refused with a plain message), shows a summary, then **only adds what is missing — never deletes or overwrites**; PDFs are checksum-verified before they are accepted. Restored tasks/events go through the normal sync write path. Home nudges when there is data and no backup in 14 days.
+**Verified (Linux, headless):** round trip to an empty device, idempotent restore, local edits survive, duplicate PDFs, tampering, damaged/missing PDFs, share dismissed = not recorded.
+**NOT verified:** the real Android share sheet / Files save, very large libraries (zip is streamed to disk, but restore reads the entry index into memory), iOS/desktop. **Not built:** backup encryption (the file is plaintext — stated in the UI), automatic scheduled backups, restoring a *replace-all* snapshot, cloud backup.
+
 ## 1f. Home (2026-11-06)
 **Built:** greeting + date, quick-add task for today, Today card (overdue, events, tasks with tick boxes, "N of M done"), Coming up (next 7 days), Continue reading (recent books, tap to resume). Tested headless (portrait, wide, landscape); not yet tried on a phone.
 
