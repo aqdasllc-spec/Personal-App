@@ -109,6 +109,8 @@ void main() {
     await t.tap(find.byTooltip('List'));
     await t.pumpAndSettle();
     await t.longPress(find.byKey(Key('book-$id')));
+    await io(t);
+    await t.tap(find.byKey(const Key('peek-more')));
     await t.pumpAndSettle();
     await t.tap(find.byKey(const Key('book-favorite')));
     await io(t);

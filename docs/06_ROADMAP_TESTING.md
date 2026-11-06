@@ -17,6 +17,9 @@ Sections: **Home, Library, Planner, Settings**. The tracker engine (old Phase 2)
 
 *Order note:* the Planner is small compared with the PDF reader; if you want something useful on your phone sooner, Planner first is reasonable — say so.
 
+## 1i. Book preview card (2026-11-07)
+Hover (mouse) or long-press (touch) a book on the shelf, grid, list or Home: a card floats above it with the **first page**, the **full title**, author and progress. Long-press adds Read / More buttons (More = the book menu). The first page is rendered once with PDFium and cached under `<library>/covers/`. Tested with a fake renderer; **the real first-page render is unverified on a device** (falls back to a coloured cover if it fails).
+
 ## 1h. Per-book cloud sync (2026-11-07)
 **Built:** each book has a dot in its top-right corner — red = only on this device, rotating arrows = uploading, green = a copy is in the user's private cloud. Tap red → Sync/Cancel; tap green → Unsync/Cancel (Unsync deletes the cloud copy; the book stays on the phone). Removing a synced book also deletes its cloud copy (if the cloud is unreachable the book stays). Books that exist only in the cloud are offered via a Download banner (checksum-verified). Server: private storage bucket `books` + table `cloud_books`, both locked to the owner by RLS (`supabase/migrations/20261107000000_cloud_books.sql`, SQL-tested on Postgres 16).
 **Verified:** 168 headless tests incl. dot states, dialogs, failures, sign-in requirement, download. Setup SQL ran successfully on the user's Supabase project.

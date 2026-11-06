@@ -90,18 +90,28 @@ class LibraryRepository {
   }
 
   /// Registers a PDF that was downloaded from the cloud into [directory] (already verified).
-  Future<void> addDownloaded({required String id, required String title, required String author, required int pages, required int size, required String sha256}) =>
-      _db.into(_db.books).insert(BooksCompanion.insert(
-            id: id,
-            addedAt: _now().millisecondsSinceEpoch,
-            title: Value(title),
-            author: Value(author),
-            fileName: Value('$title.pdf'),
-            pageCount: Value(pages),
-            sizeBytes: Value(size),
-            sha256: Value(sha256),
-            cloudState: const Value('synced'),
-          ));
+  Future<void> addDownloaded({
+    required String id,
+    required String title,
+    required String author,
+    required int pages,
+    required int size,
+    required String sha256,
+  }) => _db
+      .into(_db.books)
+      .insert(
+        BooksCompanion.insert(
+          id: id,
+          addedAt: _now().millisecondsSinceEpoch,
+          title: Value(title),
+          author: Value(author),
+          fileName: Value('$title.pdf'),
+          pageCount: Value(pages),
+          sizeBytes: Value(size),
+          sha256: Value(sha256),
+          cloudState: const Value('synced'),
+        ),
+      );
 
   Future<BookRow?> book(String id) =>
       (_db.select(_db.books)..where((b) => b.id.equals(id))).getSingleOrNull();
@@ -170,6 +180,8 @@ class LibraryRepository {
     for (final b in gone) {
       final f = fileOf(b);
       if (await f.exists()) await f.delete();
+      final cover = File(p.join(directory.path, 'covers', '${b.id}.png'));
+      if (await cover.exists()) await cover.delete();
       await (_db.delete(_db.books)..where((x) => x.id.equals(b.id))).go();
     }
     return gone.length;

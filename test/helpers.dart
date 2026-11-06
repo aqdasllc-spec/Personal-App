@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'package:drift/drift.dart' show driftRuntimeOptions;
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:folio/features/library/application/covers.dart';
+import 'package:folio/features/library/data/cover_renderer.dart';
 import 'package:folio/features/backup/backup_service.dart';
 import 'package:flutter/material.dart';
 import 'package:folio/features/library/application/book_sync.dart';
@@ -73,6 +77,19 @@ class FakeCloudBooks implements CloudBooks {
   Future<void> download(String bookId, File destination) async {
     await _maybeFail();
     await destination.writeAsBytes(files[bookId]!);
+  }
+}
+
+/// A real 1x1 PNG so Image.memory has something valid to decode.
+final fakePng = base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+
+class FakeCoverRenderer implements CoverRenderer {
+  int calls = 0;
+  Uint8List? bytes = fakePng;
+  @override
+  Future<Uint8List?> renderFirstPage(File pdf, {int width = 420}) async {
+    calls++;
+    return bytes;
   }
 }
 
@@ -165,6 +182,7 @@ class TestEnv {
 
   /// Set to a [FakeCloudBooks] to give the build a cloud shelf (null = build without cloud sync).
   FakeCloudBooks? cloud;
+  final covers = FakeCoverRenderer();
 
   /// Writes a fake PDF (the fake inspector reads the page count from its text).
   Future<String> writePdf(String name, int pages) async {
@@ -187,6 +205,7 @@ class TestEnv {
         syncControllerProvider.overrideWith(syncControllerFactory ?? () => SyncController(sync, interval: const Duration(days: 1))),
         libraryDirectoryProvider.overrideWithValue(libraryDir),
         cloudBooksProvider.overrideWithValue(cloud),
+        coverRendererProvider.overrideWithValue(covers),
         pdfInspectorProvider.overrideWithValue(FakePdfInspector()),
         pdfPickerProvider.overrideWithValue(() async => picked),
         pdfViewBuilderProvider.overrideWithValue((context, file, initial, onPage) => Column(children: [

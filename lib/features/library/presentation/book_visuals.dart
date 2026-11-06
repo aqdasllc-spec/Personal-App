@@ -39,7 +39,13 @@ double spineHeight(BookRow b) => 150 + (_h(b.id) % 5) * 9.0;
 /// The small status dot in a book's top-right corner:
 /// red = only on this device, rotating arrows = syncing, green = a copy is in the cloud. Tap to change.
 class CloudDot extends StatefulWidget {
-  const CloudDot({super.key, required this.book, required this.busy, required this.onTap, this.size = 14});
+  const CloudDot({
+    super.key,
+    required this.book,
+    required this.busy,
+    required this.onTap,
+    this.size = 14,
+  });
   final BookRow book;
   final bool busy;
   final VoidCallback onTap;
@@ -48,8 +54,12 @@ class CloudDot extends StatefulWidget {
   State<CloudDot> createState() => _CloudDotState();
 }
 
-class _CloudDotState extends State<CloudDot> with SingleTickerProviderStateMixin {
-  late final _spin = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+class _CloudDotState extends State<CloudDot>
+    with SingleTickerProviderStateMixin {
+  late final _spin = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  );
 
   @override
   void initState() {
@@ -75,7 +85,11 @@ class _CloudDotState extends State<CloudDot> with SingleTickerProviderStateMixin
     final c = context.colors;
     final synced = widget.book.cloudState == 'synced';
     final color = widget.busy ? c.brass : (synced ? c.ok : c.danger);
-    final label = widget.busy ? 'Syncing' : (synced ? 'Synced to cloud. Tap to remove the cloud copy' : 'Only on this device. Tap to sync to cloud');
+    final label = widget.busy
+        ? 'Syncing'
+        : (synced
+              ? 'Synced to cloud. Tap to remove the cloud copy'
+              : 'Only on this device. Tap to sync to cloud');
     final s = widget.size;
     return Semantics(
       key: Key('cloud-dot-${widget.book.id}'),
@@ -95,9 +109,16 @@ class _CloudDotState extends State<CloudDot> with SingleTickerProviderStateMixin
               color: color,
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 1.5),
-              boxShadow: const [BoxShadow(color: Color(0x55000000), blurRadius: 2)],
+              boxShadow: const [
+                BoxShadow(color: Color(0x55000000), blurRadius: 2),
+              ],
             ),
-            child: widget.busy ? RotationTransition(turns: _spin, child: Icon(Icons.sync, size: s - 4, color: Colors.white)) : null,
+            child: widget.busy
+                ? RotationTransition(
+                    turns: _spin,
+                    child: Icon(Icons.sync, size: s - 4, color: Colors.white),
+                  )
+                : null,
           ),
         ),
       ),
@@ -111,11 +132,12 @@ class Spine extends StatelessWidget {
     super.key,
     required this.book,
     required this.onTap,
-    required this.onLongPress,
+    this.onLongPress,
     this.dot,
   });
   final BookRow book;
-  final VoidCallback onTap, onLongPress;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   /// Optional cloud status dot, drawn in the top-right corner.
   final Widget? dot;
@@ -249,6 +271,12 @@ class CoverTile extends StatelessWidget {
       ),
     );
     if (dot == null) return tile;
-    return Stack(clipBehavior: Clip.none, children: [tile, Positioned(top: -5, right: -5, child: dot!)]);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        tile,
+        Positioned(top: -5, right: -5, child: dot!),
+      ],
+    );
   }
 }

@@ -184,6 +184,8 @@ void main() {
 
     await t.longPress(find.byKey(Key('book-${b.id}')));
     await io(t);
+    await t.tap(find.byKey(const Key('peek-more')));
+    await io(t);
     cloud.failWith = 'Can\'t reach the cloud.';
     await t.ensureVisible(find.byKey(const Key('book-remove')));
     await t.pump();
