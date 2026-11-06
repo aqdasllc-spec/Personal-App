@@ -296,10 +296,10 @@ abstract final class Values {
     if (isEmpty(v)) return '';
     switch (def.type) {
       case PropertyType.number:
-        return '${def.prefix}${_fixed(v as num, def.decimals)}${def.suffix}';
+        return '${def.prefix}${_numText(v as num, def)}${def.suffix}';
       case PropertyType.percent:
         final n = v as num;
-        return '${_fixed(def.percentIsFraction ? n * 100 : n, def.decimals)}%';
+        return '${_numText(def.percentIsFraction ? n * 100 : n, def)}%';
       case PropertyType.progress:
         return '${_fixed(v as num, 0)}%';
       case PropertyType.currency:
@@ -330,6 +330,19 @@ abstract final class Values {
       default:
         return v.toString();
     }
+  }
+
+  /// Numbers show as typed unless the user fixed the decimals: 3.5 stays 3.5, 1234 -> 1,234.
+  static String _numText(num n, PropertyDef def) {
+    if (def.config['decimals'] is int) return _fixed(n, def.decimals);
+    if (n == n.roundToDouble() && n.abs() < 1e15) return _fixed(n, 0);
+    var s = n.toStringAsFixed(6);
+    s = s.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
+    final parts = s.split('.');
+    final neg = parts[0].startsWith('-');
+    final digits = neg ? parts[0].substring(1) : parts[0];
+    final grouped = digits.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
+    return '${neg ? '-' : ''}$grouped${parts.length > 1 ? '.${parts[1]}' : ''}';
   }
 
   static String _fixed(num n, int decimals) {

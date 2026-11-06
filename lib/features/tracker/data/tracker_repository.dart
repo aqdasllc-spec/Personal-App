@@ -40,6 +40,12 @@ class TrackerRepository {
         ..orderBy([(t) => OrderingTerm.asc(t.sortKey), (t) => OrderingTerm.asc(t.id)]))
       .watch();
 
+  /// One-shot read (prefer over `watchTrackers().first`).
+  Future<List<Tracker>> trackers() => (db.select(db.trackers)
+        ..where((t) => t.deletedAt.isNull() & t.archivedAt.isNull())
+        ..orderBy([(t) => OrderingTerm.asc(t.sortKey), (t) => OrderingTerm.asc(t.id)]))
+      .get();
+
   Future<String> createTracker({required String name, String icon = 'table', String color = 'teal', bool withDefaults = true}) {
     return db.transaction(() async {
       final id = store.newId();
@@ -312,6 +318,15 @@ class TrackerRepository {
         ..orderBy([(v) => OrderingTerm.asc(v.sortKey), (v) => OrderingTerm.asc(v.id)]))
       .watch()
       .map((rows) => [for (final r in rows) (r.id, r.name, _viewConfig(r.configJson))]);
+
+  /// One-shot read of a tracker's views: (id, name, config).
+  Future<List<(String, String, te.ViewConfig)>> views(String trackerId) async => [
+        for (final r in await (db.select(db.trackerViews)
+                  ..where((v) => v.trackerId.equals(trackerId) & v.deletedAt.isNull())
+                  ..orderBy([(v) => OrderingTerm.asc(v.sortKey), (v) => OrderingTerm.asc(v.id)]))
+                .get())
+          (r.id, r.name, _viewConfig(r.configJson))
+      ];
 
   te.ViewConfig _viewConfig(String json) {
     try {

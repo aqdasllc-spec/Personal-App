@@ -114,6 +114,12 @@ void main() {
       expect(Values.format(p(PropertyType.currency), 123450), r'$1,234.50');
       expect(Values.format(p(PropertyType.currency), -5), r'-$0.05');
       expect(Values.format(p(PropertyType.percent, {'fraction': true, 'decimals': 1}), 0.256), '25.6%');
+      // no decimals configured: show numbers as typed
+      expect(Values.format(p(PropertyType.number), 3.5), '3.5');
+      expect(Values.format(p(PropertyType.number), 1234), '1,234');
+      expect(Values.format(p(PropertyType.number), 0.1 + 0.2), '0.3');
+      expect(Values.format(p(PropertyType.number), -1234.5678), '-1,234.5678');
+      expect(Values.format(p(PropertyType.number, {'decimals': 0}), 3.5), '4', reason: 'explicit decimals still round');
       expect(Values.format(status, 'c'), 'Done');
       expect(Values.format(status, 'gone'), '(removed)');
       expect(Values.format(p(PropertyType.date, {'includeTime': true}), '2026-11-06T08:05:00.000Z'), '2026-11-06 08:05');
