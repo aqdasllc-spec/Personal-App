@@ -79,6 +79,13 @@ void main() {
     final (env, b) = await open(t, cloud: cloud);
     expect(dot(b), findsOneWidget);
     expect(await dotShows(t, env, b, 'Only on this device'), isTrue);
+    // a rectangle across the top of the book: as wide as the book, 21 high, saying "Sync"
+    final book = t.getRect(find.byKey(Key('book-${b.id}')));
+    final badge = t.getRect(dot(b));
+    expect((badge.width - book.width).abs(), lessThan(1));
+    expect(badge.height, 21);
+    expect((badge.top - book.top).abs(), lessThan(1));
+    expect(find.descendant(of: dot(b), matching: find.text('Sync')), findsOneWidget);
 
     await t.tap(dot(b));
     await io(t);
@@ -98,11 +105,14 @@ void main() {
     await t.tap(dot(b)); // tapping while busy does nothing
     await io(t, untilIdle: false);
     expect(find.text('Sync to cloud?'), findsNothing);
+    expect(find.text('PDF view page 0'), findsNothing, reason: 'the tap must not fall through and open the book');
 
     cloud.gate!.complete();
     await until(t, () => dotShows(t, env, b, 'Synced'));
     await io(t);
     expect(await dotShows(t, env, b, 'Synced'), isTrue);
+    await until(t, () async => find.descendant(of: dot(b), matching: find.text('Synced')).evaluate().isNotEmpty);
+    expect(find.descendant(of: dot(b), matching: find.text('Synced')), findsOneWidget);
     expect((cloud.uploads, String.fromCharCodes(cloud.files[b.id]!), await state(t, env)), (1, 'pages=200', 'synced'));
     expect(cloud.meta[b.id]!.title, 'Deep Work');
     await end(t);

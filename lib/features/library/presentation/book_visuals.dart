@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/local/app_database.dart';
 import '../../../design_system/tokens.dart';
+import '../application/covers.dart';
 import '../application/library_controller.dart';
 
 const _spinePalette = <Color>[
@@ -36,20 +38,22 @@ double spineWidth(BookRow b) =>
     (26 + b.pageCount / 10).clamp(28, 62).toDouble();
 double spineHeight(BookRow b) => 150 + (_h(b.id) % 5) * 9.0;
 
-/// The small status dot in a book's top-right corner:
-/// red = only on this device, rotating arrows = syncing, green = a copy is in the cloud. Tap to change.
+/// Height of the cloud status badge (1.5x the old dot).
+const double cloudBadgeHeight = 21;
+
+/// The cloud status badge: a rectangle across the top of the book, as wide as the book.
+/// red "Sync" = only on this device, rotating arrows = syncing, green "Synced" = a copy is in the cloud.
+/// Tap to change. On very narrow books it shows an icon instead of text.
 class CloudDot extends StatefulWidget {
   const CloudDot({
     super.key,
     required this.book,
     required this.busy,
     required this.onTap,
-    this.size = 14,
   });
   final BookRow book;
   final bool busy;
   final VoidCallback onTap;
-  final double size;
   @override
   State<CloudDot> createState() => _CloudDotState();
 }
@@ -90,7 +94,6 @@ class _CloudDotState extends State<CloudDot>
         : (synced
               ? 'Synced to cloud. Tap to remove the cloud copy'
               : 'Only on this device. Tap to sync to cloud');
-    final s = widget.size;
     return Semantics(
       key: Key('cloud-dot-${widget.book.id}'),
       container: true,
@@ -98,32 +101,79 @@ class _CloudDotState extends State<CloudDot>
       label: label,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: widget.busy ? null : widget.onTap,
-        // a larger invisible hit area around the small dot (min ~32dp touch target)
-        child: Padding(
-          padding: const EdgeInsets.all(9),
-          child: Container(
-            width: s,
-            height: s,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 1.5),
-              boxShadow: const [
-                BoxShadow(color: Color(0x55000000), blurRadius: 2),
-              ],
-            ),
-            child: widget.busy
-                ? RotationTransition(
+        // while syncing, swallow the tap (otherwise it would fall through and open the book)
+        onTap: widget.busy ? () {} : widget.onTap,
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final wide = box.maxWidth >= 44;
+            final Widget content;
+            if (widget.busy) {
+              content = Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  RotationTransition(
                     turns: _spin,
-                    child: Icon(Icons.sync, size: s - 4, color: Colors.white),
-                  )
-                : null,
-          ),
+                    child: const Icon(
+                      Icons.sync,
+                      size: 13,
+                      color: Colors.white,
+                    ),
+                  ),
+                  if (wide) const SizedBox(width: 3),
+                  if (wide) const _BadgeText('Syncing'),
+                ],
+              );
+            } else if (wide) {
+              content = _BadgeText(synced ? 'Synced' : 'Sync');
+            } else {
+              content = Icon(
+                synced ? Icons.cloud_done : Icons.cloud_upload,
+                size: 13,
+                color: Colors.white,
+              );
+            }
+            return Container(
+              height: cloudBadgeHeight,
+              width: double.infinity,
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                color: color,
+                border: const Border(
+                  bottom: BorderSide(color: Color(0x55FFFFFF)),
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x44000000),
+                    blurRadius: 2,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: FittedBox(fit: BoxFit.scaleDown, child: content),
+            );
+          },
         ),
       ),
     );
   }
+}
+
+class _BadgeText extends StatelessWidget {
+  const _BadgeText(this.text);
+  final String text;
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    maxLines: 1,
+    style: const TextStyle(
+      color: Colors.white,
+      fontSize: 10,
+      fontWeight: FontWeight.w700,
+      letterSpacing: .3,
+    ),
+  );
 }
 
 /// A book spine for the realistic shelf.
@@ -178,9 +228,11 @@ class Spine extends StatelessWidget {
             children: [
               Positioned.fill(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 10,
-                    horizontal: 4,
+                  padding: EdgeInsets.fromLTRB(
+                    4,
+                    dot != null ? cloudBadgeHeight + 8 : 10,
+                    4,
+                    10,
                   ),
                   child: RotatedBox(
                     quarterTurns: 1,
@@ -201,7 +253,8 @@ class Spine extends StatelessWidget {
                   ),
                 ),
               ),
-              if (dot != null) Positioned(top: -5, right: -5, child: dot!),
+              if (dot != null)
+                Positioned(top: 0, left: 0, right: 0, child: dot!),
               if (book.favorite == 1)
                 Positioned(
                   bottom: 8,
@@ -234,24 +287,36 @@ class Spine extends StatelessWidget {
 }
 
 /// A small cover-like tile (grid and list use it).
-class CoverTile extends StatelessWidget {
+class CoverTile extends ConsumerWidget {
   const CoverTile({super.key, required this.book, this.size = 56, this.dot});
   final BookRow book;
   final double size;
 
-  /// Optional cloud status dot (top-right corner).
+  /// Optional cloud status badge (across the top of the cover).
   final Widget? dot;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = bookColor(book);
+    final radius = BorderRadius.circular(Radii.input);
+    final cover = ref.watch(coverBytesProvider(book.id)).value;
+    final w = size * .75;
+    final letter = Text(
+      book.title.isEmpty ? '?' : book.title.characters.first.toUpperCase(),
+      style: TextStyle(
+        color: onBookColor(c),
+        fontFamily: 'serif',
+        fontSize: size * .38,
+        fontWeight: FontWeight.w700,
+      ),
+    );
     final tile = Container(
-      width: size * .75,
+      width: w,
       height: size,
       alignment: Alignment.center,
-      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: c,
-        borderRadius: BorderRadius.circular(Radii.input),
+        borderRadius: radius,
         boxShadow: const [
           BoxShadow(
             color: Color(0x33000000),
@@ -260,22 +325,38 @@ class CoverTile extends StatelessWidget {
           ),
         ],
       ),
-      child: Text(
-        book.title.isEmpty ? '?' : book.title.characters.first.toUpperCase(),
-        style: TextStyle(
-          color: onBookColor(c),
-          fontFamily: 'serif',
-          fontSize: size * .38,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
+      // the real first page once it has been rendered, a coloured letter until then (or if it cannot be)
+      child: cover == null
+          ? letter
+          : ClipRRect(
+              borderRadius: radius,
+              child: Image.memory(
+                cover,
+                key: Key('cover-${book.id}'),
+                width: w,
+                height: size,
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+                cacheWidth: (w * 2).round(),
+                gaplessPlayback: true,
+              ),
+            ),
     );
     if (dot == null) return tile;
     return Stack(
-      clipBehavior: Clip.none,
       children: [
         tile,
-        Positioned(top: -5, right: -5, child: dot!),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: ClipRRect(
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(Radii.input),
+            ),
+            child: dot!,
+          ),
+        ),
       ],
     );
   }

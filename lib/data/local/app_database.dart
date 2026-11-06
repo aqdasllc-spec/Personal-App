@@ -93,6 +93,20 @@ class Books extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// A page the reader marked in a book (device-local, like the rest of the library).
+@DataClassName('BookmarkRow')
+@TableIndex(name: 'bookmarks_book', columns: {#bookId})
+class Bookmarks extends Table {
+  TextColumn get id => text()();
+  TextColumn get bookId => text()();
+  IntColumn get page => integer()();
+  TextColumn get label => text().withDefault(const Constant(''))();
+  IntColumn get createdAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// A named bookshelf / collection.
 @DataClassName('ShelfRow')
 class Shelves extends Table {
@@ -154,12 +168,12 @@ class LocalConflicts extends Table {
   IntColumn get resolvedAt => integer().nullable()();
 }
 
-@DriftDatabase(tables: [Tasks, Events, Books, Shelves, FieldMeta, SyncOutbox, SyncState, LocalConflicts])
+@DriftDatabase(tables: [Tasks, Events, Books, Shelves, Bookmarks, FieldMeta, SyncOutbox, SyncState, LocalConflicts])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -215,6 +229,11 @@ class AppDatabase extends _$AppDatabase {
           from5To6: (m, schema) async {
             // v6: per-book cloud copy state.
             await m.addColumn(schema.books, schema.books.cloudState);
+          },
+          from6To7: (m, schema) async {
+            // v7: reader bookmarks.
+            await m.createTable(schema.bookmarks);
+            await m.createIndex(schema.bookmarksBook);
           },
         ),
         beforeOpen: (details) async {

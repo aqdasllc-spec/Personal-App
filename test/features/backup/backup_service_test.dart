@@ -56,6 +56,8 @@ void main() {
     await a.lib.setFavorite(book.id, true);
     await a.lib.saveProgress(book.id, 12);
     await a.lib.importPdf(pdf('Other.pdf', 7));
+    await a.lib.toggleBookmark(book.id, 5);
+    await a.lib.toggleBookmark(book.id, 31);
   }
 
   test('round trip: a new device gets the same tasks, events, shelves, books and PDFs back', () async {
@@ -80,6 +82,7 @@ void main() {
     expect((spec.favorite, spec.lastPage, spec.pageCount, b.lib.fileOf(spec).readAsStringSync()), (1, 12, 40, 'pages=40'));
     expect(spec.shelfId, isNotNull);
     expect((await b.lib.watchShelves().first).single.name, 'Work');
+    expect((await b.lib.watchBookmarks(spec.id).first).map((m) => m.page), [5, 31], reason: 'bookmarks come back with the book');
 
     final srcTask = (await a.env.db.select(a.env.db.tasks).get()).firstWhere((t) => t.title == 'Plain');
     final dstTask = (await b.env.db.select(b.env.db.tasks).get()).firstWhere((t) => t.title == 'Plain');

@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:folio/features/library/application/covers.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/data/local/app_database.dart';
 import 'package:folio/features/library/data/library_repository.dart';
@@ -25,12 +27,13 @@ Future<void> end(WidgetTester t) async {
 
 const longTitle = 'The Extremely Long and Wonderfully Descriptive Title of a Very Important Book: Second Edition';
 
-Future<(TestEnv, BookRow)> open(WidgetTester t, {double w = 411, double h = 890, bool home = false}) async {
+Future<(TestEnv, BookRow)> open(WidgetTester t, {double w = 411, double h = 890, bool home = false, bool renders = true}) async {
   t.view.physicalSize = Size(w, h);
   t.view.devicePixelRatio = 1;
   addTearDown(t.view.reset);
   final env = await TestEnv.create();
   addTearDown(env.db.close);
+  if (!renders) env.covers.bytes = null;
   late BookRow book;
   await t.runAsync(() async {
     final repo = LibraryRepository(env.db, directory: env.libraryDir, inspector: FakePdfInspector());
@@ -68,10 +71,13 @@ void main() {
     await waitFor(t, find.byKey(const Key('peek-image')));
     expect(find.byKey(const Key('peek-image')), findsOneWidget, reason: 'first page');
     expect(env.covers.calls, 1);
-    // it sits above the spine, not over it
-    expect(t.getRect(find.byKey(Key('peek-${b.id}'))).bottom, lessThanOrEqualTo(t.getRect(find.byKey(Key('book-${b.id}'))).top + 1));
+    // centred on the screen
+    final r = t.getRect(find.byKey(Key('peek-${b.id}')));
+    expect((r.center.dx - 411 / 2).abs(), lessThan(2));
+    expect((r.center.dy - 890 / 2).abs(), lessThan(40));
+    expect(r.width, greaterThan(300), reason: 'big enough to read');
 
-    await t.tap(find.byKey(const Key('peek-barrier')), warnIfMissed: false);
+    await t.tapAt(const Offset(4, 4)); // the dimmed area outside the card
     await io(t);
     expect(find.byKey(Key('peek-${b.id}')), findsNothing);
     await end(t);
@@ -123,20 +129,22 @@ void main() {
   });
 
   testWidgets('if the first page cannot be rendered the card still shows the name and a coloured cover; the render is cached on disk', (t) async {
-    final (env, b) = await open(t);
-    env.covers.bytes = null;
+    final (env, b) = await open(t, renders: false);
     await t.longPress(find.byKey(Key('book-${b.id}')));
     await io(t);
     expect(find.byKey(const Key('peek-image')), findsNothing);
     expect(find.text(longTitle), findsWidgets);
-    await t.tap(find.byKey(const Key('peek-barrier')), warnIfMissed: false);
+    await t.tapAt(const Offset(4, 4)); // the dimmed area outside the card
     await io(t);
     expect(Directory('${env.libraryDir.path}/covers').existsSync(), isFalse);
 
     env.covers.bytes = fakePng;
+    ProviderScope.containerOf(t.element(find.byType(NavigationBar))).invalidate(coverBytesProvider); // e.g. next visit
     // a fresh start (cache empty): renders once and writes the file
     await t.tap(find.byTooltip('Grid'));
     await io(t);
+    await waitFor(t, find.byKey(Key('cover-${b.id}')));
+    expect(find.byKey(Key('cover-${b.id}')), findsOneWidget, reason: 'the grid tile now shows the real first page');
     await t.longPress(find.byKey(Key('book-${b.id}')));
     await io(t);
     await waitFor(t, find.byKey(const Key('peek-image')));
@@ -153,7 +161,7 @@ void main() {
       await t.longPress(find.byKey(Key('book-${b.id}')));
       await io(t);
       expect(find.byKey(Key('peek-${b.id}')), findsOneWidget, reason: view);
-      await t.tap(find.byKey(const Key('peek-barrier')), warnIfMissed: false);
+      await t.tapAt(const Offset(4, 4)); // the dimmed area outside the card
       await io(t);
     }
     await end(t);

@@ -104,4 +104,18 @@ void main() {
     // After a purge the same PDF can be added again.
     expect((await repo.importPdf(pdf('a.pdf'))).status, ImportStatus.added);
   });
+
+  test('bookmarks: toggling adds then removes a page; they list by page; removing the book purges them', () async {
+    final b = (await repo.importPdf(pdf('a.pdf'))).book!;
+    expect(await repo.toggleBookmark(b.id, 9), isTrue);
+    expect(await repo.toggleBookmark(b.id, 3), isTrue);
+    expect((await repo.watchBookmarks(b.id).first).map((m) => m.page), [3, 9]);
+    expect(await repo.toggleBookmark(b.id, 9), isFalse, reason: 'second tap on the same page removes it');
+    final m = (await repo.watchBookmarks(b.id).first).single;
+    await repo.renameBookmark(m.id, '  Chapter 1 ');
+    expect((await repo.watchBookmarks(b.id).first).single.label, 'Chapter 1');
+    await repo.remove(b.id);
+    await repo.purge();
+    expect(await db.select(db.bookmarks).get(), isEmpty);
+  });
 }

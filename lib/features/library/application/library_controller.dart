@@ -42,8 +42,19 @@ typedef PdfViewBuilder = Widget Function(
   File file,
   int initialPage,
   void Function(int page) onPage,
+  ReaderControl control,
 );
+
+/// Lets the reader page ask the (native) PDF view to jump to a page, e.g. from a bookmark.
+class ReaderControl {
+  void Function(int page)? goTo;
+}
+
 final pdfViewBuilderProvider = Provider<PdfViewBuilder>((ref) => buildPdfView);
+
+final bookmarksProvider = StreamProvider.family<List<BookmarkRow>, String>(
+  (ref, bookId) => ref.watch(libraryRepositoryProvider).watchBookmarks(bookId),
+);
 
 final booksProvider = StreamProvider<List<BookRow>>(
   (ref) => ref.watch(libraryRepositoryProvider).watchBooks(),

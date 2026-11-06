@@ -17,6 +17,9 @@ Sections: **Home, Library, Planner, Settings**. The tracker engine (old Phase 2)
 
 *Order note:* the Planner is small compared with the PDF reader; if you want something useful on your phone sooner, Planner first is reasonable — say so.
 
+## 1j. Round 3 (2026-11-07)
+**Preview card** now opens centred on the screen (dimmed backdrop on long-press). **Cloud badge** is a rectangle across the top of each book (same width as the book, 21 px high): red "Sync", rotating arrows "Syncing", green "Synced"; icon only on very narrow spines. Bug found by tests and fixed: tapping the badge while syncing used to fall through and open the book. **Real first-page covers** in grid, list and Home tiles (rendered once, cached, at most 2 renders at a time). **Reader bookmarks**: bookmark the current page, list them, jump to a page, remove; included in backups. DB v7. 178 headless tests; on-device behaviour of jump-to-page unverified.
+
 ## 1i. Book preview card (2026-11-07)
 Hover (mouse) or long-press (touch) a book on the shelf, grid, list or Home: a card floats above it with the **first page**, the **full title**, author and progress. Long-press adds Read / More buttons (More = the book menu). The first page is rendered once with PDFium and cached under `<library>/covers/`. Tested with a fake renderer; **the real first-page render is unverified on a device** (falls back to a coloured cover if it fails).
 

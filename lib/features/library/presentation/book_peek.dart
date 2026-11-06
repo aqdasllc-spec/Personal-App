@@ -52,27 +52,14 @@ class _BookPeekTargetState extends State<BookPeekTarget> {
     _interactive = false;
   }
 
-  Rect? _anchor() {
-    final box = context.findRenderObject();
-    if (box is! RenderBox || !box.attached) return null;
-    return box.localToGlobal(Offset.zero) & box.size;
-  }
-
   void _show({required bool interactive}) {
     if (!mounted || (_interactive && !interactive)) return;
-    final anchor = _anchor();
-    if (anchor == null) return;
     _hide();
     _interactive = interactive;
+    // Centred on the screen so the page and the whole name are easy to read.
     final screen = MediaQuery.sizeOf(context);
-    const w = 232.0;
-    final left = (anchor.center.dx - w / 2).clamp(
-      8.0,
-      (screen.width - w - 8).clamp(8.0, double.infinity),
-    );
-    // Above the book when there is room, else below, else centred over it.
-    final above = anchor.top > 330;
-    final below = !above && screen.height - anchor.bottom > 330;
+    final w = (screen.width - 32).clamp(200.0, 360.0);
+    final imageHeight = (screen.height * 0.44).clamp(120.0, 460.0);
     final entry = OverlayEntry(
       builder: (_) => Stack(
         children: [
@@ -82,34 +69,33 @@ class _BookPeekTargetState extends State<BookPeekTarget> {
                 key: const Key('peek-barrier'),
                 behavior: HitTestBehavior.opaque,
                 onTap: _hide,
-                child: const ColoredBox(color: Color(0x33000000)),
+                child: const ColoredBox(color: Color(0x88000000)),
               ),
             ),
-          Positioned(
-            left: left,
-            width: w,
-            bottom: above ? screen.height - anchor.top + 8 : null,
-            top: above
-                ? null
-                : (below
-                      ? anchor.bottom + 8
-                      : (screen.height / 2 - 170).clamp(8.0, double.infinity)),
+          Center(
             child: IgnorePointer(
               ignoring: !interactive,
-              child: _PeekCard(
-                book: widget.book,
-                onRead: !interactive
-                    ? null
-                    : () {
-                        _hide();
-                        widget.onOpen();
-                      },
-                onMore: !interactive || widget.onMore == null
-                    ? null
-                    : () {
-                        _hide();
-                        widget.onMore!();
-                      },
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: w,
+                  maxHeight: screen.height - 32,
+                ),
+                child: _PeekCard(
+                  book: widget.book,
+                  imageHeight: imageHeight,
+                  onRead: !interactive
+                      ? null
+                      : () {
+                          _hide();
+                          widget.onOpen();
+                        },
+                  onMore: !interactive || widget.onMore == null
+                      ? null
+                      : () {
+                          _hide();
+                          widget.onMore!();
+                        },
+                ),
               ),
             ),
           ),
@@ -148,8 +134,14 @@ class _BookPeekTargetState extends State<BookPeekTarget> {
 }
 
 class _PeekCard extends ConsumerWidget {
-  const _PeekCard({required this.book, this.onRead, this.onMore});
+  const _PeekCard({
+    required this.book,
+    required this.imageHeight,
+    this.onRead,
+    this.onMore,
+  });
   final BookRow book;
+  final double imageHeight;
   final VoidCallback? onRead, onMore;
 
   @override
@@ -164,95 +156,99 @@ class _PeekCard extends ConsumerWidget {
       color: c.surface,
       borderRadius: BorderRadius.circular(Radii.card),
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // first page
-          Container(
-            height: 250,
-            color: c.surface2,
-            alignment: Alignment.center,
-            child: cover.when(
-              data: (bytes) => bytes == null
-                  ? CoverTile(book: book, size: 150)
-                  : Image.memory(
-                      bytes,
-                      key: const Key('peek-image'),
-                      fit: BoxFit.contain,
-                      gaplessPlayback: true,
-                    ),
-              loading: () => const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              error: (_, __) => CoverTile(book: book, size: 150),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(Space.s12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  book.title,
-                  key: const Key('peek-title'),
-                  maxLines: 5,
-                  overflow: TextOverflow.ellipsis,
-                  style: t.titleSmall?.copyWith(
-                    fontFamily: 'serif',
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (book.author.isNotEmpty)
-                  Text(
-                    book.author,
-                    key: const Key('peek-author'),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: t.bodySmall,
-                  ),
-                const SizedBox(height: Space.s4),
-                Text(
-                  '${book.pageCount} pages${book.lastPage > 0 ? ' · $pct% read' : ' · not started'}',
-                  style: t.bodySmall?.copyWith(color: c.textMuted),
-                ),
-                if (book.lastPage > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(top: Space.s4),
-                    child: LinearProgressIndicator(
-                      value: readingProgress(book),
-                      minHeight: 3,
-                    ),
-                  ),
-                if (onRead != null) ...[
-                  const SizedBox(height: Space.s12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton(
-                          key: const Key('peek-read'),
-                          onPressed: onRead,
-                          child: Text(book.lastPage > 0 ? 'Continue' : 'Read'),
-                        ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // first page
+            Container(
+              height: imageHeight,
+              color: c.surface2,
+              alignment: Alignment.center,
+              child: cover.when(
+                data: (bytes) => bytes == null
+                    ? CoverTile(book: book, size: 150)
+                    : Image.memory(
+                        bytes,
+                        key: const Key('peek-image'),
+                        fit: BoxFit.contain,
+                        gaplessPlayback: true,
                       ),
-                      if (onMore != null) ...[
-                        const SizedBox(width: Space.s8),
-                        OutlinedButton(
-                          key: const Key('peek-more'),
-                          onPressed: onMore,
-                          child: const Text('More'),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ],
+                loading: () => const SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                error: (_, __) => CoverTile(book: book, size: 150),
+              ),
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(Space.s12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    book.title,
+                    key: const Key('peek-title'),
+                    maxLines: 5,
+                    overflow: TextOverflow.ellipsis,
+                    style: t.titleSmall?.copyWith(
+                      fontFamily: 'serif',
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (book.author.isNotEmpty)
+                    Text(
+                      book.author,
+                      key: const Key('peek-author'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: t.bodySmall,
+                    ),
+                  const SizedBox(height: Space.s4),
+                  Text(
+                    '${book.pageCount} pages${book.lastPage > 0 ? ' · $pct% read' : ' · not started'}',
+                    style: t.bodySmall?.copyWith(color: c.textMuted),
+                  ),
+                  if (book.lastPage > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: Space.s4),
+                      child: LinearProgressIndicator(
+                        value: readingProgress(book),
+                        minHeight: 3,
+                      ),
+                    ),
+                  if (onRead != null) ...[
+                    const SizedBox(height: Space.s12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton(
+                            key: const Key('peek-read'),
+                            onPressed: onRead,
+                            child: Text(
+                              book.lastPage > 0 ? 'Continue' : 'Read',
+                            ),
+                          ),
+                        ),
+                        if (onMore != null) ...[
+                          const SizedBox(width: Space.s8),
+                          OutlinedButton(
+                            key: const Key('peek-more'),
+                            onPressed: onMore,
+                            child: const Text('More'),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

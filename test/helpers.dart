@@ -182,6 +182,9 @@ class TestEnv {
 
   /// Set to a [FakeCloudBooks] to give the build a cloud shelf (null = build without cloud sync).
   FakeCloudBooks? cloud;
+
+  /// Pages the reader was asked to jump to (bookmarks).
+  final jumps = <int>[];
   final covers = FakeCoverRenderer();
 
   /// Writes a fake PDF (the fake inspector reads the page count from its text).
@@ -208,10 +211,16 @@ class TestEnv {
         coverRendererProvider.overrideWithValue(covers),
         pdfInspectorProvider.overrideWithValue(FakePdfInspector()),
         pdfPickerProvider.overrideWithValue(() async => picked),
-        pdfViewBuilderProvider.overrideWithValue((context, file, initial, onPage) => Column(children: [
-              Text('PDF view page $initial'),
-              TextButton(onPressed: () => onPage(7), child: const Text('go to page 7')),
-            ])),
+        pdfViewBuilderProvider.overrideWithValue((context, file, initial, onPage, control) {
+          control.goTo = (p) {
+            jumps.add(p);
+            onPage(p);
+          };
+          return Column(children: [
+            Text('PDF view page $initial'),
+            TextButton(onPressed: () => onPage(7), child: const Text('go to page 7')),
+          ]);
+        }),
       ];
 
   Widget get app => ProviderScope(overrides: overrides, child: const FolioApp());

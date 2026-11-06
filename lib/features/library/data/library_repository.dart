@@ -182,10 +182,52 @@ class LibraryRepository {
       if (await f.exists()) await f.delete();
       final cover = File(p.join(directory.path, 'covers', '${b.id}.png'));
       if (await cover.exists()) await cover.delete();
+      await (_db.delete(
+        _db.bookmarks,
+      )..where((x) => x.bookId.equals(b.id))).go();
       await (_db.delete(_db.books)..where((x) => x.id.equals(b.id))).go();
     }
     return gone.length;
   }
+
+  // ----------------------------------------------------------------- bookmarks
+  Stream<List<BookmarkRow>> watchBookmarks(String bookId) =>
+      (_db.select(_db.bookmarks)
+            ..where((b) => b.bookId.equals(bookId))
+            ..orderBy([(b) => OrderingTerm.asc(b.page)]))
+          .watch();
+
+  /// Adds a bookmark on [page], or removes it if that page is already marked. Returns true if it is marked now.
+  Future<bool> toggleBookmark(String bookId, int page) async {
+    final existing = await (_db.select(
+      _db.bookmarks,
+    )..where((b) => b.bookId.equals(bookId) & b.page.equals(page))).get();
+    if (existing.isNotEmpty) {
+      await (_db.delete(
+        _db.bookmarks,
+      )..where((b) => b.bookId.equals(bookId) & b.page.equals(page))).go();
+      return false;
+    }
+    await _db
+        .into(_db.bookmarks)
+        .insert(
+          BookmarksCompanion.insert(
+            id: _newId(),
+            bookId: bookId,
+            page: page,
+            createdAt: _now().millisecondsSinceEpoch,
+          ),
+        );
+    return true;
+  }
+
+  Future<void> removeBookmark(String id) =>
+      (_db.delete(_db.bookmarks)..where((b) => b.id.equals(id))).go();
+
+  Future<void> renameBookmark(String id, String label) =>
+      (_db.update(_db.bookmarks)..where((b) => b.id.equals(id))).write(
+        BookmarksCompanion(label: Value(label.trim())),
+      );
 
   Future<ShelfRow> createShelf(String name) async {
     final n = name.trim();
