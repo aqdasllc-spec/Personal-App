@@ -38,6 +38,22 @@ I recommend **two changes** to your order (justified by dependencies; your call,
 - Sync covers one entity (`trackers`) and scalar values; multi-value/rich-text field codecs (using `mergeSets`/`mergeText`) are wired in Phase 2.
 - Realtime push (we poll every 60 s and on resume) and background sync on mobile OS schedulers not implemented.
 
+## 1c. Phase 2 status — Tracker Engine (updated 2026-11-06)
+**Done and verified here (Linux, headless):**
+- `packages/tracker_engine` (pure Dart, 114 tests): 23 property types (validate / parse / format / storage), formula language (parser, bounded evaluator, id↔name canonicalisation, cycle detection), filters/sorts/groups + view-config JSON, rollups across linked trackers (incl. goal→project→task progress chain), CSV parse/write/import-plan/export with injection guard, fractional indexing, 5 templates with id remapping.
+- Drift schema v2 + tested v1→v2 migration with seeded data; sync of tracker data (cells, properties, records, links, views) incl. out-of-order arrival; conflict/merge behaviour tested between two devices.
+- `TrackerRepository` (validated writes, ordering, two-way links, soft delete/archive/duplicate, views, templates) and a **SQL query translator verified by a differential test: 6,600 random views over 300 random trackers return identical rows in SQL and in the in-memory reference** (found and fixed two real bugs).
+- UI (31 widget tests): virtualised grid with inline editing, keyboard navigation, multi-select + bulk edit, row/column menus, column resize, undo/redo, option/date/relation/multi-select pickers, property dialog (per-type settings, relation & rollup builders, live formula preview), view options (filters/sorts/group/columns), saved views, Board with drag between columns, List, record detail with subtasks, template picker, phone layout; 1,200-row virtualisation check.
+**Not done (be explicit):**
+- Calendar, Timeline, Gantt, Gallery layouts (planned Phase 3; offered as disabled "(Phase 3)").
+- **Grouping is not rendered in the Table view** (group headers); it only drives the Board.
+- CSV import/export has no screen yet (engine is done and tested; needs a file picker + dialog).
+- Drag to reorder rows and columns (ordering is stored and tested; no drag UI yet), copy/paste of cell ranges, column summary row.
+- People / Files / Images properties have **no editor UI** (types exist; attachments arrive with the Library/storage phase). Rich text is edited as plain text.
+- Changing a property's type with data conversion, record comments, editing *nested* filter groups, "duplicate view".
+- Performance: SQL path measured in-memory on a server CPU only; **nothing measured on a phone**. No GUI run: all UI behaviour is from widget tests, not from looking at a real screen.
+- Undo/redo covers cell/row/property/link edits; not view changes; not persisted across restarts.
+
 ## 2. Phase 0 spikes
 | ID | Question | Pass criteria |
 |---|---|---|

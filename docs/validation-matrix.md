@@ -22,4 +22,8 @@ A capability is promised to users only when every column it claims is ✅ with e
 | App shell/auth/lock widget tests | ✅ | ⬜ | ⬜ | ⬜ | ⬜ | test/app |
 | App launches with GUI, adaptive layouts visually checked | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | — |
 | Supabase transport/auth against a live project | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | — |
+| Tracker engine (pure Dart) + SQL/reference differential | ✅ | n/a | n/a | n/a | n/a | packages/tracker_engine, test/features/tracker |
+| Tracker UI widget tests (grid, board, dialogs, phone layout) | ✅ | ⬜ | ⬜ | ⬜ | ⬜ | test/features/tracker/tracker_ui_test.dart |
+| Tracker UI looked at on a real screen / device | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | — |
+| 10k-row tracker performance on a phone | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | — |
 | OCR | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | — |

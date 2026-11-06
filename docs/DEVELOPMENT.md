@@ -25,6 +25,9 @@ flutter analyze && flutter test                            # app
 (cd packages/sync_engine && dart analyze && dart test)     # sync engine
 ```
 
+## Tracker query differential test
+`DIFF_SCENARIOS=300 flutter test test/features/tracker/query_differential_test.dart` runs random trackers/views through both the SQL path and the in-memory reference and fails on any difference (`DIFF_START=<seed>` reruns a failing seed). Default is 25 scenarios.
+
 ## Database / server tests
 Needs a throwaway Postgres 16 (not a Supabase project):
 ```bash

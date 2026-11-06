@@ -65,7 +65,7 @@ Conventions for **every syncable table**: `id TEXT PK` (UUIDv7, client-generated
 trackers        (id, name, icon, color, description, kind, template_id, archived_at, …sync cols)
 properties      (id, tracker_id, name, type, config_json, sort_key, is_title, width, hidden_default, …sync)
 records         (id, tracker_id, parent_id NULL, sort_key, archived_at, created_by, …sync)
-cells           (record_id, property_id, v_text, v_num, v_int, v_json, hlc, PRIMARY KEY(record_id, property_id))
+cells           (record_id, property_id, raw, v_text, v_num, v_int, v_sort, v_day, PRIMARY KEY(record_id, property_id))   -- as built (Phase 2): raw = canonical JSON (synced); v_* derived for SQL; field HLCs live in field_meta
 record_links    (id, relation_property_id, from_record_id, to_record_id, sort_key, …sync)
 views           (id, tracker_id, name, layout, config_json, sort_key, …sync)
 attachments     (id, owner_type, owner_id, property_id NULL, file_name, mime, size, sha256, local_path, remote_path, upload_state, …sync)
@@ -87,6 +87,8 @@ tracker_templates (id, name, payload_json, builtin)         -- data, not code
 | multi_select, person, files, image, rich_text (Delta/MD) | `v_json` |
 | relation | **not in cells** — rows in `record_links` |
 | rollup, formula, created_time, last_edited_time | **not stored/synced** — computed (see §3.3) |
+
+**As built (Phase 2) — deviations from the sketch above:** (1) `raw` holds the canonical JSON value and is the synced source of truth; the typed columns are *derived* and are rebuilt (`reindexProperty`) if a property definition arrives after its cells or changes. (2) `v_sort` is a case/diacritic-folded copy of text for sorting and `contains`, and `v_day` a UTC day number for date filters; both are computed by one shared function so SQL and the in-memory reference agree. (3) Select/status **rank is not stored** (options can be reordered): it is derived from the current options at query time. Orphaned option ids stay queryable. (4) Two-way relations store **one link row per direction** so each property reads its own edges. (5) `views` is the table name for saved views. (6) The SQL query path handles filters + sorts on stored properties (paged, indexed); grouping, free-text search, computed properties (formula/rollup/created/edited) and multi-select sorting use the **in-memory reference path** (loads the tracker's rows), so they are exact but not indexed — fine to a few thousand rows, a known limit beyond that. A 6,600-view differential test keeps both paths identical.
 
 **Why cells-as-rows (not one JSON blob per record, not a table per tracker):**
 - *Per-field sync and conflicts.* Two devices editing different cells of one row merge cleanly; only the same cell conflicts (§7). A single JSON blob per record would force row-level conflicts.
