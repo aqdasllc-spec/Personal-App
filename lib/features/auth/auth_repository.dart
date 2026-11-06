@@ -41,6 +41,12 @@ abstract interface class AuthRepository {
   Future<bool> signUp(String email, String password);
   Future<void> signOut();
   Future<void> continueLocalOnly();
+
+  /// Whether this build can sign in to a cloud account at all.
+  bool get cloudAvailable;
+
+  /// Leaves local-only mode so the user can sign in or create an account.
+  Future<void> leaveLocalOnly();
 }
 
 /// Rules shared by UI validation and tests. Server-side rules still apply.
@@ -62,20 +68,27 @@ abstract final class AuthValidation {
 }
 
 class SupabaseAuthRepository implements AuthRepository {
-  SupabaseAuthRepository(this._client, {required Future<void> Function() onLocalOnly}) : _onLocalOnly = onLocalOnly {
+  SupabaseAuthRepository(this._client, {required Future<void> Function(bool localOnly) onLocalOnly, bool startLocalOnly = false})
+      : _onLocalOnly = onLocalOnly,
+        _override = startLocalOnly && _client.auth.currentSession == null ? const LocalOnlySession() : null {
     _sub = _client.auth.onAuthStateChange.listen((s) => _emit(_map(s.session)));
   }
 
   final sb.SupabaseClient _client;
-  final Future<void> Function() _onLocalOnly;
+  final Future<void> Function(bool localOnly) _onLocalOnly;
   final _controller = StreamController<AppSession>.broadcast();
   late final StreamSubscription<sb.AuthState> _sub;
   AppSession? _override;
+
+  @override
+  bool get cloudAvailable => true;
 
   static AppSession _map(sb.Session? s) =>
       s == null ? const SignedOutSession() : SignedInSession(userId: s.user.id, email: s.user.email ?? '');
 
   void _emit(AppSession s) {
+    // Supabase reports "signed out" at start-up; that must not undo a chosen local-only mode.
+    if (s is SignedOutSession && _override is LocalOnlySession) return;
     _override = null;
     _controller.add(s);
   }
@@ -114,9 +127,16 @@ class SupabaseAuthRepository implements AuthRepository {
 
   @override
   Future<void> continueLocalOnly() async {
-    await _onLocalOnly();
+    await _onLocalOnly(true);
     _override = const LocalOnlySession();
     _controller.add(const LocalOnlySession());
+  }
+
+  @override
+  Future<void> leaveLocalOnly() async {
+    await _onLocalOnly(false);
+    _override = null;
+    _controller.add(_map(_client.auth.currentSession));
   }
 
   AuthFailure _failure(sb.AuthException e) {
@@ -150,4 +170,8 @@ class LocalOnlyAuthRepository implements AuthRepository {
   Future<void> signOut() async {}
   @override
   Future<void> continueLocalOnly() async {}
+  @override
+  bool get cloudAvailable => false;
+  @override
+  Future<void> leaveLocalOnly() async {}
 }

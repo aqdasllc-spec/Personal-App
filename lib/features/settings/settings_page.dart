@@ -33,7 +33,11 @@ class SettingsPage extends ConsumerWidget {
         ListTile(
           title: Text(switch (session) { SignedInSession s => s.email, LocalOnlySession _ => 'Local only (no account)', SignedOutSession _ => 'Signed out' }),
           subtitle: Text(session is LocalOnlySession ? 'Data stays on this device.' : 'Cloud sync enabled.'),
-          trailing: session is SignedInSession ? TextButton(onPressed: () => ref.read(authRepositoryProvider).signOut(), child: const Text('Sign out')) : null,
+          trailing: session is SignedInSession
+              ? TextButton(onPressed: () => ref.read(authRepositoryProvider).signOut(), child: const Text('Sign out'))
+              : (session is LocalOnlySession && ref.read(authRepositoryProvider).cloudAvailable)
+                  ? FilledButton(key: const Key('settings-sign-in'), onPressed: () => ref.read(authRepositoryProvider).leaveLocalOnly(), child: const Text('Sign in to sync'))
+                  : null,
         ),
       ]),
       _Section('Sync', [

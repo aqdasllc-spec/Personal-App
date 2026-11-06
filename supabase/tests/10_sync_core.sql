@@ -8,7 +8,7 @@ create schema t;
 create or replace function t.as_user(u text) returns void language plpgsql as $$
 begin perform set_config('request.jwt.claim.sub', u, false); end $$;
 create or replace function t.chg(f text, v text, h text, b text, dev text, cid text, row_ text default 'r1:p1') returns jsonb language sql as $$
-  select jsonb_build_object('tbl','cells','row_id',row_,'field',f,'value',to_jsonb(v),'hlc',h,'base_hlc',b,'device_id',dev,'change_id',cid) $$;
+  select jsonb_build_object('tbl','tasks','row_id',row_,'field',f,'value',to_jsonb(v),'hlc',h,'base_hlc',b,'device_id',dev,'change_id',cid) $$;
 create or replace function t.assert(cond boolean, msg text) returns void language plpgsql as $$
 begin if not coalesce(cond,false) then raise exception 'ASSERT FAILED: %', msg; end if; end $$;
 create or replace function t.throws(sql text, expect text) returns void language plpgsql as $$
@@ -58,11 +58,11 @@ select t.assert((select array_agg(seq order by seq) from change_log) = (select a
 
 -- 7. validation
 select t.throws($q$select apply_changes('[{"tbl":"evil","row_id":"r","field":"f","value":1,"hlc":"000000000001-0000-a","device_id":"d","change_id":"c"}]')$q$, 'invalid table');
-select t.throws($q$select apply_changes('[{"tbl":"cells","row_id":"r","field":"f","value":1,"hlc":"bad","device_id":"d","change_id":"c"}]')$q$, 'invalid hlc');
-select t.throws($q$select apply_changes('[{"tbl":"cells","row_id":"r","field":"bad field!","value":1,"hlc":"000000000001-0000-a","device_id":"d","change_id":"c"}]')$q$, 'invalid field');
+select t.throws($q$select apply_changes('[{"tbl":"tasks","row_id":"r","field":"f","value":1,"hlc":"bad","device_id":"d","change_id":"c"}]')$q$, 'invalid hlc');
+select t.throws($q$select apply_changes('[{"tbl":"tasks","row_id":"r","field":"bad field!","value":1,"hlc":"000000000001-0000-a","device_id":"d","change_id":"c"}]')$q$, 'invalid field');
 select t.throws($q$select apply_changes('{"not":"array"}')$q$, 'json array');
 select t.throws($q$select apply_changes((select jsonb_agg('{}'::jsonb) from generate_series(1,501)))$q$, 'batch too large');
-select t.throws($q$select apply_changes(jsonb_build_array(jsonb_build_object('tbl','cells','row_id','r','field','f','value',repeat('x',1100000),'hlc','000000000001-0000-a','device_id','d','change_id','big')))$q$, 'value too large');
+select t.throws($q$select apply_changes(jsonb_build_array(jsonb_build_object('tbl','tasks','row_id','r','field','f','value',repeat('x',1100000),'hlc','000000000001-0000-a','device_id','d','change_id','big')))$q$, 'value too large');
 
 -- 8. collation: HLC ordering is byte order (C), identical to Dart String.compareTo
 select t.assert('000000000010-0000-a' > '00000000000f-ffff-z'::text collate "C", 'hex ordering');
@@ -79,7 +79,7 @@ select t.as_user(:'A');
 select t.assert((select value #>> '{}' from sync_fields where row_id='r1:p1') = 'z', 'A value untouched by B writing same key');
 
 -- 10. direct DML is denied for clients (only the RPC writes)
-select t.throws($q$insert into sync_fields(owner_id,tbl,row_id,field,value,hlc,updated_seq) values (auth.uid(),'cells','x','y','1','000000000001-0000-a',1)$q$, 'permission denied');
+select t.throws($q$insert into sync_fields(owner_id,tbl,row_id,field,value,hlc,updated_seq) values (auth.uid(),'tasks','x','y','1','000000000001-0000-a',1)$q$, 'permission denied');
 select t.throws($q$update sync_fields set value='"hacked"'$q$, 'permission denied');
 select t.throws($q$delete from change_log$q$, 'permission denied');
 select t.throws($q$select * from applied_changes$q$, 'permission denied');

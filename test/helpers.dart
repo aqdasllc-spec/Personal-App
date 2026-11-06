@@ -79,6 +79,13 @@ class FakeAuthRepository implements AuthRepository {
   Future<void> signOut() async => _set(const SignedOutSession());
   @override
   Future<void> continueLocalOnly() async => _set(const LocalOnlySession());
+  @override
+  bool cloudAvailable = true;
+  @override
+  Future<void> leaveLocalOnly() async {
+    calls.add('leaveLocalOnly');
+    _set(const SignedOutSession());
+  }
 }
 
 /// Tests intentionally create several in-memory databases.
@@ -118,6 +125,9 @@ class TestEnv {
     return f.path;
   }
 
+  /// Replace the sync controller (e.g. to add sign-in gating).
+  SyncController Function()? syncControllerFactory;
+
   List<Override> get overrides => [
         databaseProvider.overrideWithValue(db),
         syncedStoreProvider.overrideWithValue(store),
@@ -125,7 +135,7 @@ class TestEnv {
         syncServiceProvider.overrideWithValue(sync),
         authenticatorProvider.overrideWithValue(authenticator),
         appLockProvider.overrideWith(() => AppLockController(authenticator: authenticator, startEnabled: _lockEnabled)),
-        syncControllerProvider.overrideWith(() => SyncController(sync, interval: const Duration(days: 1))),
+        syncControllerProvider.overrideWith(syncControllerFactory ?? () => SyncController(sync, interval: const Duration(days: 1))),
         libraryDirectoryProvider.overrideWithValue(libraryDir),
         pdfInspectorProvider.overrideWithValue(FakePdfInspector()),
         pdfPickerProvider.overrideWithValue(() async => picked),

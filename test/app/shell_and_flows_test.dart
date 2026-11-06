@@ -162,6 +162,31 @@ void main() {
       await t.pump(const Duration(seconds: 1));
     });
 
+    testWidgets('local-only user can choose "Sign in to sync" from Settings (only when the build has cloud sync)', (t) async {
+      _size(t, 1400, 900);
+      final env = await TestEnv.create(session: const LocalOnlySession());
+      await t.pumpWidget(env.app);
+      await t.pumpAndSettle();
+      await t.tap(find.bySemanticsLabel('Settings').first);
+      await t.pumpAndSettle();
+      await t.tap(find.byKey(const Key('settings-sign-in')));
+      await t.pumpAndSettle();
+      expect(find.text('Welcome back'), findsOneWidget);
+      expect(env.auth.calls, contains('leaveLocalOnly'));
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 1));
+
+      final env2 = await TestEnv.create(session: const LocalOnlySession());
+      env2.auth.cloudAvailable = false;
+      await t.pumpWidget(env2.app);
+      await t.pumpAndSettle();
+      await t.tap(find.bySemanticsLabel('Settings').first);
+      await t.pumpAndSettle();
+      expect(find.byKey(const Key('settings-sign-in')), findsNothing);
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 1));
+    });
+
     testWidgets('signing out from Settings returns to sign-in', (t) async {
       final sem = t.ensureSemantics();
       _size(t, 1400, 900);

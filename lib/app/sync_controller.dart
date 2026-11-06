@@ -24,8 +24,14 @@ class SyncStatus {
 
 /// Drives [SyncService] and exposes status for the UI. `service == null` means local-only.
 class SyncController extends Notifier<SyncStatus> {
-  SyncController(this.service, {this.interval = const Duration(seconds: 60), Random? jitter}) : _random = jitter ?? Random();
+  SyncController(this.service, {this.interval = const Duration(seconds: 60), Random? jitter, this.isSignedIn, this.accountConflict}) : _random = jitter ?? Random();
   final SyncService? service;
+
+  /// Cloud sync only runs for a signed-in user. Null = always allowed (tests / no gating).
+  final bool Function()? isSignedIn;
+
+  /// Returns a message when this device's data belongs to a different account (sync must not mix them).
+  final Future<String?> Function()? accountConflict;
   final Duration interval;
   final Random _random;
   Timer? _timer;
@@ -47,6 +53,15 @@ class SyncController extends Notifier<SyncStatus> {
     final s = service;
     if (s == null) return;
     _timer?.cancel();
+    if (isSignedIn != null && !isSignedIn!()) {
+      state = SyncStatus(phase: SyncPhase.localOnly, pending: await s.pendingCount(), lastSync: await s.lastSuccessfulSync());
+      return;
+    }
+    final conflict = await accountConflict?.call();
+    if (conflict != null) {
+      state = SyncStatus(phase: SyncPhase.attention, pending: await s.pendingCount(), error: conflict);
+      return;
+    }
     state = state.copyWith(phase: SyncPhase.syncing, pending: await s.pendingCount());
     try {
       await s.sync();

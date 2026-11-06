@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design_system/theme.dart';
+import '../features/auth/auth_repository.dart';
 import 'providers.dart';
 import 'router.dart';
 
@@ -42,6 +43,10 @@ class _FolioAppState extends ConsumerState<FolioApp> with WidgetsBindingObserver
 
   @override
   Widget build(BuildContext context) {
+    // Start syncing the moment the user signs in.
+    ref.listen(sessionProvider, (prev, next) {
+      if (next.value is SignedInSession && prev?.value is! SignedInSession) ref.read(syncControllerProvider.notifier).syncNow();
+    });
     return MaterialApp.router(
       title: 'Folio',
       debugShowCheckedModeBanner: false,

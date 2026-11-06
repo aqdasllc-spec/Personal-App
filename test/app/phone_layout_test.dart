@@ -94,7 +94,10 @@ void main() {
       await t.pumpAndSettle();
       await t.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('Settings')));
       await settle(t);
+      await t.scrollUntilVisible(find.text('Screen rotation'), 200, scrollable: find.byType(Scrollable).first);
       expect(find.text('Screen rotation'), findsOneWidget);
+      await t.ensureVisible(find.text('Portrait'));
+      await t.pump();
       await t.tap(find.text('Portrait'));
       await settle(t);
       expect(lock.applied, [RotationMode.portrait]);

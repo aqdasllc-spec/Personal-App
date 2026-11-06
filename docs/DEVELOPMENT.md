@@ -60,3 +60,12 @@ Only the Supabase URL and publishable key are compiled into the app. Database en
 
 ## Testing rule: go through the real shell
 Widget tests that pump a screen inside a bare `MaterialApp` can hide navigation bugs (e.g. `Navigator.pop(outerContext)` in a dialog works there but pops the *page* inside the app's nested shell navigator → blank screen). Every dialog/sheet must pop with **its own** `dialogContext`, and each user flow needs at least one test that starts from `TestEnv.app` (the real router + shell) — see `test/app/phone_layout_test.dart`.
+
+
+## Cloud sync (Supabase)
+1. In the Supabase dashboard → SQL Editor, run `supabase/migrations/20261106000000_sync_core.sql` once (creates the sync tables, row-level security and `apply_changes`).
+2. Auth → Providers → Email: enabled. For a personal app, turn **Confirm email** off (otherwise sign-up needs a link that opens in a browser).
+3. Build with the project URL and the *publishable* key (never the secret/service-role key):
+   `flutter build apk --release --dart-define=SUPABASE_URL=https://<ref>.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=<key>`
+   Without these the app runs local-only. The key is deliberately not committed.
+4. Rules in the app: sync runs only when signed in; the first account to sync owns the device database, and a different account is refused rather than mixed in; "Local only" is remembered across restarts and can be left from Settings → Account → Sign in to sync.

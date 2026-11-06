@@ -48,7 +48,9 @@ Future<void> main() async {
   SyncService? sync;
   if (_supabaseUrl.isNotEmpty && _supabaseKey.isNotEmpty) {
     await Supabase.initialize(url: _supabaseUrl, publishableKey: _supabaseKey);
-    auth = SupabaseAuthRepository(Supabase.instance.client, onLocalOnly: () => store.setState('mode', 'local'));
+    auth = SupabaseAuthRepository(Supabase.instance.client,
+        startLocalOnly: (await store.state('mode')) == 'local',
+        onLocalOnly: (local) => store.setState('mode', local ? 'local' : 'cloud'));
     sync = SyncService(store, SupabaseSyncTransport(Supabase.instance.client));
   }
 
@@ -68,7 +70,20 @@ Future<void> main() async {
           startEnabled: lockEnabled,
           persistEnabled: (v) => store.setState('app_lock_enabled', v ? '1' : '0'),
         )),
-      syncControllerProvider.overrideWith(() => SyncController(sync)),
+      syncControllerProvider.overrideWith(() => SyncController(
+        sync,
+        isSignedIn: () => auth.current is SignedInSession,
+        accountConflict: () async {
+          // Never mix two accounts' data on one device: the first account to sync owns this database.
+          final user = (auth.current as SignedInSession).userId;
+          final owner = await store.state('sync_owner');
+          if (owner == null) {
+            await store.setState('sync_owner', user);
+            return null;
+          }
+          return owner == user ? null : 'This device already holds data from another account, so it will not sync with this one.';
+        },
+      )),
       rotationProvider.overrideWith(() => RotationController(rotation)),
       reminderSchedulerProvider.overrideWithValue(createReminderScheduler()),
       libraryDirectoryProvider.overrideWithValue(libraryDir),

@@ -95,10 +95,7 @@ declare
   cur_hlc    text; cur_val jsonb;
   n_acc      int := 0; n_conf int := 0; n_dup int := 0;
   new_seq    bigint;
-  allowed_tbl constant text[] := array[
-    'trackers','properties','records','cells','record_links','views','comments','reminders',
-    'documents','shelves','shelf_items','annotations','bookmarks','notes','note_links',
-    'tags','taggings','tasks','events','dashboard_widgets','app_settings'];
+  allowed_tbl constant text[] := array['tasks','events']; -- add a table here when it starts to sync
 begin
   if uid is null then raise exception 'not authenticated' using errcode = '28000'; end if;
   if jsonb_typeof(changes) is distinct from 'array' then raise exception 'changes must be a json array' using errcode = '22023'; end if;
