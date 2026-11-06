@@ -1,0 +1,8 @@
+name: sync_engine
+description: Pure-Dart sync primitives - hybrid logical clock, field-level conflict resolution, set and text merges.
+publish_to: none
+environment:
+  sdk: ^3.13.0
+dev_dependencies:
+  test: ^1.25.0
+  lints: ^6.0.0
