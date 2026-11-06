@@ -1,5 +1,4 @@
 import '../local/app_database.dart';
-import 'cell_sync.dart';
 
 /// Writes/handles one field of a custom-stored table. Runs inside the store's transaction.
 typedef FieldHook = Future<void> Function(AppDatabase db, String rowId, String field, Object? value, int wallMs);
@@ -13,55 +12,20 @@ class SyncedTable {
   final Map<String, String> fieldToColumn;
   final String createdAtColumn;
 
-  /// Replaces the generic column write (used by `cells`).
+  /// Replaces the generic column write (for tables that need derived columns).
   final FieldHook? custom;
 
   /// Runs after a field was applied (local edit or remote change).
   final FieldHook? afterApply;
 }
 
-Future<void> _reindexOnDefChange(AppDatabase db, String rowId, String field, Object? value, int wallMs) async {
-  if (field == 'type' || field == 'config_json') await reindexProperty(db, rowId);
-}
-
-Future<void> _touchOwnRecord(AppDatabase db, String rowId, String field, Object? value, int wallMs) => touchRecord(db, rowId, wallMs);
-
 final Map<String, SyncedTable> syncedTables = {
-  'trackers': const SyncedTable('trackers', {
-    'name': 'name',
-    'icon': 'icon',
-    'color': 'color',
-    'sort_key': 'sort_key',
-    'archived_at': 'archived_at',
-    'deleted_at': 'deleted_at',
-  }),
-  'properties': const SyncedTable('properties', {
-    'tracker_id': 'tracker_id',
-    'name': 'name',
-    'type': 'type',
-    'config_json': 'config_json',
-    'sort_key': 'sort_key',
-    'deleted_at': 'deleted_at',
-  }, afterApply: _reindexOnDefChange),
-  'records': const SyncedTable('records', {
-    'tracker_id': 'tracker_id',
-    'parent_id': 'parent_id',
-    'sort_key': 'sort_key',
-    'archived_at': 'archived_at',
-    'deleted_at': 'deleted_at',
-  }, afterApply: _touchOwnRecord),
-  'cells': const SyncedTable('cells', {'value': 'raw'}, custom: applyCellField),
-  'record_links': const SyncedTable('record_links', {
-    'relation_property_id': 'relation_property_id',
-    'from_record_id': 'from_record_id',
-    'to_record_id': 'to_record_id',
-    'sort_key': 'sort_key',
-    'deleted_at': 'deleted_at',
-  }),
-  'views': const SyncedTable('views', {
-    'tracker_id': 'tracker_id',
-    'name': 'name',
-    'config_json': 'config_json',
+  'tasks': const SyncedTable('tasks', {
+    'title': 'title',
+    'notes': 'notes',
+    'priority': 'priority',
+    'due_at': 'due_at',
+    'done_at': 'done_at',
     'sort_key': 'sort_key',
     'deleted_at': 'deleted_at',
   }),

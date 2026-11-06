@@ -2,96 +2,19 @@ import 'package:drift/drift.dart';
 
 part 'app_database.g.dart';
 
-/// First synced entity (Phase 1). The full tracker engine tables arrive in Phase 2.
-class Trackers extends Table {
+/// Planner tasks - the first real synced entity. (Events, time blocks and recurrence build on this.)
+@DataClassName('TaskRow')
+class Tasks extends Table {
   TextColumn get id => text()();
-  TextColumn get name => text().withDefault(const Constant(''))();
-  TextColumn get icon => text().withDefault(const Constant(''))();
-  TextColumn get color => text().withDefault(const Constant(''))();
-  TextColumn get sortKey => text().withDefault(const Constant(''))();
-  IntColumn get archivedAt => integer().nullable()();
-  IntColumn get deletedAt => integer().nullable()();
-  IntColumn get createdAt => integer()();
+  TextColumn get title => text().withDefault(const Constant(''))();
+  TextColumn get notes => text().withDefault(const Constant(''))();
 
-  @override
-  Set<Column> get primaryKey => {id};
-}
+  /// '', 'low', 'medium' or 'high'.
+  TextColumn get priority => text().withDefault(const Constant(''))();
 
-/// Column definitions of a tracker.
-@DataClassName('PropertyRow')
-class Properties extends Table {
-  TextColumn get id => text()();
-  TextColumn get trackerId => text().withDefault(const Constant(''))();
-  TextColumn get name => text().withDefault(const Constant(''))();
-  TextColumn get type => text().withDefault(const Constant('text'))();
-  TextColumn get configJson => text().withDefault(const Constant('{}'))();
-  TextColumn get sortKey => text().withDefault(const Constant(''))();
-  IntColumn get deletedAt => integer().nullable()();
-  IntColumn get createdAt => integer()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-@DataClassName('RecordRow')
-class Records extends Table {
-  TextColumn get id => text()();
-  TextColumn get trackerId => text().withDefault(const Constant(''))();
-  TextColumn get parentId => text().nullable()();
-  TextColumn get sortKey => text().withDefault(const Constant(''))();
-  IntColumn get archivedAt => integer().nullable()();
-  IntColumn get deletedAt => integer().nullable()();
-  IntColumn get createdAt => integer()();
-
-  /// Wall-clock ms of the latest change to the record or any of its cells (any device).
-  IntColumn get updatedAt => integer().withDefault(const Constant(0))();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-/// One row per non-empty cell ("cells-as-rows", docs/04 §3.1). [raw] is the canonical JSON value
-/// (source of truth, what is synced); the v* columns are derived from it for indexed SQL.
-@DataClassName('CellRow')
-class Cells extends Table {
-  TextColumn get recordId => text()();
-  TextColumn get propertyId => text()();
-  TextColumn get raw => text()();
-  TextColumn get vText => text().nullable()();
-  RealColumn get vNum => real().nullable()();
-  IntColumn get vInt => integer().nullable()();
-  TextColumn get vSort => text().nullable()();
-  IntColumn get vDay => integer().nullable()();
-
-  @override
-  Set<Column> get primaryKey => {recordId, propertyId};
-}
-
-/// Relation edges. Two-way relations store one row per direction so each property reads its own.
-@DataClassName('RecordLinkRow')
-class RecordLinks extends Table {
-  TextColumn get id => text()();
-  TextColumn get relationPropertyId => text().withDefault(const Constant(''))();
-  TextColumn get fromRecordId => text().withDefault(const Constant(''))();
-  TextColumn get toRecordId => text().withDefault(const Constant(''))();
-  TextColumn get sortKey => text().withDefault(const Constant(''))();
-  IntColumn get deletedAt => integer().nullable()();
-  IntColumn get createdAt => integer()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-/// Saved views (queries + presentation); own no records.
-@DataClassName('ViewRow')
-class TrackerViews extends Table {
-  @override
-  String get tableName => 'views';
-
-  TextColumn get id => text()();
-  TextColumn get trackerId => text().withDefault(const Constant(''))();
-  TextColumn get name => text().withDefault(const Constant(''))();
-  TextColumn get configJson => text().withDefault(const Constant('{}'))();
+  /// Due date/time, epoch milliseconds (UTC).
+  IntColumn get dueAt => integer().nullable()();
+  IntColumn get doneAt => integer().nullable()();
   TextColumn get sortKey => text().withDefault(const Constant(''))();
   IntColumn get deletedAt => integer().nullable()();
   IntColumn get createdAt => integer()();
@@ -150,50 +73,40 @@ class LocalConflicts extends Table {
   IntColumn get resolvedAt => integer().nullable()();
 }
 
-@DriftDatabase(tables: [Trackers, Properties, Records, Cells, RecordLinks, TrackerViews, FieldMeta, SyncOutbox, SyncState, LocalConflicts])
+@DriftDatabase(tables: [Tasks, FieldMeta, SyncOutbox, SyncState, LocalConflicts])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
           await customStatement('CREATE INDEX outbox_order ON sync_outbox (id)');
-          await _createTrackerIndexes();
+          await customStatement('CREATE INDEX tasks_due ON tasks (due_at) WHERE deleted_at IS NULL');
         },
         onUpgrade: (m, from, to) async {
           // Every schema change adds a step here and a migration test (test/data/migration_test.dart).
-          if (from < 2) {
-            await m.createTable(properties);
-            await m.createTable(records);
-            await m.createTable(cells);
-            await m.createTable(recordLinks);
-            await m.createTable(trackerViews);
-            await _createTrackerIndexes();
+          if (from < 3) {
+            // v3: the custom-tracker feature was removed from the product (user decision 2026-11-06).
+            // Drop its tables AND every piece of sync bookkeeping that refers to them, so no pending
+            // edit for a deleted table is ever pushed to the server.
+            const removed = ['trackers', 'properties', 'records', 'cells', 'record_links', 'views'];
+            for (final t in removed) {
+              await customStatement('DROP TABLE IF EXISTS $t');
+              await customStatement("DELETE FROM sync_outbox WHERE tbl = '$t'");
+              await customStatement("DELETE FROM field_meta WHERE tbl = '$t'");
+              await customStatement("DELETE FROM local_conflicts WHERE tbl = '$t'");
+            }
+            // the sync cursor now points past changes for tables we no longer keep: harmless, they are skipped on apply
+            await m.createTable(tasks);
+            await customStatement('CREATE INDEX tasks_due ON tasks (due_at) WHERE deleted_at IS NULL');
           }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
         },
       );
-
-  Future<void> _createTrackerIndexes() async {
-    for (final s in const [
-      'CREATE INDEX properties_tracker ON properties (tracker_id, sort_key)',
-      'CREATE INDEX records_tracker ON records (tracker_id, sort_key)',
-      'CREATE INDEX records_parent ON records (parent_id)',
-      'CREATE INDEX cells_prop_num ON cells (property_id, v_num) WHERE v_num IS NOT NULL',
-      'CREATE INDEX cells_prop_text ON cells (property_id, v_text) WHERE v_text IS NOT NULL',
-      'CREATE INDEX cells_prop_sort ON cells (property_id, v_sort) WHERE v_sort IS NOT NULL',
-      'CREATE INDEX cells_prop_day ON cells (property_id, v_day) WHERE v_day IS NOT NULL',
-      'CREATE INDEX links_from ON record_links (relation_property_id, from_record_id)',
-      'CREATE INDEX links_to ON record_links (to_record_id)',
-      'CREATE INDEX views_tracker ON views (tracker_id, sort_key)',
-    ]) {
-      await customStatement(s);
-    }
-  }
 }

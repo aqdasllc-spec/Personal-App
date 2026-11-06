@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:drift/drift.dart' show driftRuntimeOptions;
 import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:folio/app/app.dart';
@@ -102,4 +103,12 @@ class TestEnv {
       ];
 
   Widget get app => ProviderScope(overrides: overrides, child: const FolioApp());
+}
+
+/// Pump a few short frames so debounced work and database futures complete, then settle.
+Future<void> settle(WidgetTester t) async {
+  for (var i = 0; i < 6; i++) {
+    await t.pump(const Duration(milliseconds: 80));
+  }
+  await t.pumpAndSettle();
 }

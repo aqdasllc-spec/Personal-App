@@ -17,7 +17,7 @@ const _signedIn = SignedInSession(userId: 'u', email: 'sam@example.com');
 
 void main() {
   group('adaptive navigation', () {
-    testWidgets('expanded: sidebar with all six sections, no rail or bottom bar', (t) async {
+    testWidgets('expanded: sidebar with the four sections, no rail or bottom bar', (t) async {
       final sem = t.ensureSemantics();
       _size(t, 1400, 900);
       final env = await TestEnv.create();
@@ -25,12 +25,12 @@ void main() {
       await t.pumpAndSettle();
       expect(find.byType(NavigationRail), findsNothing);
       expect(find.byType(NavigationBar), findsNothing);
-      for (final label in ['Home', 'Library', 'Goals & Projects', 'Knowledge', 'Planner', 'Settings']) {
+      for (final label in ['Home', 'Library', 'Planner', 'Settings']) {
         expect(find.bySemanticsLabel(label), findsWidgets, reason: label);
       }
       await t.tap(find.bySemanticsLabel('Library').first);
       await t.pumpAndSettle();
-      expect(find.text('Import PDFs, arrange bookshelves and read with annotations.\nPlanned for Phase 4.'), findsOneWidget);
+      expect(find.text('Import PDFs, arrange bookshelves and read with annotations.\nPlanned for the next phase.'), findsOneWidget);
       sem.dispose();
     });
 
@@ -43,14 +43,16 @@ void main() {
       expect(find.byType(NavigationBar), findsNothing);
     });
 
-    testWidgets('compact: bottom bar with 5 sections; Settings reachable from the top bar', (t) async {
+    testWidgets('compact: bottom bar with the four sections including Settings', (t) async {
       _size(t, 400, 800);
       final env = await TestEnv.create();
       await t.pumpWidget(env.app);
       await t.pumpAndSettle();
       expect(find.byType(NavigationBar), findsOneWidget);
-      expect(find.byType(NavigationDestination), findsNWidgets(5));
-      await t.tap(find.byTooltip('Settings'));
+      expect(find.byType(NavigationDestination), findsNWidgets(4));
+      expect(find.text('Goals'), findsNothing, reason: 'Goals & Projects was removed');
+      expect(find.text('Knowledge'), findsNothing);
+      await t.tap(find.text('Settings').last);
       await t.pumpAndSettle();
       await t.scrollUntilVisible(find.text('App lock'), 200, scrollable: find.byType(Scrollable).first);
       expect(find.text('App lock'), findsOneWidget);

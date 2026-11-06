@@ -15,29 +15,17 @@ class _Soon extends StatelessWidget {
 class HomePlaceholder extends StatelessWidget {
   const HomePlaceholder({super.key});
   @override
-  Widget build(BuildContext context) => const _Soon(Icons.home_outlined, 'Command Center', 'Phase 5', 'Your goals, deadlines and reading progress will gather here.');
+  Widget build(BuildContext context) => const _Soon(Icons.home_outlined, 'Command Center', 'a later phase', 'Today\'s tasks, upcoming deadlines and your reading progress will gather here.');
 }
 
 class LibraryPlaceholder extends StatelessWidget {
   const LibraryPlaceholder({super.key});
   @override
-  Widget build(BuildContext context) => const _Soon(Icons.auto_stories_outlined, 'Library', 'Phase 4', 'Import PDFs, arrange bookshelves and read with annotations.');
-}
-
-class GoalsPlaceholder extends StatelessWidget {
-  const GoalsPlaceholder({super.key});
-  @override
-  Widget build(BuildContext context) => const _Soon(Icons.track_changes_outlined, 'Goals & Projects', 'Phases 2–3', 'Build your own trackers with tables, boards, calendars and more.');
-}
-
-class KnowledgePlaceholder extends StatelessWidget {
-  const KnowledgePlaceholder({super.key});
-  @override
-  Widget build(BuildContext context) => const _Soon(Icons.edit_note_outlined, 'Knowledge', 'Phase 5', 'Notes, journals and a graph of how your ideas connect.');
+  Widget build(BuildContext context) => const _Soon(Icons.auto_stories_outlined, 'Library', 'the next phase', 'Import PDFs, arrange bookshelves and read with annotations.');
 }
 
 class PlannerPlaceholder extends StatelessWidget {
   const PlannerPlaceholder({super.key});
   @override
-  Widget build(BuildContext context) => const _Soon(Icons.calendar_month_outlined, 'Planner', 'Phase 3', 'Plan your day, week and year with time blocks and reminders.');
+  Widget build(BuildContext context) => const _Soon(Icons.calendar_month_outlined, 'Planner', 'after the Library', 'Plan your day, week and year with tasks, time blocks and reminders.');
 }

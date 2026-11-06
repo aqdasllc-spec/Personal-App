@@ -1,6 +1,8 @@
 # Folio (working title) — personal library & productivity app
 
-**Status: Phase 1 (Foundation) in progress — verified headless on Linux only; see `docs/06_ROADMAP_TESTING.md` §1b for exactly what is and isn't done.** Developer setup: `docs/DEVELOPMENT.md`.
+**Sections: Home, Library, Planner, Settings** (Goals & Projects, Knowledge and the Tracker Engine were removed on 2026-11-06).
+
+**Status: Phase 1 (Foundation) done; Library is next — verified headless on Linux only; see `docs/06_ROADMAP_TESTING.md` §1b for exactly what is and isn't done.** Developer setup: `docs/DEVELOPMENT.md`.
 
 | Folder | Contents |
 |---|---|

@@ -25,8 +25,8 @@ class Dev {
     return Dev(db, store, t, SyncService(store, t));
   }
 
-  Future<Tracker?> tracker(String id) =>
-      (db.select(db.trackers)..where((t) => t.id.equals(id))).getSingleOrNull();
+  Future<TaskRow?> task(String id) =>
+      (db.select(db.tasks)..where((t) => t.id.equals(id))).getSingleOrNull();
 }
 
 void main() {
@@ -43,20 +43,20 @@ void main() {
   test('edit on device A appears on device B after sync; column and field clock are written atomically', () async {
     final a = await Dev.create(server, 'devA', now);
     final b = await Dev.create(server, 'devB', now);
-    await a.store.setFields('trackers', 't1', {'name': 'Reading', 'color': 'teal'});
+    await a.store.setFields('tasks', 't1', {'title': 'Reading', 'notes': 'teal'});
     expect(await a.sync.pendingCount(), 2);
     await a.sync.sync();
     expect(await a.sync.pendingCount(), 0);
     final r = await b.sync.sync();
     expect(r.pulled, 2);
-    final t = await b.tracker('t1');
-    expect((t!.name, t.color), ('Reading', 'teal'));
+    final t = await b.task('t1');
+    expect((t!.title, t.notes), ('Reading', 'teal'));
   });
 
   test('offline edits queue, nothing is lost, and sync resumes when the network returns', () async {
     final a = await Dev.create(server, 'devA', now);
     a.transport.offline = true;
-    await a.store.setFields('trackers', 't1', {'name': 'Offline name'});
+    await a.store.setFields('tasks', 't1', {'title': 'Offline name'});
     await expectLater(a.sync.sync(), throwsA(isA<SyncTransportException>()));
     expect(await a.sync.pendingCount(), 1, reason: 'outbox retained after failure');
     final row = await a.db.select(a.db.syncOutbox).getSingle();
@@ -65,26 +65,26 @@ void main() {
     a.transport.offline = false;
     await a.sync.sync();
     expect(await a.sync.pendingCount(), 0);
-    expect(server.state[const FieldKey('trackers', 't1', 'name')]!.value, 'Offline name');
+    expect(server.state[const FieldKey('tasks', 't1', 'title')]!.value, 'Offline name');
     expect(await a.sync.lastSuccessfulSync(), isNotNull);
   });
 
   test('concurrent edits to the SAME field: newer wins everywhere, loser is preserved as a conflict', () async {
     final a = await Dev.create(server, 'devA', now);
     final b = await Dev.create(server, 'devB', now);
-    await a.store.setFields('trackers', 't1', {'name': 'Base'});
+    await a.store.setFields('tasks', 't1', {'title': 'Base'});
     await a.sync.sync();
     await b.sync.sync();
     // both go offline and edit the same field
     clock += 1000;
-    await a.store.setFields('trackers', 't1', {'name': 'From A'});
+    await a.store.setFields('tasks', 't1', {'title': 'From A'});
     clock += 1000;
-    await b.store.setFields('trackers', 't1', {'name': 'From B (later)'});
+    await b.store.setFields('tasks', 't1', {'title': 'From B (later)'});
     await a.sync.sync();
     await b.sync.sync();
     await a.sync.sync();
-    expect((await a.tracker('t1'))!.name, 'From B (later)');
-    expect((await b.tracker('t1'))!.name, 'From B (later)');
+    expect((await a.task('t1'))!.title, 'From B (later)');
+    expect((await b.task('t1'))!.title, 'From B (later)');
     final lost = await a.db.select(a.db.localConflicts).get();
     expect(lost, hasLength(1));
     expect(lost.single.lostValueJson, '"From A"', reason: 'the overwritten value is kept for review');
@@ -96,18 +96,18 @@ void main() {
   test('concurrent edits to DIFFERENT fields merge without any conflict', () async {
     final a = await Dev.create(server, 'devA', now);
     final b = await Dev.create(server, 'devB', now);
-    await a.store.setFields('trackers', 't1', {'name': 'N', 'color': 'red'});
+    await a.store.setFields('tasks', 't1', {'title': 'N', 'notes': 'red'});
     await a.sync.sync();
     await b.sync.sync();
     clock += 10;
-    await a.store.setFields('trackers', 't1', {'name': 'N2'});
-    await b.store.setFields('trackers', 't1', {'color': 'blue'});
+    await a.store.setFields('tasks', 't1', {'title': 'N2'});
+    await b.store.setFields('tasks', 't1', {'notes': 'blue'});
     for (final d in [a, b, a, b]) {
       await d.sync.sync();
     }
     for (final d in [a, b]) {
-      final t = (await d.tracker('t1'))!;
-      expect((t.name, t.color), ('N2', 'blue'));
+      final t = (await d.task('t1'))!;
+      expect((t.title, t.notes), ('N2', 'blue'));
     }
     expect(server.conflicts, isEmpty);
   });
@@ -118,12 +118,12 @@ void main() {
     var db = openEncrypted(file, key);
     var store = await SyncedStore.open(db, now: now, deviceId: 'devA');
     clock = 5000000000000;
-    await store.setFields('trackers', 't1', {'name': 'one'});
+    await store.setFields('tasks', 't1', {'title': 'one'});
     await db.close();
     clock = 1000; // system clock went backwards while the app was closed
     db = openEncrypted(file, key);
     store = await SyncedStore.open(db, now: now, deviceId: 'devA');
-    await store.setFields('trackers', 't1', {'name': 'two'});
+    await store.setFields('tasks', 't1', {'title': 'two'});
     final rows = await (db.select(db.syncOutbox)..orderBy([(o) => OrderingTerm.asc(o.id)])).get();
     expect(Hlc.parse(rows[1].hlc) > Hlc.parse(rows[0].hlc), isTrue);
     expect(rows[1].baseHlc, rows[0].hlc, reason: 'second edit is causally based on the first');
@@ -142,7 +142,7 @@ void main() {
         switch (r.nextInt(4)) {
           case 0:
           case 1:
-            await d.store.setFields('trackers', 't${r.nextInt(2)}', {['name', 'color', 'icon'][r.nextInt(3)]: 'v${seed}_$step'});
+            await d.store.setFields('tasks', 't${r.nextInt(2)}', {['title', 'notes', 'priority'][r.nextInt(3)]: 'v${seed}_$step'});
           case 2:
             d.transport.offline = r.nextInt(3) == 0;
             try {
@@ -162,10 +162,10 @@ void main() {
       }
       for (final d in devs) {
         for (final id in ['t0', 't1']) {
-          final row = await d.tracker(id);
-          for (final f in ['name', 'color', 'icon']) {
-            final expected = srv.state[FieldKey('trackers', id, f)]?.value;
-            final actual = row == null ? null : {'name': row.name, 'color': row.color, 'icon': row.icon}[f];
+          final row = await d.task(id);
+          for (final f in ['title', 'notes', 'priority']) {
+            final expected = srv.state[FieldKey('tasks', id, f)]?.value;
+            final actual = row == null ? null : {'title': row.title, 'notes': row.notes, 'priority': row.priority}[f];
             expect(actual == '' ? null : actual, expected, reason: 'seed $seed ${d.store.deviceId} $id.$f');
           }
         }
@@ -186,13 +186,13 @@ void main() {
     const key = 'aa112233445566778899aabbccddeeff00112233445566778899aabbccddeeff';
     final db = openEncrypted(file, key);
     final store = await SyncedStore.open(db, now: now, deviceId: 'd');
-    await store.setFields('trackers', 't1', {'name': 'TOP-SECRET-TRACKER-NAME'});
+    await store.setFields('tasks', 't1', {'title': 'TOP-SECRET-TASK-TITLE'});
     await db.close();
-    expect(String.fromCharCodes(file.readAsBytesSync()).contains('TOP-SECRET-TRACKER-NAME'), isFalse);
+    expect(String.fromCharCodes(file.readAsBytesSync()).contains('TOP-SECRET-TASK-TITLE'), isFalse);
     final wrong = openEncrypted(file, '${'bb' * 32}');
-    await expectLater(wrong.select(wrong.trackers).get(), throwsA(anything));
+    await expectLater(wrong.select(wrong.tasks).get(), throwsA(anything));
     final ok = openEncrypted(file, key);
-    expect((await ok.select(ok.trackers).get()).single.name, 'TOP-SECRET-TRACKER-NAME');
+    expect((await ok.select(ok.tasks).get()).single.title, 'TOP-SECRET-TASK-TITLE');
     await ok.close();
   });
 }

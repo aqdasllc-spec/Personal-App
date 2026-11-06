@@ -1,5 +1,9 @@
 # 04 — Technical Architecture
 
+> **SCOPE CHANGE (2026-11-06, user decision).** The app is now **Home, Library, Planner and Settings** only.
+> **Goals & Projects, Knowledge and the custom Tracker Engine were removed** (code, local tables and tests deleted; the full history stays in git). Anything below about trackers, goals/projects, knowledge/notes/graph or the tracker schema is **historical and not planned**. See `docs/07_DECISIONS_AND_RISKS.md` § Scope change and the revised roadmap in `docs/06_ROADMAP_TESTING.md` §1.
+
+
 > Package versions below were read from the pub.dev API on **2026-11-06**. "Verified" means documented in the package's official page/metadata. **Nothing has been built or run on any target platform yet** (the planning container is Linux with no Flutter SDK). Items marked ⚠ must pass a Phase 0 spike (doc 06) before we promise them.
 
 ## 1. Technology stack

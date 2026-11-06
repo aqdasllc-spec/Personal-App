@@ -20,7 +20,7 @@ void main() {
     final c = ProviderContainer(overrides: env.overrides);
     addTearDown(c.dispose);
     final ctrl = c.read(syncControllerProvider.notifier);
-    await env.store.setFields('trackers', 't1', {'name': 'A', 'color': 'x'});
+    await env.store.setFields('tasks', 't1', {'title': 'A', 'notes': 'x'});
 
     env.transport!.offline = true;
     await ctrl.syncNow();

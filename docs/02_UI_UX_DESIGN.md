@@ -1,5 +1,9 @@
 # 02 — UI / UX Design
 
+> **SCOPE CHANGE (2026-11-06, user decision).** The app is now **Home, Library, Planner and Settings** only.
+> **Goals & Projects, Knowledge and the custom Tracker Engine were removed** (code, local tables and tests deleted; the full history stays in git). Anything below about trackers, goals/projects, knowledge/notes/graph or the tracker schema is **historical and not planned**. See `docs/07_DECISIONS_AND_RISKS.md` § Scope change and the revised roadmap in `docs/06_ROADMAP_TESTING.md` §1.
+
+
 Interactive concepts: open [`/design/index.html`](../design/index.html) in any browser (theme toggle top-right; tabs for every screen). Rendered PNGs of every screen in **light and dark** are in [`/design/screens`](../design/screens). They are static prototypes with illustrative sample content — not app functionality.
 
 ## 1. Design language: "Editorial Library + Modern Productivity"

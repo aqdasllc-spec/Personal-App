@@ -6,7 +6,6 @@ import '../features/auth/auth_repository.dart';
 import '../features/auth/sign_in_page.dart';
 import '../features/security/lock_screen.dart';
 import '../features/settings/settings_page.dart';
-import '../features/tracker/presentation/trackers_page.dart';
 import 'providers.dart';
 import 'shell/adaptive_shell.dart';
 import 'shell/placeholder_pages.dart';
@@ -16,8 +15,6 @@ abstract final class Routes {
   static const locked = '/locked';
   static const home = '/home';
   static const library = '/library';
-  static const goals = '/goals';
-  static const knowledge = '/knowledge';
   static const planner = '/planner';
   static const settings = '/settings';
 }
@@ -48,8 +45,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         branches: [
           StatefulShellBranch(routes: [GoRoute(path: Routes.home, builder: (_, __) => const HomePlaceholder())]),
           StatefulShellBranch(routes: [GoRoute(path: Routes.library, builder: (_, __) => const LibraryPlaceholder())]),
-          StatefulShellBranch(routes: [GoRoute(path: Routes.goals, builder: (_, __) => const TrackersPage())]),
-          StatefulShellBranch(routes: [GoRoute(path: Routes.knowledge, builder: (_, __) => const KnowledgePlaceholder())]),
           StatefulShellBranch(routes: [GoRoute(path: Routes.planner, builder: (_, __) => const PlannerPlaceholder())]),
           StatefulShellBranch(routes: [GoRoute(path: Routes.settings, builder: (_, __) => const SettingsPage())]),
         ],

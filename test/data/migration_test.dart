@@ -28,26 +28,45 @@ void main() {
     expect(GeneratedHelper.versions, [for (var v = 1; v <= db.schemaVersion; v++) v]);
   });
 
-  test('upgrade from v1 keeps existing data, creates the tracker-engine tables and indexes', () async {
-    final schema = await verifier.schemaAt(1);
-    // seed data as a v1 install would have it
-    schema.rawDatabase.execute("INSERT INTO trackers (id, name, icon, color, sort_key, created_at) VALUES ('t1', 'Reading', 'book', 'teal', 'a', 1700000000000)");
-    schema.rawDatabase.execute("INSERT INTO field_meta (tbl, row_id, field, hlc) VALUES ('trackers', 't1', 'name', '00018bcfe56a-0000-dev')");
-    schema.rawDatabase.execute("INSERT INTO sync_outbox (tbl, row_id, field, value_json, hlc, change_id, created_at) VALUES ('trackers', 't1', 'name', '\"Reading\"', '00018bcfe56a-0000-dev', 'c1', 1)");
-    schema.rawDatabase.execute("INSERT INTO sync_state (key, value) VALUES ('device_id', 'dev-1')");
+  /// Data a v1/v2 install would have: tracker tables, sync bookkeeping for them, and device state.
+  void seedLegacy(dynamic raw, {required bool v2}) {
+    raw.execute("INSERT INTO trackers (id, name, icon, color, sort_key, created_at) VALUES ('t1', 'Reading', 'book', 'teal', 'a', 1700000000000)");
+    raw.execute("INSERT INTO field_meta (tbl, row_id, field, hlc) VALUES ('trackers', 't1', 'name', '00018bcfe56a-0000-dev')");
+    raw.execute("INSERT INTO sync_outbox (tbl, row_id, field, value_json, hlc, change_id, created_at) VALUES ('trackers', 't1', 'name', '\"Reading\"', '00018bcfe56a-0000-dev', 'c1', 1)");
+    raw.execute("INSERT INTO local_conflicts (server_id, tbl, row_id, field, lost_value_json, lost_hlc, winner_hlc, created_at) VALUES (1, 'trackers', 't1', 'name', '\"x\"', 'a', 'b', 1)");
+    raw.execute("INSERT INTO sync_state (key, value) VALUES ('device_id', 'dev-1'), ('cursor', '42')");
+    if (v2) {
+      raw.execute("INSERT INTO records (id, tracker_id, sort_key, created_at) VALUES ('r1', 't1', 'a', 1)");
+      raw.execute("INSERT INTO cells (record_id, property_id, raw) VALUES ('r1', 'p1', '\"x\"')");
+      raw.execute("INSERT INTO sync_outbox (tbl, row_id, field, value_json, hlc, change_id, created_at) VALUES ('cells', 'r1:p1', 'value', '\"x\"', '00018bcfe56b-0000-dev', 'c2', 2)");
+    }
+  }
 
-    final db = AppDatabase(schema.newConnection());
-    addTearDown(db.close);
-    await verifier.migrateAndValidate(db, 2);
+  for (final from in [1, 2]) {
+    test('upgrade from v$from: removed tracker tables and their sync records are gone, device identity and the sync cursor survive', () async {
+      final schema = await verifier.schemaAt(from);
+      seedLegacy(schema.rawDatabase, v2: from == 2);
 
-    final t = await db.select(db.trackers).getSingle();
-    expect((t.id, t.name, t.icon), ('t1', 'Reading', 'book'));
-    expect((await db.select(db.syncOutbox).get()), hasLength(1), reason: 'pending sync edits survive an upgrade');
-    expect((await db.select(db.syncState).getSingle()).value, 'dev-1');
+      final db = AppDatabase(schema.newConnection());
+      addTearDown(db.close);
+      await verifier.migrateAndValidate(db, 3);
 
-    // the new tables are usable and the performance indexes exist
-    await db.customStatement("INSERT INTO records (id, tracker_id, sort_key, created_at) VALUES ('r1', 't1', 'a', 1)");
-    final idx = await db.customSelect("SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'cells_prop_%'").get();
-    expect(idx.length, 4);
-  });
+      final tables = (await db.customSelect("SELECT name FROM sqlite_master WHERE type = 'table'").get()).map((r) => r.read<String>('name')).toSet();
+      for (final gone in ['trackers', 'properties', 'records', 'cells', 'record_links', 'views']) {
+        expect(tables, isNot(contains(gone)), reason: '$gone should be dropped');
+      }
+      expect(tables, contains('tasks'));
+      // nothing for a deleted table may remain to be pushed to the server
+      expect(await db.select(db.syncOutbox).get(), isEmpty, reason: 'pending edits for removed tables must not survive');
+      expect(await db.select(db.fieldMeta).get(), isEmpty);
+      expect(await db.select(db.localConflicts).get(), isEmpty);
+      final state = {for (final r in await db.select(db.syncState).get()) r.key: r.value};
+      expect(state, {'device_id': 'dev-1', 'cursor': '42'}, reason: 'this device keeps its identity and position in the change feed');
+      // the new table works
+      await db.customStatement("INSERT INTO tasks (id, title, created_at) VALUES ('k1', 'first task', 1)");
+      expect((await db.select(db.tasks).getSingle()).title, 'first task');
+      final idx = await db.customSelect("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'tasks_due'").get();
+      expect(idx, hasLength(1));
+    });
+  }
 }

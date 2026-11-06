@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../design_system/components.dart';
 import '../../design_system/tokens.dart';
-import '../../features/tracker/application/tracker_controller.dart' show selectedTrackerProvider;
 import '../providers.dart';
 
 class _Dest {
@@ -16,8 +15,6 @@ class _Dest {
 const _dests = [
   _Dest('Home', Icons.home_outlined, Icons.home),
   _Dest('Library', Icons.auto_stories_outlined, Icons.auto_stories),
-  _Dest('Goals & Projects', Icons.track_changes_outlined, Icons.track_changes),
-  _Dest('Knowledge', Icons.edit_note_outlined, Icons.edit_note),
   _Dest('Planner', Icons.calendar_month_outlined, Icons.calendar_month),
   _Dest('Settings', Icons.settings_outlined, Icons.settings),
 ];
@@ -33,19 +30,11 @@ class AdaptiveShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final idx = shell.currentIndex;
-    final width = MediaQuery.sizeOf(context).width;
-    // On narrow screens an open tracker replaces the tracker list, so Back should show the list again.
-    final trackerOpen = idx == 2 && width < 900 && ref.watch(selectedTrackerProvider) != null;
     return PopScope(
-      // Back leaves the app only from Home; elsewhere it steps back one level first.
-      canPop: idx == 0 && !trackerOpen,
+      // Back leaves the app only from Home; from any other section it goes Home first.
+      canPop: idx == 0,
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        if (trackerOpen) {
-          ref.read(selectedTrackerProvider.notifier).select(null);
-        } else {
-          shell.goBranch(0);
-        }
+        if (!didPop) shell.goBranch(0);
       },
       child: _layout(context, ref),
     );
@@ -57,7 +46,7 @@ class AdaptiveShell extends ConsumerWidget {
     final c = context.colors;
     final idx = shell.currentIndex;
 
-    final top = _TopBar(compact: wc == WindowClass.compact, onSettings: () => _go(5));
+    final top = _TopBar(compact: wc == WindowClass.compact);
     final body = Column(children: [top, Expanded(child: shell)]);
 
     switch (wc) {
@@ -115,9 +104,9 @@ class AdaptiveShell extends ConsumerWidget {
         return Scaffold(
           body: SafeArea(child: body),
           bottomNavigationBar: NavigationBar(
-            selectedIndex: idx.clamp(0, 4),
+            selectedIndex: idx,
             onDestinationSelected: _go,
-            destinations: [for (final d in _dests.take(5)) NavigationDestination(icon: Icon(d.icon), selectedIcon: Icon(d.selectedIcon), label: d.label.split(' ').first)],
+            destinations: [for (final d in _dests) NavigationDestination(icon: Icon(d.icon), selectedIcon: Icon(d.selectedIcon), label: d.label.split(' ').first)],
           ),
         );
     }
@@ -166,9 +155,8 @@ class _SidebarItem extends StatelessWidget {
 }
 
 class _TopBar extends ConsumerWidget {
-  const _TopBar({required this.compact, required this.onSettings});
+  const _TopBar({required this.compact});
   final bool compact;
-  final VoidCallback onSettings;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
@@ -180,7 +168,6 @@ class _TopBar extends ConsumerWidget {
         if (compact) Text('Folio', style: Theme.of(context).textTheme.titleLarge),
         const Spacer(),
         SyncChip(phase: status.phase, pending: status.pending),
-        if (compact) IconButton(tooltip: 'Settings', onPressed: onSettings, icon: const Icon(Icons.account_circle_outlined)),
       ]),
     );
   }

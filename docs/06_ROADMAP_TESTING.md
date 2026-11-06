@@ -1,22 +1,20 @@
 # 06 — Roadmap & Testing
 
-## 1. Recommended phases
-I recommend **two changes** to your order (justified by dependencies; your call, D-1):
-- Add **Phase 0 — Validation spikes** *before* any product code, because several promised features (annotation export, DB encryption, desktop OCR, notifications on desktop) are unverified.
-- Build the **Tracker Engine before the Library** (swap your Phases 2↔3): sync, search, goals, planner and dashboard all depend on it, and its data model is the highest-risk architecture decision. The library/reader is largely independent and can run in parallel if a second contributor exists.
+## 1. Phases (revised 2026-11-06 after the scope change)
+Sections: **Home, Library, Planner, Settings**. The tracker engine (old Phase 2) was built, tested and then **removed at the user's request**; its history is in git (`git log -- packages/tracker_engine`).
 
-| Phase | Scope | Exit criteria (all must be true) |
+| Phase | Scope | Status |
 |---|---|---|
-| **0 Spikes** (1–2 wks) | S-1…S-6 below, throwaway code in `/spikes` | Written result per spike, doc 04 updated, go/no-go on PDF engine, SQLCipher, OCR |
-| **1 Foundation** | Repo/CI, design system + tokens, adaptive shell, Drift DB + migrations, Auth, Supabase schema + RLS + tests, secure storage, app lock, sync skeleton (outbox/pull/push for one table) | App runs on 4 platforms, login works, a test row round-trips between 2 devices offline→online, CI green |
-| **2 Tracker Engine** | Schema, property types (basic → advanced), inline table editing, filters/sorts/groups, saved views, Kanban/List, relations, rollups, formulas, templates, CSV import/export, undo/redo, archive | 10k-record benchmark meets budget; property-based tests for formula & filters; field-level sync + conflict log working for trackers |
-| **3 Goals, Projects, Planner** | Built-in templates, goal/project detail pages, progress rollups, Calendar/Timeline/Gantt/Gallery views, planner views, recurrence, reminders/notifications | Creating goal→project→task→milestone updates progress automatically; reminders fire on all 4 platforms |
-| **4 Digital Library & Reader** | Import, content-addressed store, covers, shelves (3 views), metadata, PDF reader (render, thumbnails, TOC, search, tabs, zoom, fullscreen), annotations, bookmarks, progress, history, export (per S-2) | 500 MB PDF opens < 2 s; annotation round-trip across devices; export verified in Acrobat, Preview, Edge, Chrome |
-| **5 Knowledge & Dashboard** | Notes, journals, daily notes, templates, backlinks, graph, global search (FTS), customizable dashboard | Search < 150 ms at 100k pages; widgets add/remove/resize/persist |
-| **6 Advanced** | OCR, optional AI (consent flows), semantic search, analytics, backup/restore improvements (verify, test-restore, cloud) | Consent flow audited; backup restore tested from every prior format version |
-| **7 Production readiness** | Cross-platform QA, security review (MASVS pass), perf tuning, accessibility, store assets, release | Release checklist (§7) complete |
+| 0 Spikes | PDF, encrypted DB, sync model, schema benchmark | done on Linux (see §2b) |
+| 1 Foundation | app shell, design system, encrypted DB, sync core (client + Supabase SQL), auth, app lock, settings, rotation | done and tested headless; **not yet run against live Supabase** |
+| ~~2 Tracker Engine~~ | ~~custom trackers~~ | **removed** |
+| 3 Library & Reader | import PDFs, content-addressed store, covers, shelves (shelf/grid/list), PDF reader (render, thumbnails, outline, search, tabs), annotations, bookmarks, progress, export | next |
+| 4 Planner | tasks (table exists), events, day/week/month/year views, recurrence, time blocks, reminders & notifications | after Library |
+| 5 Home | dashboard widgets over tasks, deadlines, reading progress, recents; global search | after Planner |
+| 6 Hardening | backup/restore (local, cloud, encrypted export), OCR, MFA, live Supabase testing, accessibility | — |
+| 7 Release | cross-platform QA, security review, performance, store release | — |
 
-*Note:* the three backup mechanisms' basic local version ships in Phase 1–2 (needed before real data lives in the app); improvements land in Phase 6.
+*Order note:* the Planner is small compared with the PDF reader; if you want something useful on your phone sooner, Planner first is reasonable — say so.
 
 ## 1b. Phase 1 status (updated 2026-11-06)
 **Done and verified here (Linux, headless):**
@@ -38,7 +36,8 @@ I recommend **two changes** to your order (justified by dependencies; your call,
 - Sync covers one entity (`trackers`) and scalar values; multi-value/rich-text field codecs (using `mergeSets`/`mergeText`) are wired in Phase 2.
 - Realtime push (we poll every 60 s and on resume) and background sync on mobile OS schedulers not implemented.
 
-## 1c. Phase 2 status — Tracker Engine (updated 2026-11-06)
+## 1c. Phase 2 (Tracker Engine) — REMOVED 2026-11-06
+*Historical: this was built and tested (tracker_engine 114 tests, 6,600-view SQL/reference differential, 31 UI tests) and then deleted at the user's request. Kept here only as a record.*
 **Done and verified here (Linux, headless):**
 - `packages/tracker_engine` (pure Dart, 114 tests): 23 property types (validate / parse / format / storage), formula language (parser, bounded evaluator, id↔name canonicalisation, cycle detection), filters/sorts/groups + view-config JSON, rollups across linked trackers (incl. goal→project→task progress chain), CSV parse/write/import-plan/export with injection guard, fractional indexing, 5 templates with id remapping.
 - Drift schema v2 + tested v1→v2 migration with seeded data; sync of tracker data (cells, properties, records, links, views) incl. out-of-order arrival; conflict/merge behaviour tested between two devices.

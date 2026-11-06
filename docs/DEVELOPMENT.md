@@ -9,7 +9,7 @@
 ## Layout
 ```
 lib/            app (features, data, design_system, app shell)
-packages/sync_engine/   pure-Dart sync primitives + tests + tool/differential.dart
+packages/sync_engine/   pure-Dart sync primitives + tests + tool/differential.dart (the tracker_engine package was removed)
 supabase/       migrations/ and tests/ (SQL)
 drift_schemas/  committed snapshot of every released local DB schema
 test/           app tests (data, features, app)
@@ -24,9 +24,6 @@ dart run build_runner build --delete-conflicting-outputs   # after editing Drift
 flutter analyze && flutter test                            # app
 (cd packages/sync_engine && dart analyze && dart test)     # sync engine
 ```
-
-## Tracker query differential test
-`DIFF_SCENARIOS=300 flutter test test/features/tracker/query_differential_test.dart` runs random trackers/views through both the SQL path and the in-memory reference and fails on any difference (`DIFF_START=<seed>` reruns a failing seed). Default is 25 scenarios.
 
 ## Database / server tests
 Needs a throwaway Postgres 16 (not a Supabase project):
@@ -56,10 +53,10 @@ Apply `supabase/migrations/*.sql` to the project first. Never ship a service-rol
 The rule exists in **three** places that must agree: `packages/sync_engine/lib/src/resolve.dart`, the SQL in `supabase/migrations/*_sync_core.sql`, and (client apply) `lib/data/sync/synced_store.dart`. Change them together; `tool/differential.dart` and `supabase/tests` fail if the first two diverge.
 
 ## Adding a synced table
-Add it to `lib/data/sync/synced_tables.dart` (field → column allow-list) and to the `allowed_tbl` array in `apply_changes` (new migration), then write through `SyncedStore.setFields`. Never write synced columns directly.
+Add it to `lib/data/sync/synced_tables.dart` (field → column allow-list; `tasks` is the example) and to the `allowed_tbl` array in `apply_changes` (new migration), then write through `SyncedStore.setFields`. Never write synced columns directly.
 
 ## Secrets
 Only the Supabase URL and publishable key are compiled into the app. Database encryption key lives in the OS secure store (`DatabaseKeyService`). Do not commit `.env` files or service-role keys.
 
 ## Testing rule: go through the real shell
-Widget tests that pump a screen inside a bare `MaterialApp` can hide navigation bugs (e.g. `Navigator.pop(outerContext)` in a dialog works there but pops the *page* inside the app's nested shell navigator → blank screen). Every dialog/sheet must pop with **its own** `dialogContext`, and each user flow needs at least one test that starts from `TestEnv.app` (the real router + shell) — see `test/app/goals_flow_test.dart`.
+Widget tests that pump a screen inside a bare `MaterialApp` can hide navigation bugs (e.g. `Navigator.pop(outerContext)` in a dialog works there but pops the *page* inside the app's nested shell navigator → blank screen). Every dialog/sheet must pop with **its own** `dialogContext`, and each user flow needs at least one test that starts from `TestEnv.app` (the real router + shell) — see `test/app/phone_layout_test.dart`.

@@ -1,9 +1,13 @@
 # 01 — Project Overview
 
-> Working title: **Folio** (placeholder — rename freely). Status: **planning — awaiting approval. No application code exists yet.**
+> **SCOPE CHANGE (2026-11-06, user decision).** The app is now **Home, Library, Planner and Settings** only.
+> **Goals & Projects, Knowledge and the custom Tracker Engine were removed** (code, local tables and tests deleted; the full history stays in git). Anything below about trackers, goals/projects, knowledge/notes/graph or the tracker schema is **historical and not planned**. See `docs/07_DECISIONS_AND_RISKS.md` § Scope change and the revised roadmap in `docs/06_ROADMAP_TESTING.md` §1.
+
+
+> Working title: **Folio** (placeholder — rename freely). Status: **Phase 1 foundation built; Library is next** (see `docs/06_ROADMAP_TESTING.md`).
 
 ## 1. Vision
-One private, offline-first workspace where a person keeps their **library** (PDFs and documents), builds their own **trackers** (a Notion/Airtable-style database engine), runs **goals and projects**, writes **notes and a knowledge graph**, and **plans their days** — on Windows, macOS, Android and iOS, with one shared Flutter codebase.
+One private, offline-first workspace where a person keeps their **library** (PDFs and documents), **plans their days** (tasks, events, time blocks, reminders) and sees what matters on a **Home** dashboard — on Windows, macOS, Android and iOS, with one shared Flutter codebase.
 
 Visual identity: **Editorial Library + Modern Productivity** — warm paper tones, a serif display face for titles, a clean sans for UI, restrained colour, real depth only where it carries meaning (the bookshelf).
 
@@ -20,19 +24,19 @@ A single user (v1) with a long-lived personal archive: hundreds of books, thousa
 
 One responsive layout system with three breakpoints (compact < 600, medium 600–1024, expanded > 1024 dp). Platform-specific code is limited to: file access, notifications, biometrics, secure storage, share sheets.
 
-## 4. Core modules
-1. **Home / Command Center** — configurable widget grid.
+## 4. Core modules (current scope)
+1. **Home** — dashboard: today's tasks, upcoming deadlines, recently opened documents, reading progress, quick capture.
 2. **Library** — bookshelves (realistic / grid / list), import, metadata, collections, **PDF reader + annotations**.
-3. **Goals & Projects** — built on the **Tracker Engine**; plus dedicated goal/project detail pages.
-4. **Knowledge** — notes, journals, daily notes, backlinks, graph.
-5. **Planner** — day/week/month/year, tasks, events, time blocking, reminders.
-6. **Settings** — account, sync, security, backup, appearance, AI (off by default).
+3. **Planner** — daily / weekly / monthly / yearly planning, tasks, events, recurrence, time blocking, reminders.
+4. **Settings** — account, sync, security (app lock), backup, appearance, rotation, (optional AI later).
 
-Cross-cutting: **Tracker Engine** (one reusable database engine), **Global Search**, **Sync**, **Backup**, **Security**, optional **AI**.
+Cross-cutting: **Global search** (books, PDF text, tasks), **Sync**, **Backup**, **Security**.
+
+*Removed 2026-11-06:* Goals & Projects, Knowledge, and the custom Tracker Engine.
 
 ## 5. Product principles
-1. **User owns the structure.** No hardcoded tracker categories, property names or layouts. Templates are just data.
-2. **One engine, many surfaces.** Goals, tasks, reading lists and custom trackers all run on the same record/property/view engine.
+1. **Your files stay yours.** Original PDFs are never modified; annotations live beside them and export to new files.
+2. **Small and focused.** Four sections done well beat a dozen half-built ones.
 3. **Offline first, always.** Every create/edit works offline; the network is an optimisation.
 4. **Never silently lose data.** Concurrent edits are detected and preserved (conflict log), deletions are soft until purged, backups are independent of sync.
 5. **Private by default.** Cloud sync is opt-in at sign-in; AI is off and needs explicit consent per provider and per payload.

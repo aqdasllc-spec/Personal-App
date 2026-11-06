@@ -1,8 +1,0 @@
-name: tracker_engine
-description: Pure-Dart tracker/database engine - property types, values, formulas, filters, sorts, rollups, CSV, templates.
-publish_to: none
-environment:
-  sdk: ^3.13.0
-dev_dependencies:
-  test: ^1.25.0
-  lints: ^6.0.0

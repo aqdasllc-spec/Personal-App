@@ -6,7 +6,7 @@
 | D-1 | Phase order | Phase 0 spikes, then **Tracker Engine before Library** | Keep your original order (Library first); riskier for sync/schema |
 | D-2 | Sync | **Custom** field-level HLC sync on Supabase | PowerSync 2.6.1: less code, extra service/cost, different conflict semantics |
 | D-3 | PDF engine | **pdfrx (PDFium, MIT)** + own annotation layer, pending S-1/S-2 | Syncfusion viewer (commercial/Community licence; native text-markup annotations only documented); commercial SDK |
-| D-4 | Tracker storage | **Cells-as-rows** + typed value columns; formulas/rollups computed locally, never synced | JSON-per-record (simpler, worse conflicts/indexing) |
+| ~~D-4~~ | ~~Tracker storage~~ (removed with the feature) | **Cells-as-rows** + typed value columns; formulas/rollups computed locally, never synced | JSON-per-record (simpler, worse conflicts/indexing) |
 | D-5 | State/routing/DB | Riverpod 3 · go_router · Drift | — |
 | D-6 | OCR | Evaluate in S-5; likely ML Kit (mobile) + OS OCR/Tesseract (desktop) | Defer OCR to a later release |
 | D-7 | Rich-text editor | flutter_quill vs. custom Markdown editor — decide after spike in Phase 5 | — |
@@ -16,6 +16,14 @@
 | D-11 | App name/brand | "Folio" placeholder | Your choice |
 | D-12 | Account model | Optional account; local-only mode supported | Account mandatory |
 | D-13 | Minimum OS | Win 10+, macOS 12+, Android 8+/10+, iOS 15+ (pdfrx requires iOS 15 / macOS 12) | Higher floor for less testing |
+
+## Scope change (2026-11-06)
+User decision: the app keeps **Home, Library, Planner, Settings**. **Goals & Projects, Knowledge and the custom Tracker Engine are deleted** (not hidden). Consequences:
+- Decisions **D-4 (tracker storage)** and **D-7 (rich-text editor for notes)** no longer apply; the knowledge graph, backlinks and notes are out of scope.
+- Local DB v3 migration **drops the tracker tables** and clears their pending sync edits. Any trackers created in earlier test builds are erased on upgrade.
+- `tasks` is the first real synced table (Planner foundation); it replaced the Phase-1 demo `trackers` table in the sync tests.
+- The Supabase `apply_changes` allow-list still names the old tracker tables (harmless, never applied to a live project); trim it when the Planner schema is final.
+- `design/` prototypes still show the removed screens; treat them as historical.
 
 ## Risks
 | ID | Risk | Likelihood / Impact | Mitigation |
