@@ -130,7 +130,9 @@ class BackupService {
       _db.books,
     )..where((b) => b.deletedAt.isNull())).get();
     final bookmarks = await _db.select(_db.bookmarks).get();
+    final highlights = await _db.select(_db.highlights).get();
     final data = jsonEncode({
+      'highlights': [for (final h in highlights) h.toJson()],
       'bookmarks': [for (final m in bookmarks) m.toJson()],
       'tasks': [for (final t in tasks) t.toJson()],
       'events': [for (final e in events) e.toJson()],
@@ -440,6 +442,14 @@ class BackupService {
       final m = BookmarkRow.fromJson(j);
       if (haveMark.contains(m.id) || !bookIds.contains(m.bookId)) continue;
       await _db.into(_db.bookmarks).insert(m);
+    }
+    final haveHl = {
+      for (final h in await _db.select(_db.highlights).get()) h.id,
+    };
+    for (final j in list('highlights')) {
+      final h = HighlightRow.fromJson(j);
+      if (haveHl.contains(h.id) || !bookIds.contains(h.bookId)) continue;
+      await _db.into(_db.highlights).insert(h);
     }
     return RestoreResult(
       tasks: tasks,

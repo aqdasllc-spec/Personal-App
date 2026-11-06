@@ -10,8 +10,12 @@ import '../domain/agenda.dart';
 import '../domain/models.dart';
 import '../domain/reminders.dart';
 
-final plannerRepositoryProvider = Provider<PlannerRepository>((ref) => PlannerRepository(ref.watch(syncedStoreProvider)));
-final reminderSchedulerProvider = Provider<ReminderScheduler>((ref) => NoopReminderScheduler());
+final plannerRepositoryProvider = Provider<PlannerRepository>(
+  (ref) => PlannerRepository(ref.watch(syncedStoreProvider)),
+);
+final reminderSchedulerProvider = Provider<ReminderScheduler>(
+  (ref) => NoopReminderScheduler(),
+);
 
 enum PlannerMode { day, week, month, year }
 
@@ -54,19 +58,17 @@ class PlannerState {
     Value<String?> message = const Value.absent(),
     Value<String?> undoLabel = const Value.absent(),
     bool? notificationsDenied,
-  }) =>
-      PlannerState(
-        day: day ?? this.day,
-        today: today ?? this.today,
-        mode: mode ?? this.mode,
-        tasks: tasks ?? this.tasks,
-        events: events ?? this.events,
-        message: message.present ? message.value : this.message,
-        undoLabel: undoLabel.present ? undoLabel.value : this.undoLabel,
-        notificationsDenied: notificationsDenied ?? this.notificationsDenied,
-      );
+  }) => PlannerState(
+    day: day ?? this.day,
+    today: today ?? this.today,
+    mode: mode ?? this.mode,
+    tasks: tasks ?? this.tasks,
+    events: events ?? this.events,
+    message: message.present ? message.value : this.message,
+    undoLabel: undoLabel.present ? undoLabel.value : this.undoLabel,
+    notificationsDenied: notificationsDenied ?? this.notificationsDenied,
+  );
 }
-
 
 class PlannerController extends AsyncNotifier<PlannerState> {
   PlannerController({DateTime Function()? now}) : _now = now ?? DateTime.now;
@@ -106,19 +108,28 @@ class PlannerController extends AsyncNotifier<PlannerState> {
     final events = await repo.events();
     // UI state (day, mode, message) is read fresh after the await: the user may have navigated meanwhile
     final ui = state.value ?? cur;
-    final next = ui.copyWith(today: dateOnly(_now()), tasks: tasks, events: events);
+    final next = ui.copyWith(
+      today: dateOnly(_now()),
+      tasks: tasks,
+      events: events,
+    );
     unawaited(_replanReminders(tasks, events));
     return next;
   }
 
   /// Re-reads everything (call when the screen is shown or the app resumes, so "today" rolls over).
-  Future<void> refresh() async => state = AsyncData(await _load(state.requireValue));
+  Future<void> refresh() async =>
+      state = AsyncData(await _load(state.requireValue));
 
   PlannerState get _s => state.requireValue;
   void _set(PlannerState s) => state = AsyncData(s);
   void clearMessage() => _set(_s.copyWith(message: const Value(null)));
   void _say(String m) => _set(_s.copyWith(message: Value(m)));
-  void _fail(Object e) => _say(e is PlannerValidationException ? e.message : 'Something went wrong. Your data is unchanged.');
+  void _fail(Object e) => _say(
+    e is PlannerValidationException
+        ? e.message
+        : 'Something went wrong. Your data is unchanged.',
+  );
 
   // ----------------------------------------------------------------- navigation
   void setMode(PlannerMode m) => _set(_s.copyWith(mode: m));
@@ -126,7 +137,8 @@ class PlannerController extends AsyncNotifier<PlannerState> {
   void goToday() => _set(_s.copyWith(day: dateOnly(_now())));
 
   /// Opens [d] in the day view (from a month/week/year cell).
-  void openDay(DateTime d) => _set(_s.copyWith(day: dateOnly(d), mode: PlannerMode.day));
+  void openDay(DateTime d) =>
+      _set(_s.copyWith(day: dateOnly(d), mode: PlannerMode.day));
 
   void shift(int direction) {
     final d = _s.day;
@@ -166,7 +178,9 @@ class PlannerController extends AsyncNotifier<PlannerState> {
   Future<String?> quickAdd(String title, {DateTime? due}) async {
     try {
       final day = due ?? _s.day;
-      final id = await repo.saveTask(TaskInput(title: title, due: dateOnly(day)));
+      final id = await repo.saveTask(
+        TaskInput(title: title, due: dateOnly(day)),
+      );
       _offerUndo('Task added', () => repo.deleteTask(id));
       await refresh();
       return id;
@@ -181,7 +195,12 @@ class PlannerController extends AsyncNotifier<PlannerState> {
     if (t == null) return;
     try {
       final r = await repo.setTaskDone(id, !t.done, now: _now());
-      _offerUndo(r.advanced ? 'Moved to the next occurrence' : (t.done ? 'Reopened' : 'Done'), () => repo.restoreTaskFields(id, r.before));
+      _offerUndo(
+        r.advanced
+            ? 'Moved to the next occurrence'
+            : (t.done ? 'Reopened' : 'Done'),
+        () => repo.restoreTaskFields(id, r.before),
+      );
       await refresh();
     } catch (e) {
       _fail(e);
@@ -190,7 +209,9 @@ class PlannerController extends AsyncNotifier<PlannerState> {
 
   Future<bool> saveTask(TaskInput input, {String? id}) async {
     try {
-      final before = id == null ? null : TaskInput.of(_s.tasks.firstWhere((t) => t.id == id));
+      final before = id == null
+          ? null
+          : TaskInput.of(_s.tasks.firstWhere((t) => t.id == id));
       final saved = await repo.saveTask(input, id: id);
       _offerUndo(id == null ? 'Task added' : 'Task updated', () async {
         if (id == null) {
@@ -211,7 +232,9 @@ class PlannerController extends AsyncNotifier<PlannerState> {
 
   Future<bool> saveEvent(EventInput input, {String? id}) async {
     try {
-      final before = id == null ? null : EventInput.of(_s.events.firstWhere((e) => e.id == id));
+      final before = id == null
+          ? null
+          : EventInput.of(_s.events.firstWhere((e) => e.id == id));
       final saved = await repo.saveEvent(input, id: id);
       _offerUndo(id == null ? 'Event added' : 'Event updated', () async {
         if (id == null) {
@@ -253,33 +276,77 @@ class PlannerController extends AsyncNotifier<PlannerState> {
     if (kind == 'task') {
       final t = _s.tasks.where((x) => x.id == id).firstOrNull;
       final target = t?.planned ?? t?.due;
-      if (t != null && target != null) base = (t.planned != null || t.dueHasTime) ? target : DateTime(target.year, target.month, target.day, allDayReminderHour);
+      if (t != null && target != null) {
+        base = (t.planned != null || t.dueHasTime)
+            ? target
+            : DateTime(
+                target.year,
+                target.month,
+                target.day,
+                allDayReminderHour,
+              );
+      }
     } else {
       final e = _s.events.where((x) => x.id == id).firstOrNull;
-      if (e != null) base = e.allDay ? DateTime(e.start.year, e.start.month, e.start.day, allDayReminderHour) : e.start;
+      if (e != null) {
+        base = e.allDay
+            ? DateTime(
+                e.start.year,
+                e.start.month,
+                e.start.day,
+                allDayReminderHour,
+              )
+            : e.start;
+      }
     }
     if (base == null) return;
     final fire = base.subtract(Duration(minutes: remind));
     if (!fire.isAfter(now)) {
-      _say('That reminder time has already passed (${fire.year}-${fire.month.toString().padLeft(2, '0')}-${fire.day.toString().padLeft(2, '0')} ${fire.hour.toString().padLeft(2, '0')}:${fire.minute.toString().padLeft(2, '0')}), so it won\'t fire. Items without a time remind you at 09:00 — give it a time, or pick a later one.');
+      _say(
+        'That reminder time has already passed (${fire.year}-${fire.month.toString().padLeft(2, '0')}-${fire.day.toString().padLeft(2, '0')} ${fire.hour.toString().padLeft(2, '0')}:${fire.minute.toString().padLeft(2, '0')}), so it won\'t fire. Items without a time remind you at 09:00 — give it a time, or pick a later one.',
+      );
     } else {
-      _say('Saved. This reminder is more than 60 days away; it will be scheduled automatically as the date gets closer.');
+      _say(
+        'Saved. This reminder is more than 60 days away; it will be scheduled automatically as the date gets closer.',
+      );
     }
   }
 
   Future<void> _maybeAskForNotifications(bool wanted) async {
     if (!wanted) return;
-    final ok = await _scheduler.hasPermission() || await _scheduler.requestPermission();
-    _set(_s.copyWith(notificationsDenied: !ok, message: ok ? const Value.absent() : const Value('Reminders are saved, but notifications are turned off for Folio, so they can\'t appear. Allow them in the system settings.')));
+    final ok =
+        await _scheduler.hasPermission() ||
+        await _scheduler.requestPermission();
+    _set(
+      _s.copyWith(
+        notificationsDenied: !ok,
+        message: ok
+            ? const Value.absent()
+            : const Value(
+                'Reminders are saved, but notifications are turned off for Folio, so they can\'t appear. Allow them in the system settings.',
+              ),
+      ),
+    );
     if (ok) await _replanReminders(_s.tasks, _s.events, force: true);
   }
 
-  Future<void> _replanReminders(List<PlannerTask> tasks, List<PlannerEvent> events, {bool force = false}) async {
+  Future<void> _replanReminders(
+    List<PlannerTask> tasks,
+    List<PlannerEvent> events, {
+    bool force = false,
+  }) async {
     try {
       if (!await _scheduler.hasPermission()) return;
       final picked = pickReminders(_now(), tasks, events);
-      final signature = picked.map((r) => '${r.id}@${r.at.millisecondsSinceEpoch}:${r.title}:${r.body}').join('|');
-      if (!force && signature == _lastReminderSignature) return; // nothing changed since the last plan
+      final signature = picked
+          .map(
+            (r) =>
+                '${r.id}@${r.at.millisecondsSinceEpoch}:${r.title}:${r.body}',
+          )
+          .join('|');
+      if (!force && signature == _lastReminderSignature) {
+        return; // nothing changed since the last plan
+      }
       await _scheduler.replaceAll(picked);
       _lastReminderSignature = signature;
     } catch (_) {
@@ -288,12 +355,20 @@ class PlannerController extends AsyncNotifier<PlannerState> {
   }
 }
 
-final plannerControllerProvider = AsyncNotifierProvider<PlannerController, PlannerState>(PlannerController.new);
+final plannerControllerProvider =
+    AsyncNotifierProvider<PlannerController, PlannerState>(
+      PlannerController.new,
+    );
 
 /// Reminders that will fire next (for Settings → Notifications).
-final upcomingRemindersProvider = FutureProvider.autoDispose<List<Reminder>>((ref) async {
+final upcomingRemindersProvider = FutureProvider.autoDispose<List<Reminder>>((
+  ref,
+) async {
   final repo = ref.watch(plannerRepositoryProvider);
   return pickReminders(DateTime.now(), await repo.tasks(), await repo.events());
 });
 
-final reminderDiagnosticsProvider = FutureProvider.autoDispose<ReminderDiagnostics>((ref) => ref.watch(reminderSchedulerProvider).diagnostics());
+final reminderDiagnosticsProvider =
+    FutureProvider.autoDispose<ReminderDiagnostics>(
+      (ref) => ref.watch(reminderSchedulerProvider).diagnostics(),
+    );

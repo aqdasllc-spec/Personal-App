@@ -13,7 +13,9 @@ class LockScreen extends ConsumerWidget {
       body: EmptyState(
         icon: Icons.lock_outline,
         title: 'Folio is locked',
-        message: lock.failed ? 'Couldn\'t verify it\'s you. Try again.' : 'Unlock to continue. Your data stays on this device.',
+        message: lock.failed
+            ? 'Couldn\'t verify it\'s you. Try again.'
+            : 'Unlock to continue. Your data stays on this device.',
         actionLabel: 'Unlock',
         onAction: () => ref.read(appLockProvider.notifier).unlock(),
       ),

@@ -122,4 +122,51 @@ void main() {
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(seconds: 1));
   });
+
+  testWidgets('highlights: created from a selection, listed with the text, painted, recoloured, noted, jumped to, removed', (t) async {
+    final (env, b) = await openReader(t);
+    expect(find.text('painting 0 highlights'), findsOneWidget);
+    await t.tap(find.text('select and highlight'));
+    await io(t);
+    final rows = (await t.runAsync(() => env.db.select(env.db.highlights).get()))!;
+    expect(rows.length, 1);
+    expect((rows.single.bookId, rows.single.page, rows.single.snippet, rows.single.color), (b.id, 3, 'an important passage', 'yellow'));
+    expect(find.text('painting 1 highlights'), findsOneWidget, reason: 'handed to the PDF view for painting');
+    expect(find.textContaining('Highlighted'), findsOneWidget);
+
+    await t.tap(find.byKey(const Key('reader-bookmarks')));
+    await io(t);
+    await t.tap(find.byKey(const Key('tab-highlights')));
+    await io(t);
+    final id = rows.single.id;
+    expect(find.text('an important passage'), findsOneWidget);
+    expect(find.text('Page 3'), findsOneWidget);
+
+    await t.tap(find.byKey(Key('hl-color-$id')));
+    await io(t);
+    expect((await t.runAsync(() => env.db.select(env.db.highlights).get()))!.single.color, 'green');
+
+    await t.tap(find.byKey(Key('hl-note-$id')));
+    await io(t);
+    await t.enterText(find.byKey(const Key('note-field')), '  Check this with Ana ');
+    await t.tap(find.byKey(const Key('note-save')));
+    await io(t);
+    expect((await t.runAsync(() => env.db.select(env.db.highlights).get()))!.single.note, 'Check this with Ana');
+    expect(find.textContaining('Check this with Ana'), findsOneWidget);
+
+    await t.tap(find.byKey(Key('highlight-$id')));
+    await io(t);
+    expect(env.jumps, [3], reason: 'tapping a highlight jumps to its page');
+
+    await t.tap(find.byKey(const Key('reader-bookmarks')));
+    await io(t);
+    await t.tap(find.byKey(const Key('tab-highlights')));
+    await io(t);
+    await t.tap(find.byKey(Key('hl-delete-$id')));
+    await io(t);
+    expect(await t.runAsync(() => env.db.select(env.db.highlights).get()), isEmpty);
+    expect(find.textContaining('No highlights yet'), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(seconds: 1));
+  });
 }

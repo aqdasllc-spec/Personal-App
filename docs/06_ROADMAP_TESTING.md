@@ -17,6 +17,9 @@ Sections: **Home, Library, Planner, Settings**. The tracker engine (old Phase 2)
 
 *Order note:* the Planner is small compared with the PDF reader; if you want something useful on your phone sooner, Planner first is reasonable — say so.
 
+## 1l. Highlights and notes (2026-11-07)
+Select text in the reader -> the menu gains **Highlight**. Highlights are saved per line of text (page coordinates), painted over the page (multiply blend), and listed in the sheet behind the list icon (tabs Bookmarks | Highlights): tap = jump to the page, coloured dot = cycle yellow/green/blue/pink, note icon = add/edit a note, bin = remove. Included in backups; DB v8. Tested: line-merging, storage, list/note/colour/jump/delete, backup round trip (191 tests). **Unverified on a device:** selecting text with the real viewer, the menu item, and the painted overlay. Not built: tapping a highlight on the page to edit it, exporting annotated PDFs, drawing/pen annotations.
+
 ## 1k. PDF search + password-protected backups (2026-11-07)
 **PDF search:** magnifier in the reader → type, match count "3 / 12", previous/next (wraps), matches highlighted on the page (pdfrx text search). Scanned PDFs have no text layer, so they report "No matches". Logic tested with a fake viewer; **real highlighting/jumping unverified on a device.**
 **Backup password (optional):** asked when you tap Back up now ("No password" keeps the old plain zip). AES-256-GCM, key from PBKDF2-HMAC-SHA256 (150 000 iterations, random salt), 1 MiB chunks authenticated with position + final flag, so a wrong password, a changed byte, reordered chunks and truncation are all detected. Restoring asks for the password (wrong one -> asks again). No password recovery exists by design. Speed ~6 MB/s in a desktop debug run (20 MB in 3.5 s); a multi-GB library will take minutes — unverified on phones. Lint cleanup applied (`dart fix`).

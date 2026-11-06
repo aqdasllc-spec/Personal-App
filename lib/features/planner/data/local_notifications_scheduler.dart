@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show PlatformException;
-import 'package:flutter_local_notifications/flutter_local_notifications.dart' as fln;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart'
+    as fln;
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -27,7 +28,8 @@ ReminderScheduler createReminderScheduler() {
 /// deliver a reminder a few minutes late while the device is dozing. Everything is wrapped so a plugin
 /// failure degrades to "no reminders" and never breaks the planner.
 class LocalNotificationsScheduler implements ReminderScheduler {
-  LocalNotificationsScheduler([fln.FlutterLocalNotificationsPlugin? plugin]) : _plugin = plugin ?? fln.FlutterLocalNotificationsPlugin();
+  LocalNotificationsScheduler([fln.FlutterLocalNotificationsPlugin? plugin])
+    : _plugin = plugin ?? fln.FlutterLocalNotificationsPlugin();
   final fln.FlutterLocalNotificationsPlugin _plugin;
   bool _ready = false;
 
@@ -38,15 +40,27 @@ class LocalNotificationsScheduler implements ReminderScheduler {
     importance: fln.Importance.high,
     priority: fln.Priority.high,
   );
-  static const _details = fln.NotificationDetails(android: _channel, iOS: fln.DarwinNotificationDetails(), macOS: fln.DarwinNotificationDetails());
+  static const _details = fln.NotificationDetails(
+    android: _channel,
+    iOS: fln.DarwinNotificationDetails(),
+    macOS: fln.DarwinNotificationDetails(),
+  );
 
   Future<bool> _init() async {
     if (_ready) return true;
     try {
       tzdata.initializeTimeZones();
-      const darwin = fln.DarwinInitializationSettings(requestAlertPermission: false, requestBadgePermission: false, requestSoundPermission: false);
+      const darwin = fln.DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      );
       await _plugin.initialize(
-        settings: const fln.InitializationSettings(android: fln.AndroidInitializationSettings('@mipmap/ic_launcher'), iOS: darwin, macOS: darwin),
+        settings: const fln.InitializationSettings(
+          android: fln.AndroidInitializationSettings('@mipmap/ic_launcher'),
+          iOS: darwin,
+          macOS: darwin,
+        ),
       );
       _ready = true;
     } catch (e) {
@@ -61,11 +75,28 @@ class LocalNotificationsScheduler implements ReminderScheduler {
     try {
       switch (defaultTargetPlatform) {
         case TargetPlatform.android:
-          return await _plugin.resolvePlatformSpecificImplementation<fln.AndroidFlutterLocalNotificationsPlugin>()?.areNotificationsEnabled() ?? false;
+          return await _plugin
+                  .resolvePlatformSpecificImplementation<
+                    fln.AndroidFlutterLocalNotificationsPlugin
+                  >()
+                  ?.areNotificationsEnabled() ??
+              false;
         case TargetPlatform.iOS:
-          return (await _plugin.resolvePlatformSpecificImplementation<fln.IOSFlutterLocalNotificationsPlugin>()?.checkPermissions())?.isEnabled ?? false;
+          return (await _plugin
+                      .resolvePlatformSpecificImplementation<
+                        fln.IOSFlutterLocalNotificationsPlugin
+                      >()
+                      ?.checkPermissions())
+                  ?.isEnabled ??
+              false;
         case TargetPlatform.macOS:
-          return (await _plugin.resolvePlatformSpecificImplementation<fln.MacOSFlutterLocalNotificationsPlugin>()?.checkPermissions())?.isEnabled ?? false;
+          return (await _plugin
+                      .resolvePlatformSpecificImplementation<
+                        fln.MacOSFlutterLocalNotificationsPlugin
+                      >()
+                      ?.checkPermissions())
+                  ?.isEnabled ??
+              false;
         default:
           return false;
       }
@@ -80,11 +111,26 @@ class LocalNotificationsScheduler implements ReminderScheduler {
     try {
       switch (defaultTargetPlatform) {
         case TargetPlatform.android:
-          return await _plugin.resolvePlatformSpecificImplementation<fln.AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission() ?? false;
+          return await _plugin
+                  .resolvePlatformSpecificImplementation<
+                    fln.AndroidFlutterLocalNotificationsPlugin
+                  >()
+                  ?.requestNotificationsPermission() ??
+              false;
         case TargetPlatform.iOS:
-          return await _plugin.resolvePlatformSpecificImplementation<fln.IOSFlutterLocalNotificationsPlugin>()?.requestPermissions(alert: true, badge: true, sound: true) ?? false;
+          return await _plugin
+                  .resolvePlatformSpecificImplementation<
+                    fln.IOSFlutterLocalNotificationsPlugin
+                  >()
+                  ?.requestPermissions(alert: true, badge: true, sound: true) ??
+              false;
         case TargetPlatform.macOS:
-          return await _plugin.resolvePlatformSpecificImplementation<fln.MacOSFlutterLocalNotificationsPlugin>()?.requestPermissions(alert: true, badge: true, sound: true) ?? false;
+          return await _plugin
+                  .resolvePlatformSpecificImplementation<
+                    fln.MacOSFlutterLocalNotificationsPlugin
+                  >()
+                  ?.requestPermissions(alert: true, badge: true, sound: true) ??
+              false;
         default:
           return false;
       }
@@ -100,7 +146,10 @@ class LocalNotificationsScheduler implements ReminderScheduler {
   String? _lastError;
   String? _lastMode;
 
-  fln.AndroidFlutterLocalNotificationsPlugin? get _android => _plugin.resolvePlatformSpecificImplementation<fln.AndroidFlutterLocalNotificationsPlugin>();
+  fln.AndroidFlutterLocalNotificationsPlugin? get _android => _plugin
+      .resolvePlatformSpecificImplementation<
+        fln.AndroidFlutterLocalNotificationsPlugin
+      >();
 
   /// Exact alarms are allowed on Android 12 and older by default, and on newer versions because the app
   /// declares USE_EXACT_ALARM (it is a calendar/reminder app). Anything else falls back to approximate.
@@ -113,23 +162,36 @@ class LocalNotificationsScheduler implements ReminderScheduler {
     }
   }
 
-  Future<void> _scheduleOne(int id, DateTime at, String title, String body, String? payload, bool exact) async {
+  Future<void> _scheduleOne(
+    int id,
+    DateTime at,
+    String title,
+    String body,
+    String? payload,
+    bool exact,
+  ) async {
     Future<void> go(fln.AndroidScheduleMode mode) => _plugin.zonedSchedule(
-          id: id,
-          title: title,
-          body: body,
-          // an absolute instant: computed from local wall-clock time already, so UTC is just a container
-          scheduledDate: tz.TZDateTime.from(at, tz.UTC),
-          notificationDetails: _details,
-          androidScheduleMode: mode,
-          payload: payload,
-        );
+      id: id,
+      title: title,
+      body: body,
+      // an absolute instant: computed from local wall-clock time already, so UTC is just a container
+      scheduledDate: tz.TZDateTime.from(at, tz.UTC),
+      notificationDetails: _details,
+      androidScheduleMode: mode,
+      payload: payload,
+    );
     try {
-      await go(exact ? fln.AndroidScheduleMode.exactAllowWhileIdle : fln.AndroidScheduleMode.inexactAllowWhileIdle);
+      await go(
+        exact
+            ? fln.AndroidScheduleMode.exactAllowWhileIdle
+            : fln.AndroidScheduleMode.inexactAllowWhileIdle,
+      );
       _lastMode = exact ? 'exact' : 'approximate';
     } on PlatformException catch (e) {
       if (exact && e.code == 'exact_alarms_not_permitted') {
-        await go(fln.AndroidScheduleMode.inexactAllowWhileIdle); // still better than nothing
+        await go(
+          fln.AndroidScheduleMode.inexactAllowWhileIdle,
+        ); // still better than nothing
         _lastMode = 'approximate';
         return;
       }
@@ -146,7 +208,9 @@ class LocalNotificationsScheduler implements ReminderScheduler {
     try {
       // cancel what we scheduled before, but keep the diagnostic test notifications alive
       for (final p in await _plugin.pendingNotificationRequests()) {
-        if (p.id != _testNowId && p.id != _testLaterId) await _plugin.cancel(id: p.id);
+        if (p.id != _testNowId && p.id != _testLaterId) {
+          await _plugin.cancel(id: p.id);
+        }
       }
       final exact = await _canUseExact();
       for (final r in reminders) {
@@ -164,12 +228,16 @@ class LocalNotificationsScheduler implements ReminderScheduler {
     if (!await _init()) return const ReminderDiagnostics(supported: false);
     var pending = 0;
     try {
-      pending = (await _plugin.pendingNotificationRequests()).where((p) => p.id != _testNowId && p.id != _testLaterId).length;
+      pending = (await _plugin.pendingNotificationRequests())
+          .where((p) => p.id != _testNowId && p.id != _testLaterId)
+          .length;
     } catch (_) {}
     return ReminderDiagnostics(
       supported: true,
       permissionGranted: await hasPermission(),
-      exactAlarms: defaultTargetPlatform == TargetPlatform.android ? await _canUseExact() : null,
+      exactAlarms: defaultTargetPlatform == TargetPlatform.android
+          ? await _canUseExact()
+          : null,
       pendingCount: pending,
       lastError: _lastError,
       lastMode: _lastMode,
@@ -180,7 +248,12 @@ class LocalNotificationsScheduler implements ReminderScheduler {
   Future<bool> sendTestNow() async {
     if (!await _init()) return false;
     try {
-      await _plugin.show(id: _testNowId, title: 'Folio test', body: 'If you can read this, notifications work.', notificationDetails: _details);
+      await _plugin.show(
+        id: _testNowId,
+        title: 'Folio test',
+        body: 'If you can read this, notifications work.',
+        notificationDetails: _details,
+      );
       return true;
     } catch (e) {
       _lastError = '$e';
@@ -192,7 +265,14 @@ class LocalNotificationsScheduler implements ReminderScheduler {
   Future<bool> scheduleTest(Duration after) async {
     if (!await _init()) return false;
     try {
-      await _scheduleOne(_testLaterId, DateTime.now().add(after), 'Folio scheduled test', 'This arrived on schedule, even with Folio closed.', 'test', await _canUseExact());
+      await _scheduleOne(
+        _testLaterId,
+        DateTime.now().add(after),
+        'Folio scheduled test',
+        'This arrived on schedule, even with Folio closed.',
+        'test',
+        await _canUseExact(),
+      );
       return true;
     } catch (e) {
       _lastError = '$e';

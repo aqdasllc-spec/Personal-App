@@ -11,12 +11,19 @@ abstract interface class KeyStore {
 /// Keychain (iOS/macOS), Keystore-backed storage (Android), Credential Locker/DPAPI (Windows).
 class SecureStorageKeyStore implements KeyStore {
   SecureStorageKeyStore([FlutterSecureStorage? s])
-      : _s = s ?? const FlutterSecureStorage(iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device));
+    : _s =
+          s ??
+          const FlutterSecureStorage(
+            iOptions: IOSOptions(
+              accessibility: KeychainAccessibility.first_unlock_this_device,
+            ),
+          );
   final FlutterSecureStorage _s;
   @override
   Future<String?> read(String key) => _s.read(key: key);
   @override
-  Future<void> write(String key, String value) => _s.write(key: key, value: value);
+  Future<void> write(String key, String value) =>
+      _s.write(key: key, value: value);
   @override
   Future<void> delete(String key) => _s.delete(key: key);
 }
@@ -34,7 +41,8 @@ class InMemoryKeyStore implements KeyStore {
 /// Owns the 256-bit database key. Generated once from a CSPRNG and never leaves secure storage
 /// except to open the database.
 class DatabaseKeyService {
-  DatabaseKeyService(this._store, {Random? random}) : _random = random ?? Random.secure();
+  DatabaseKeyService(this._store, {Random? random})
+    : _random = random ?? Random.secure();
   static const storageKey = 'folio.db.key.v1';
   final KeyStore _store;
   final Random _random;
@@ -44,7 +52,9 @@ class DatabaseKeyService {
     if (existing != null) {
       if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(existing)) {
         // Never silently replace a damaged key: that would make the encrypted database unreadable.
-        throw StateError('Stored database key is malformed; refusing to overwrite it.');
+        throw StateError(
+          'Stored database key is malformed; refusing to overwrite it.',
+        );
       }
       return existing;
     }

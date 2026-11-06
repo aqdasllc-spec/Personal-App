@@ -9,6 +9,7 @@ import 'package:folio/features/backup/backup_service.dart';
 import 'package:flutter/material.dart';
 import 'package:folio/features/library/application/book_sync.dart';
 import 'package:folio/features/library/application/library_controller.dart';
+import 'package:folio/features/library/domain_highlights.dart';
 import 'package:folio/features/library/data/cloud_books.dart';
 import 'package:folio/features/library/data/library_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -246,6 +247,11 @@ class TestEnv {
           return Column(children: [
             Text('PDF view page $initial'),
             TextButton(onPressed: () => onPage(7), child: const Text('go to page 7')),
+            TextButton(
+              onPressed: () => control.onHighlight?.call(const HighlightDraft(page: 3, rects: [[10, 100, 80, 90]], text: 'an important passage')),
+              child: const Text('select and highlight'),
+            ),
+            ValueListenableBuilder(valueListenable: control.highlights, builder: (_, v, _) => Text('painting ${v.length} highlights')),
           ]);
         }),
       ];

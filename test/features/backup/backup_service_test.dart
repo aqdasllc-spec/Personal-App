@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/features/backup/backup_service.dart';
 import 'package:folio/features/library/data/library_repository.dart';
+import 'package:folio/features/library/domain_highlights.dart';
 import 'package:folio/features/planner/data/planner_repository.dart';
 import 'package:folio/features/planner/domain/models.dart';
 
@@ -58,6 +59,7 @@ void main() {
     await a.lib.importPdf(pdf('Other.pdf', 7));
     await a.lib.toggleBookmark(book.id, 5);
     await a.lib.toggleBookmark(book.id, 31);
+    await a.lib.addHighlight(book.id, const HighlightDraft(page: 4, rects: [[1, 5, 2, 1]], text: 'kept passage'), color: 'green');
   }
 
   test('round trip: a new device gets the same tasks, events, shelves, books and PDFs back', () async {
@@ -83,6 +85,8 @@ void main() {
     expect(spec.shelfId, isNotNull);
     expect((await b.lib.watchShelves().first).single.name, 'Work');
     expect((await b.lib.watchBookmarks(spec.id).first).map((m) => m.page), [5, 31], reason: 'bookmarks come back with the book');
+    final hl = (await b.lib.watchHighlights(spec.id).first).single;
+    expect((hl.snippet, hl.color, hl.page), ('kept passage', 'green', 4), reason: 'highlights too');
 
     final srcTask = (await a.env.db.select(a.env.db.tasks).get()).firstWhere((t) => t.title == 'Plain');
     final dstTask = (await b.env.db.select(b.env.db.tasks).get()).firstWhere((t) => t.title == 'Plain');

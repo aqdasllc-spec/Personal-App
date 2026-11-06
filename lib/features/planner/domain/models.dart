@@ -7,11 +7,20 @@ enum Priority {
   medium,
   high;
 
-  static Priority parse(String s) => Priority.values.firstWhere((p) => p.name == s, orElse: () => Priority.none);
-  String get label => switch (this) { Priority.none => 'None', Priority.low => 'Low', Priority.medium => 'Medium', Priority.high => 'High' };
+  static Priority parse(String s) => Priority.values.firstWhere(
+    (p) => p.name == s,
+    orElse: () => Priority.none,
+  );
+  String get label => switch (this) {
+    Priority.none => 'None',
+    Priority.low => 'Low',
+    Priority.medium => 'Medium',
+    Priority.high => 'High',
+  };
 }
 
-DateTime? _local(int? ms) => ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+DateTime? _local(int? ms) =>
+    ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
 
 class PlannerTask {
   const PlannerTask({
@@ -51,19 +60,19 @@ class PlannerTask {
   bool get repeats => recurrence != null;
 
   factory PlannerTask.fromRow(TaskRow r) => PlannerTask(
-        id: r.id,
-        title: r.title,
-        notes: r.notes,
-        priority: Priority.parse(r.priority),
-        due: _local(r.dueAt),
-        dueHasTime: r.dueHasTime == 1,
-        planned: _local(r.plannedAt),
-        plannedMinutes: r.plannedMinutes,
-        doneAt: _local(r.doneAt),
-        rrule: r.rrule,
-        remindMinutes: r.remindMinutes,
-        createdAt: _local(r.createdAt),
-      );
+    id: r.id,
+    title: r.title,
+    notes: r.notes,
+    priority: Priority.parse(r.priority),
+    due: _local(r.dueAt),
+    dueHasTime: r.dueHasTime == 1,
+    planned: _local(r.plannedAt),
+    plannedMinutes: r.plannedMinutes,
+    doneAt: _local(r.doneAt),
+    rrule: r.rrule,
+    remindMinutes: r.remindMinutes,
+    createdAt: _local(r.createdAt),
+  );
 }
 
 class PlannerEvent {
@@ -94,14 +103,14 @@ class PlannerEvent {
   Recurrence? get recurrence => Recurrence.parse(rrule);
 
   factory PlannerEvent.fromRow(EventRow r) => PlannerEvent(
-        id: r.id,
-        title: r.title,
-        notes: r.notes,
-        start: DateTime.fromMillisecondsSinceEpoch(r.startAt),
-        end: DateTime.fromMillisecondsSinceEpoch(r.endAt),
-        allDay: r.allDay == 1,
-        rrule: r.rrule,
-        remindMinutes: r.remindMinutes,
-        color: r.color,
-      );
+    id: r.id,
+    title: r.title,
+    notes: r.notes,
+    start: DateTime.fromMillisecondsSinceEpoch(r.startAt),
+    end: DateTime.fromMillisecondsSinceEpoch(r.endAt),
+    allDay: r.allDay == 1,
+    rrule: r.rrule,
+    remindMinutes: r.remindMinutes,
+    color: r.color,
+  );
 }

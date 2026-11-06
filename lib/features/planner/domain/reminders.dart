@@ -2,7 +2,13 @@ import 'agenda.dart';
 import 'models.dart';
 
 class Reminder {
-  const Reminder({required this.id, required this.at, required this.title, required this.body, required this.payload});
+  const Reminder({
+    required this.id,
+    required this.at,
+    required this.title,
+    required this.body,
+    required this.payload,
+  });
 
   /// Stable 31-bit notification id derived from what is being reminded.
   final int id;
@@ -37,26 +43,47 @@ String _clock(DateTime d) => '${_two(d.hour)}:${_two(d.minute)}';
 String _when(DateTime target, DateTime fireAt, {required bool hasTime}) {
   final today = dateOnly(fireAt), day = dateOnly(target);
   final diff = day.difference(today).inDays;
-  final label = diff == 0 ? 'Today' : diff == 1 ? 'Tomorrow' : '${target.year}-${_two(target.month)}-${_two(target.day)}';
+  final label = diff == 0
+      ? 'Today'
+      : diff == 1
+      ? 'Tomorrow'
+      : '${target.year}-${_two(target.month)}-${_two(target.day)}';
   return hasTime ? '$label at ${_clock(target)}' : label;
 }
 
 /// The reminders to schedule right now: those still in the future within [horizon], soonest first.
-List<Reminder> pickReminders(DateTime now, List<PlannerTask> tasks, List<PlannerEvent> events, {Duration horizon = const Duration(days: 60), int max = maxPendingReminders}) {
+List<Reminder> pickReminders(
+  DateTime now,
+  List<PlannerTask> tasks,
+  List<PlannerEvent> events, {
+  Duration horizon = const Duration(days: 60),
+  int max = maxPendingReminders,
+}) {
   final until = now.add(horizon);
   final out = <Reminder>[];
 
-  void add(String kind, String id, String title, DateTime target, bool hasTime, int offset) {
-    final base = hasTime ? target : DateTime(target.year, target.month, target.day, allDayReminderHour);
+  void add(
+    String kind,
+    String id,
+    String title,
+    DateTime target,
+    bool hasTime,
+    int offset,
+  ) {
+    final base = hasTime
+        ? target
+        : DateTime(target.year, target.month, target.day, allDayReminderHour);
     final at = base.subtract(Duration(minutes: offset));
     if (!at.isAfter(now) || at.isAfter(until)) return;
-    out.add(Reminder(
-      id: stableId('$kind:$id:${target.millisecondsSinceEpoch}'),
-      at: at,
-      title: title.isEmpty ? 'Reminder' : title,
-      body: _when(target, at, hasTime: hasTime),
-      payload: '$kind:$id',
-    ));
+    out.add(
+      Reminder(
+        id: stableId('$kind:$id:${target.millisecondsSinceEpoch}'),
+        at: at,
+        title: title.isEmpty ? 'Reminder' : title,
+        body: _when(target, at, hasTime: hasTime),
+        payload: '$kind:$id',
+      ),
+    );
   }
 
   for (final t in tasks) {
@@ -78,7 +105,11 @@ List<Reminder> pickReminders(DateTime now, List<PlannerTask> tasks, List<Planner
   for (final e in events) {
     final offset = e.remindMinutes;
     if (offset == null) continue;
-    for (final o in eventOccurrences(e, now.subtract(const Duration(days: 1)), until)) {
+    for (final o in eventOccurrences(
+      e,
+      now.subtract(const Duration(days: 1)),
+      until,
+    )) {
       add('event', e.id, e.title, o.start, !e.allDay, offset);
     }
   }

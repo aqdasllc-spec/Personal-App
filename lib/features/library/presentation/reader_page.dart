@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../design_system/components.dart';
 import '../../../data/local/app_database.dart';
 import '../application/library_controller.dart';
+import '../domain_highlights.dart';
 
 /// Full-screen PDF reader. Remembers the page you were on.
 class ReaderPage extends ConsumerStatefulWidget {
@@ -28,6 +30,21 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   void initState() {
     super.initState();
     Future.microtask(() => _repo.markOpened(widget.bookId));
+    _control.onHighlight = (d) async {
+      await _repo.addHighlight(widget.bookId, d);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Highlighted. Open the list at the top to add a note.',
+              ),
+              duration: Duration(seconds: 2),
+            ),
+          );
+      }
+    };
   }
 
   void _onPage(int page) {
@@ -154,6 +171,14 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     final marks =
         ref.watch(bookmarksProvider(book.id)).value ?? const <BookmarkRow>[];
     final marked = marks.any((m) => m.page == current);
+    final highlights =
+        ref.watch(highlightsProvider(book.id)).value ?? const <HighlightRow>[];
+    // hand the saved highlights to the PDF view (it repaints itself when they change)
+    if (!listEquals(_control.highlights.value, highlights)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _control.highlights.value = highlights;
+      });
+    }
     return Scaffold(
       appBar: AppBar(
         title: _searching
@@ -180,15 +205,15 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                   key: const Key('reader-bookmarks'),
                   tooltip: 'Bookmarks',
                   icon: Badge(
-                    isLabelVisible: marks.isNotEmpty,
-                    label: Text('${marks.length}'),
+                    isLabelVisible: marks.isNotEmpty || highlights.isNotEmpty,
+                    label: Text('${marks.length + highlights.length}'),
                     child: const Icon(Icons.list_alt),
                   ),
                   onPressed: () => showModalBottomSheet<void>(
                     context: context,
                     showDragHandle: true,
                     isScrollControlled: true,
-                    builder: (_) => _BookmarksSheet(
+                    builder: (_) => _MarksSheet(
                       bookId: book.id,
                       current: current,
                       onJump: (p) => _control.goTo?.call(p),
@@ -224,8 +249,9 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   }
 }
 
-class _BookmarksSheet extends ConsumerWidget {
-  const _BookmarksSheet({
+/// Bookmarks and highlights of the open book, in two tabs.
+class _MarksSheet extends ConsumerWidget {
+  const _MarksSheet({
     required this.bookId,
     required this.current,
     required this.onJump,
@@ -239,47 +265,200 @@ class _BookmarksSheet extends ConsumerWidget {
     final repo = ref.read(libraryRepositoryProvider);
     final marks =
         ref.watch(bookmarksProvider(bookId)).value ?? const <BookmarkRow>[];
+    final highlights =
+        ref.watch(highlightsProvider(bookId)).value ?? const <HighlightRow>[];
+    final height = MediaQuery.sizeOf(context).height * 0.6;
     return SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.6,
-        ),
-        child: marks.isEmpty
-            ? const Padding(
-                padding: EdgeInsets.fromLTRB(24, 8, 24, 32),
-                child: Text(
-                  'No bookmarks yet. Tap the bookmark icon at the top to mark the page you are on.',
-                  textAlign: TextAlign.center,
-                ),
-              )
-            : ListView(
-                shrinkWrap: true,
-                children: [
-                  for (final m in marks)
-                    ListTile(
-                      key: Key('bookmark-${m.page}'),
-                      leading: Icon(
-                        Icons.bookmark,
-                        color: m.page == current
-                            ? Theme.of(context).colorScheme.primary
-                            : null,
-                      ),
-                      title: Text('Page ${m.page}'),
-                      subtitle: m.label.isEmpty ? null : Text(m.label),
-                      onTap: () {
-                        Navigator.pop(context);
-                        onJump(m.page);
-                      },
-                      trailing: IconButton(
-                        key: Key('bookmark-delete-${m.page}'),
-                        tooltip: 'Remove bookmark',
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () => repo.removeBookmark(m.id),
-                      ),
-                    ),
+      child: SizedBox(
+        height: height,
+        child: DefaultTabController(
+          length: 2,
+          child: Column(
+            children: [
+              TabBar(
+                tabs: [
+                  Tab(
+                    key: const Key('tab-bookmarks'),
+                    text: 'Bookmarks (${marks.length})',
+                  ),
+                  Tab(
+                    key: const Key('tab-highlights'),
+                    text: 'Highlights (${highlights.length})',
+                  ),
                 ],
               ),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    marks.isEmpty
+                        ? const _Empty(
+                            'No bookmarks yet. Tap the bookmark icon at the top to mark the page you are on.',
+                          )
+                        : ListView(
+                            children: [
+                              for (final m in marks)
+                                ListTile(
+                                  key: Key('bookmark-${m.page}'),
+                                  leading: Icon(
+                                    Icons.bookmark,
+                                    color: m.page == current
+                                        ? Theme.of(context).colorScheme.primary
+                                        : null,
+                                  ),
+                                  title: Text('Page ${m.page}'),
+                                  subtitle: m.label.isEmpty
+                                      ? null
+                                      : Text(m.label),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    onJump(m.page);
+                                  },
+                                  trailing: IconButton(
+                                    key: Key('bookmark-delete-${m.page}'),
+                                    tooltip: 'Remove bookmark',
+                                    icon: const Icon(Icons.delete_outline),
+                                    onPressed: () => repo.removeBookmark(m.id),
+                                  ),
+                                ),
+                            ],
+                          ),
+                    highlights.isEmpty
+                        ? const _Empty(
+                            'No highlights yet. Select some text in the PDF and choose Highlight.',
+                          )
+                        : ListView(
+                            children: [
+                              for (final h in highlights)
+                                ListTile(
+                                  key: Key('highlight-${h.id}'),
+                                  leading: InkWell(
+                                    key: Key('hl-color-${h.id}'),
+                                    customBorder: const CircleBorder(),
+                                    onTap: () => repo.setHighlightColor(
+                                      h.id,
+                                      nextHighlightColor(h.color),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8),
+                                      child: CircleAvatar(
+                                        radius: 10,
+                                        backgroundColor: highlightColor(
+                                          h.color,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  title: Text(
+                                    h.snippet.isEmpty ? '(no text)' : h.snippet,
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  subtitle: Text(
+                                    'Page ${h.page}${h.note.isEmpty ? '' : '\n${h.note}'}',
+                                  ),
+                                  isThreeLine: h.note.isNotEmpty,
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    onJump(h.page);
+                                  },
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        key: Key('hl-note-${h.id}'),
+                                        tooltip: h.note.isEmpty
+                                            ? 'Add a note'
+                                            : 'Edit note',
+                                        icon: Icon(
+                                          h.note.isEmpty
+                                              ? Icons.note_add_outlined
+                                              : Icons.edit_note,
+                                        ),
+                                        onPressed: () async {
+                                          final n = await showDialog<String>(
+                                            context: context,
+                                            builder: (_) =>
+                                                _NoteDialog(initial: h.note),
+                                          );
+                                          if (n != null) {
+                                            await repo.setHighlightNote(
+                                              h.id,
+                                              n,
+                                            );
+                                          }
+                                        },
+                                      ),
+                                      IconButton(
+                                        key: Key('hl-delete-${h.id}'),
+                                        tooltip: 'Remove highlight',
+                                        icon: const Icon(Icons.delete_outline),
+                                        onPressed: () =>
+                                            repo.removeHighlight(h.id),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
+}
+
+class _Empty extends StatelessWidget {
+  const _Empty(this.text);
+  final String text;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+    child: Text(text, textAlign: TextAlign.center),
+  );
+}
+
+class _NoteDialog extends StatefulWidget {
+  const _NoteDialog({required this.initial});
+  final String initial;
+  @override
+  State<_NoteDialog> createState() => _NoteDialogState();
+}
+
+class _NoteDialogState extends State<_NoteDialog> {
+  late final _c = TextEditingController(text: widget.initial);
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Note'),
+    content: TextField(
+      key: const Key('note-field'),
+      controller: _c,
+      autofocus: true,
+      maxLines: 5,
+      minLines: 2,
+      decoration: const InputDecoration(
+        hintText: 'Your thoughts on this passage',
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        key: const Key('note-save'),
+        onPressed: () => Navigator.pop(context, _c.text),
+        child: const Text('Save'),
+      ),
+    ],
+  );
 }

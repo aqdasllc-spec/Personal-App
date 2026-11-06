@@ -107,6 +107,26 @@ class Bookmarks extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Text highlighted in a book, with an optional note (device-local, like the rest of the library).
+/// [rects] is JSON: a list of [left, top, right, bottom] in PDF page coordinates, one per line of text.
+@DataClassName('HighlightRow')
+@TableIndex(name: 'highlights_book', columns: {#bookId})
+class Highlights extends Table {
+  TextColumn get id => text()();
+  TextColumn get bookId => text()();
+  IntColumn get page => integer()();
+  TextColumn get rects => text().withDefault(const Constant('[]'))();
+  TextColumn get snippet => text().withDefault(const Constant(''))();
+
+  /// 'yellow' | 'green' | 'blue' | 'pink'
+  TextColumn get color => text().withDefault(const Constant('yellow'))();
+  TextColumn get note => text().withDefault(const Constant(''))();
+  IntColumn get createdAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// A named bookshelf / collection.
 @DataClassName('ShelfRow')
 class Shelves extends Table {
@@ -168,12 +188,12 @@ class LocalConflicts extends Table {
   IntColumn get resolvedAt => integer().nullable()();
 }
 
-@DriftDatabase(tables: [Tasks, Events, Books, Shelves, Bookmarks, FieldMeta, SyncOutbox, SyncState, LocalConflicts])
+@DriftDatabase(tables: [Tasks, Events, Books, Shelves, Bookmarks, Highlights, FieldMeta, SyncOutbox, SyncState, LocalConflicts])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -234,6 +254,11 @@ class AppDatabase extends _$AppDatabase {
             // v7: reader bookmarks.
             await m.createTable(schema.bookmarks);
             await m.createIndex(schema.bookmarksBook);
+          },
+          from7To8: (m, schema) async {
+            // v8: text highlights with notes.
+            await m.createTable(schema.highlights);
+            await m.createIndex(schema.highlightsBook);
           },
         ),
         beforeOpen: (details) async {

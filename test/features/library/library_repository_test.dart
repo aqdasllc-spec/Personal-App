@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/data/local/app_database.dart';
 import 'package:folio/data/local/database_opener.dart';
 import 'package:folio/features/library/data/library_repository.dart';
+import 'package:folio/features/library/domain_highlights.dart';
 
 import '../../helpers.dart';
 
@@ -117,5 +118,24 @@ void main() {
     await repo.remove(b.id);
     await repo.purge();
     expect(await db.select(db.bookmarks).get(), isEmpty);
+  });
+
+  test('highlights: add, order by page, note, colour, remove; purged with the book', () async {
+    final b = (await repo.importPdf(pdf('a.pdf'))).book!;
+    await repo.addHighlight(b.id, const HighlightDraft(page: 9, rects: [[1, 5, 2, 1]], text: 'later'));
+    final first = await repo.addHighlight(b.id, const HighlightDraft(page: 2, rects: [[1, 5, 2, 1], [3, 9, 4, 6]], text: 'earlier'), color: 'blue');
+    final list = await repo.watchHighlights(b.id).first;
+    expect(list.map((h) => h.snippet), ['earlier', 'later']);
+    expect(list.first.color, 'blue');
+    expect(decodeRects(list.first.rects).length, 2);
+    await repo.setHighlightNote(first, '  why  ');
+    await repo.setHighlightColor(first, 'pink');
+    final h = (await repo.watchHighlights(b.id).first).first;
+    expect((h.note, h.color), ('why', 'pink'));
+    await repo.removeHighlight(first);
+    expect((await repo.watchHighlights(b.id).first).length, 1);
+    await repo.remove(b.id);
+    await repo.purge();
+    expect(await db.select(db.highlights).get(), isEmpty);
   });
 }

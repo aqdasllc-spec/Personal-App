@@ -1,10 +1,14 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../application/library_controller.dart';
+import '../domain_highlights.dart';
 import 'library_repository.dart';
 
 /// Real inspector backed by PDFium (via pdfrx).
@@ -87,6 +91,9 @@ class _PdfViewState extends State<_PdfView> {
       if (_controller.isReady) _controller.goToPage(pageNumber: page);
     };
     _searcher.addListener(_publish);
+    c.highlights.addListener(
+      _controller.invalidate,
+    ); // repaint when highlights change
     c.startSearch = (q) {
       _query = q.trim();
       if (_query.isEmpty) {
@@ -124,9 +131,59 @@ class _PdfViewState extends State<_PdfView> {
   @override
   void dispose() {
     final c = widget.control;
+    c.highlights.removeListener(_controller.invalidate);
     c.goTo = c.startSearch = c.nextMatch = c.prevMatch = c.stopSearch = null;
     _searcher.dispose();
     super.dispose();
+  }
+
+  void _paintHighlights(ui.Canvas canvas, Rect pageRect, PdfPage page) {
+    for (final h in widget.control.highlights.value) {
+      if (h.page != page.pageNumber) continue;
+      final paint = Paint()
+        ..color = highlightColor(h.color).withValues(alpha: 0.45)
+        ..blendMode = BlendMode.multiply;
+      for (final r in decodeRects(h.rects)) {
+        final rect = PdfRect(r[0], r[1], r[2], r[3])
+            .toRect(page: page, scaledPageSize: pageRect.size)
+            .translate(pageRect.left, pageRect.top);
+        canvas.drawRect(rect, paint);
+      }
+    }
+  }
+
+  /// Adds "Highlight" to the menu that appears when text is selected.
+  void _addHighlightItem(
+    PdfViewerContextMenuBuilderParams params,
+    List<ContextMenuButtonItem> items,
+  ) {
+    items.insert(
+      0,
+      ContextMenuButtonItem(
+        label: 'Highlight',
+        onPressed: () async {
+          final ranges = await params.textSelectionDelegate
+              .getSelectedTextRanges();
+          params.dismissContextMenu();
+          for (final r in ranges) {
+            final chars = r.pageText.charRects
+                .skip(r.start)
+                .take(r.end - r.start)
+                .map((c) => [c.left, c.top, c.right, c.bottom]);
+            final rects = lineRectsOf(chars);
+            if (rects.isEmpty) continue;
+            await widget.control.onHighlight?.call(
+              HighlightDraft(
+                page: r.pageNumber,
+                rects: rects,
+                text: r.text.trim(),
+              ),
+            );
+          }
+          await params.textSelectionDelegate.clearTextSelection();
+        },
+      ),
+    );
   }
 
   @override
@@ -135,7 +192,11 @@ class _PdfViewState extends State<_PdfView> {
     controller: _controller,
     initialPageNumber: widget.initialPage < 1 ? 1 : widget.initialPage,
     params: PdfViewerParams(
-      pagePaintCallbacks: [_searcher.pageTextMatchPaintCallback],
+      pagePaintCallbacks: [
+        _paintHighlights,
+        _searcher.pageTextMatchPaintCallback,
+      ],
+      customizeContextMenuItems: _addHighlightItem,
       onPageChanged: (n) {
         if (n != null) widget.onPage(n);
       },

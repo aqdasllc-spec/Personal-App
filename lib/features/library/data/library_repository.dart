@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import '../../../data/local/app_database.dart';
+import '../domain_highlights.dart';
 
 /// What we learn about a PDF before accepting it.
 class PdfInfo {
@@ -185,10 +186,58 @@ class LibraryRepository {
       await (_db.delete(
         _db.bookmarks,
       )..where((x) => x.bookId.equals(b.id))).go();
+      await (_db.delete(
+        _db.highlights,
+      )..where((x) => x.bookId.equals(b.id))).go();
       await (_db.delete(_db.books)..where((x) => x.id.equals(b.id))).go();
     }
     return gone.length;
   }
+
+  // ---------------------------------------------------------------- highlights
+  Stream<List<HighlightRow>> watchHighlights(String bookId) =>
+      (_db.select(_db.highlights)
+            ..where((h) => h.bookId.equals(bookId))
+            ..orderBy([
+              (h) => OrderingTerm.asc(h.page),
+              (h) => OrderingTerm.asc(h.createdAt),
+            ]))
+          .watch();
+
+  Future<String> addHighlight(
+    String bookId,
+    HighlightDraft d, {
+    String color = 'yellow',
+  }) async {
+    final id = _newId();
+    await _db
+        .into(_db.highlights)
+        .insert(
+          HighlightsCompanion.insert(
+            id: id,
+            bookId: bookId,
+            page: d.page,
+            createdAt: _now().millisecondsSinceEpoch,
+            rects: Value(encodeRects(d.rects)),
+            snippet: Value(d.text),
+            color: Value(color),
+          ),
+        );
+    return id;
+  }
+
+  Future<void> setHighlightNote(String id, String note) =>
+      (_db.update(_db.highlights)..where((h) => h.id.equals(id))).write(
+        HighlightsCompanion(note: Value(note.trim())),
+      );
+
+  Future<void> setHighlightColor(String id, String color) =>
+      (_db.update(_db.highlights)..where((h) => h.id.equals(id))).write(
+        HighlightsCompanion(color: Value(color)),
+      );
+
+  Future<void> removeHighlight(String id) =>
+      (_db.delete(_db.highlights)..where((h) => h.id.equals(id))).go();
 
   // ----------------------------------------------------------------- bookmarks
   Stream<List<BookmarkRow>> watchBookmarks(String bookId) =>

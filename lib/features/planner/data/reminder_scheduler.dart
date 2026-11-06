@@ -56,7 +56,8 @@ class NoopReminderScheduler implements ReminderScheduler {
   @override
   Future<void> replaceAll(List<Reminder> reminders) async {}
   @override
-  Future<ReminderDiagnostics> diagnostics() async => const ReminderDiagnostics();
+  Future<ReminderDiagnostics> diagnostics() async =>
+      const ReminderDiagnostics();
   @override
   Future<bool> sendTestNow() async => false;
   @override

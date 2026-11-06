@@ -12,16 +12,28 @@ abstract interface class OrientationLock {
 /// Phones and tablets only; desktop windows ignore it.
 class SystemOrientationLock implements OrientationLock {
   @override
-  Future<void> apply(RotationMode mode) => SystemChrome.setPreferredOrientations(
-        mode == RotationMode.portrait ? const [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown] : DeviceOrientation.values,
+  Future<void> apply(RotationMode mode) =>
+      SystemChrome.setPreferredOrientations(
+        mode == RotationMode.portrait
+            ? const [
+                DeviceOrientation.portraitUp,
+                DeviceOrientation.portraitDown,
+              ]
+            : DeviceOrientation.values,
       );
 }
 
-final orientationLockProvider = Provider<OrientationLock>((ref) => SystemOrientationLock());
+final orientationLockProvider = Provider<OrientationLock>(
+  (ref) => SystemOrientationLock(),
+);
 
 const _storageKey = 'rotation_mode';
 
-Future<RotationMode> loadRotationMode(Future<String?> Function(String key) read) async => (await read(_storageKey)) == 'portrait' ? RotationMode.portrait : RotationMode.auto;
+Future<RotationMode> loadRotationMode(
+  Future<String?> Function(String key) read,
+) async => (await read(_storageKey)) == 'portrait'
+    ? RotationMode.portrait
+    : RotationMode.auto;
 
 class RotationController extends Notifier<RotationMode> {
   RotationController([this.initial = RotationMode.auto]);
@@ -37,4 +49,6 @@ class RotationController extends Notifier<RotationMode> {
   }
 }
 
-final rotationProvider = NotifierProvider<RotationController, RotationMode>(RotationController.new);
+final rotationProvider = NotifierProvider<RotationController, RotationMode>(
+  RotationController.new,
+);

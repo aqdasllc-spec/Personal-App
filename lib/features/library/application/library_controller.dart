@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../../app/providers.dart';
 import '../../../data/local/app_database.dart';
 import '../data/library_repository.dart';
+import '../domain_highlights.dart';
 import '../data/pdf_inspector.dart';
 
 /// Where PDFs are stored. Overridden in tests with a temp folder.
@@ -53,6 +54,10 @@ class ReaderControl {
   void Function(String query)? startSearch;
   void Function()? nextMatch, prevMatch, stopSearch;
   final search = ValueNotifier<ReaderSearch>(const ReaderSearch());
+
+  // highlights: the reader page feeds the saved ones in; the PDF view reports new ones out
+  final highlights = ValueNotifier<List<HighlightRow>>(const []);
+  Future<void> Function(HighlightDraft draft)? onHighlight;
 }
 
 class ReaderSearch {
@@ -75,6 +80,10 @@ class ReaderSearch {
 }
 
 final pdfViewBuilderProvider = Provider<PdfViewBuilder>((ref) => buildPdfView);
+
+final highlightsProvider = StreamProvider.family<List<HighlightRow>, String>(
+  (ref, bookId) => ref.watch(libraryRepositoryProvider).watchHighlights(bookId),
+);
 
 final bookmarksProvider = StreamProvider.family<List<BookmarkRow>, String>(
   (ref, bookId) => ref.watch(libraryRepositoryProvider).watchBookmarks(bookId),
@@ -114,7 +123,8 @@ class ShelfFilter extends LibraryFilter {
   const ShelfFilter(this.shelfId);
   final String shelfId;
   @override
-  bool operator ==(Object other) => other is ShelfFilter && other.shelfId == shelfId;
+  bool operator ==(Object other) =>
+      other is ShelfFilter && other.shelfId == shelfId;
   @override
   int get hashCode => shelfId.hashCode;
 }

@@ -22,7 +22,14 @@ class SignedOutSession extends AppSession {
   const SignedOutSession();
 }
 
-enum AuthFailureKind { invalidCredentials, emailNotConfirmed, weakPassword, network, rateLimited, unknown }
+enum AuthFailureKind {
+  invalidCredentials,
+  emailNotConfirmed,
+  weakPassword,
+  network,
+  rateLimited,
+  unknown,
+}
 
 class AuthFailure implements Exception {
   AuthFailure(this.kind, this.message);
@@ -62,14 +69,21 @@ abstract final class AuthValidation {
   static String? newPassword(String? v) {
     final s = v ?? '';
     if (s.length < 10) return 'Use at least 10 characters.';
-    if (s.toLowerCase() == s || !RegExp(r'[0-9]').hasMatch(s)) return 'Mix upper and lower case letters and at least one number.';
+    if (s.toLowerCase() == s || !RegExp(r'[0-9]').hasMatch(s)) {
+      return 'Mix upper and lower case letters and at least one number.';
+    }
     return null;
   }
 }
 
 class SupabaseAuthRepository implements AuthRepository {
-  SupabaseAuthRepository(this._client, {required this._onLocalOnly, bool startLocalOnly = false})
-      : _override = startLocalOnly && _client.auth.currentSession == null ? const LocalOnlySession() : null {
+  SupabaseAuthRepository(
+    this._client, {
+    required this._onLocalOnly,
+    bool startLocalOnly = false,
+  }) : _override = startLocalOnly && _client.auth.currentSession == null
+           ? const LocalOnlySession()
+           : null {
     _sub = _client.auth.onAuthStateChange.listen((s) => _emit(_map(s.session)));
   }
 
@@ -82,8 +96,9 @@ class SupabaseAuthRepository implements AuthRepository {
   @override
   bool get cloudAvailable => true;
 
-  static AppSession _map(sb.Session? s) =>
-      s == null ? const SignedOutSession() : SignedInSession(userId: s.user.id, email: s.user.email ?? '');
+  static AppSession _map(sb.Session? s) => s == null
+      ? const SignedOutSession()
+      : SignedInSession(userId: s.user.id, email: s.user.email ?? '');
 
   void _emit(AppSession s) {
     // Supabase reports "signed out" at start-up; that must not undo a chosen local-only mode.
@@ -101,23 +116,35 @@ class SupabaseAuthRepository implements AuthRepository {
   @override
   Future<void> signIn(String email, String password) async {
     try {
-      await _client.auth.signInWithPassword(email: email.trim(), password: password);
+      await _client.auth.signInWithPassword(
+        email: email.trim(),
+        password: password,
+      );
     } on sb.AuthException catch (e) {
       throw _failure(e);
     } catch (e) {
-      throw AuthFailure(AuthFailureKind.network, 'Can\'t reach the server. Check your connection and try again.');
+      throw AuthFailure(
+        AuthFailureKind.network,
+        'Can\'t reach the server. Check your connection and try again.',
+      );
     }
   }
 
   @override
   Future<bool> signUp(String email, String password) async {
     try {
-      final r = await _client.auth.signUp(email: email.trim(), password: password);
+      final r = await _client.auth.signUp(
+        email: email.trim(),
+        password: password,
+      );
       return r.session != null;
     } on sb.AuthException catch (e) {
       throw _failure(e);
     } catch (e) {
-      throw AuthFailure(AuthFailureKind.network, 'Can\'t reach the server. Check your connection and try again.');
+      throw AuthFailure(
+        AuthFailureKind.network,
+        'Can\'t reach the server. Check your connection and try again.',
+      );
     }
   }
 
@@ -140,10 +167,30 @@ class SupabaseAuthRepository implements AuthRepository {
 
   AuthFailure _failure(sb.AuthException e) {
     final code = e.code ?? '';
-    if (code == 'invalid_credentials') return AuthFailure(AuthFailureKind.invalidCredentials, 'Email or password is incorrect.');
-    if (code == 'email_not_confirmed') return AuthFailure(AuthFailureKind.emailNotConfirmed, 'Please confirm your email address first - check your inbox.');
-    if (code == 'weak_password') return AuthFailure(AuthFailureKind.weakPassword, 'That password is too weak or has appeared in a known data breach.');
-    if (code.contains('rate_limit')) return AuthFailure(AuthFailureKind.rateLimited, 'Too many attempts. Wait a minute and try again.');
+    if (code == 'invalid_credentials') {
+      return AuthFailure(
+        AuthFailureKind.invalidCredentials,
+        'Email or password is incorrect.',
+      );
+    }
+    if (code == 'email_not_confirmed') {
+      return AuthFailure(
+        AuthFailureKind.emailNotConfirmed,
+        'Please confirm your email address first - check your inbox.',
+      );
+    }
+    if (code == 'weak_password') {
+      return AuthFailure(
+        AuthFailureKind.weakPassword,
+        'That password is too weak or has appeared in a known data breach.',
+      );
+    }
+    if (code.contains('rate_limit')) {
+      return AuthFailure(
+        AuthFailureKind.rateLimited,
+        'Too many attempts. Wait a minute and try again.',
+      );
+    }
     return AuthFailure(AuthFailureKind.unknown, e.message);
   }
 
@@ -160,11 +207,15 @@ class LocalOnlyAuthRepository implements AuthRepository {
   @override
   Stream<AppSession> get changes => const Stream.empty();
   @override
-  Future<void> signIn(String email, String password) async =>
-      throw AuthFailure(AuthFailureKind.unknown, 'Cloud sync is not configured in this build.');
+  Future<void> signIn(String email, String password) async => throw AuthFailure(
+    AuthFailureKind.unknown,
+    'Cloud sync is not configured in this build.',
+  );
   @override
-  Future<bool> signUp(String email, String password) async =>
-      throw AuthFailure(AuthFailureKind.unknown, 'Cloud sync is not configured in this build.');
+  Future<bool> signUp(String email, String password) async => throw AuthFailure(
+    AuthFailureKind.unknown,
+    'Cloud sync is not configured in this build.',
+  );
   @override
   Future<void> signOut() async {}
   @override
