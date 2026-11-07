@@ -13,6 +13,8 @@ class EditScope extends InheritedWidget {
     required this.canReorder,
     required this.onDrop,
     required this.onNudge,
+    required this.selectedId,
+    required this.onSelect,
     required this.onDragMove,
     required this.onDragEnd,
     required super.child,
@@ -28,13 +30,17 @@ class EditScope extends InheritedWidget {
 
   /// Screen-reader / keyboard alternative: move a book one place earlier (-1) or later (+1).
   final void Function(String id, int delta) onNudge;
+
+  /// The book picked (by tapping it) to be moved with the arrow buttons; null = none.
+  final String? selectedId;
+  final void Function(String id) onSelect;
   final void Function(Offset global) onDragMove;
   final VoidCallback onDragEnd;
 
   static EditScope? maybeOf(BuildContext c) => c.dependOnInheritedWidgetOfExactType<EditScope>();
 
   @override
-  bool updateShouldNotify(EditScope old) => old.editing != editing || old.canReorder != canReorder;
+  bool updateShouldNotify(EditScope old) => old.editing != editing || old.canReorder != canReorder || old.selectedId != selectedId;
 }
 
 /// A book in rearrange mode: it wiggles, can be dragged, and other books can be dropped on it.
@@ -77,15 +83,21 @@ class EditableBook extends StatelessWidget {
           childWhenDragging: Opacity(opacity: .3, child: child),
           onDragUpdate: (d) => scope.onDragMove(d.globalPosition),
           onDragEnd: (_) => scope.onDragEnd(),
-          // taps do nothing while rearranging (the book must not open); the drag still starts from here
-          child: AbsorbPointer(
+          // a tap picks the book for the arrow buttons (it must not open); the drag still starts from here
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => scope.onSelect(book.id),
+            child: AbsorbPointer(
             child: Wiggle(
             seed: book.id.hashCode,
             child: Container(
               // an accent bar on the left shows where the dragged book will go
-              foregroundDecoration: candidates.isEmpty ? null : BoxDecoration(border: Border(left: BorderSide(color: c.accent, width: 4))),
+              foregroundDecoration: candidates.isNotEmpty
+                  ? BoxDecoration(border: Border(left: BorderSide(color: c.accent, width: 4)))
+                  : (scope.selectedId == book.id ? BoxDecoration(border: Border.all(color: c.accent, width: 3), borderRadius: BorderRadius.circular(Radii.input)) : null),
               child: child,
             ),
+          ),
           ),
           ),
         ),

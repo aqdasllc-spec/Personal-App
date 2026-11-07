@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
@@ -216,8 +218,11 @@ class _TaskTileState extends ConsumerState<TaskTile> {
 
 /// What is carried while a task is dragged to the timeline.
 class TaskDrag {
-  const TaskDrag(this.id, this.title);
+  const TaskDrag(this.id, this.title, {this.fromDay});
   final String id, title;
+
+  /// The day column the task was picked up from (week view); null from the day view.
+  final DateTime? fromDay;
 }
 
 /// Lets a scrolling parent (the phone day view) follow a drag: it is told where the pointer is and when
@@ -242,9 +247,12 @@ class DragScope extends InheritedWidget {
 /// Makes an open task draggable: press-and-hold on touch screens (so scrolling still works), plain drag with a
 /// mouse. Drop it on the day timeline to give it a time block.
 class DraggableTask extends StatelessWidget {
-  const DraggableTask({super.key, required this.item, required this.child});
+  const DraggableTask({super.key, required this.item, required this.child, this.fromDay});
   final AgendaItem item;
   final Widget child;
+
+  /// Set by the week view: which day the dragged tile belongs to.
+  final DateTime? fromDay;
 
   static bool get isTouch =>
       defaultTargetPlatform == TargetPlatform.android ||
@@ -255,7 +263,7 @@ class DraggableTask extends StatelessWidget {
   Widget build(BuildContext context) {
     if (item.done || item.kind != ItemKind.task) return child;
     final c = context.colors;
-    final data = TaskDrag(item.id, item.title);
+    final data = TaskDrag(item.id, item.title, fromDay: fromDay);
     final feedback = Material(
       elevation: 8,
       borderRadius: BorderRadius.circular(Radii.input),
@@ -530,4 +538,41 @@ class _Block extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// Scrolls a list by itself while a dragged item is held near its top or bottom edge. Feed it the pointer
+/// position (global) on every move and tell it when the drag ends.
+class EdgeAutoScroller {
+  EdgeAutoScroller({required this.controller, required this.areaKey});
+  final ScrollController controller;
+
+  /// A key on the visible scroll area (its box is the "screen" the edges are measured on).
+  final GlobalKey areaKey;
+  Timer? _timer;
+  double _velocity = 0;
+
+  void move(Offset global) {
+    final box = areaKey.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.attached || !controller.hasClients) return;
+    final y = box.globalToLocal(global).dy;
+    final h = box.size.height;
+    const edge = 90.0, top = 18.0;
+    _velocity = y < edge ? -(edge - y).clamp(0, edge) / edge * top : (y > h - edge ? (y - (h - edge)).clamp(0, edge) / edge * top : 0);
+    if (_velocity != 0) {
+      _timer ??= Timer.periodic(const Duration(milliseconds: 16), (_) {
+        if (!controller.hasClients || _velocity == 0) return;
+        final p = controller.position;
+        controller.jumpTo((p.pixels + _velocity).clamp(p.minScrollExtent, p.maxScrollExtent));
+      });
+    }
+  }
+
+  void end() {
+    _velocity = 0;
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  void dispose() => end();
 }

@@ -20,12 +20,29 @@ void _open(BuildContext context, PlannerState s, AgendaItem item) {
 }
 
 // ======================================================================== week
-class WeekView extends ConsumerWidget {
+class WeekView extends ConsumerStatefulWidget {
   const WeekView({super.key, required this.state});
   final PlannerState state;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WeekView> createState() => _WeekViewState();
+}
+
+class _WeekViewState extends ConsumerState<WeekView> {
+  final _scroll = ScrollController();
+  final _areaKey = GlobalKey();
+  late final _auto = EdgeAutoScroller(controller: _scroll, areaKey: _areaKey);
+
+  @override
+  void dispose() {
+    _auto.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = widget.state;
     final s = state;
     final c = context.colors;
     final monday = startOfWeek(s.day);
@@ -68,7 +85,11 @@ class WeekView extends ConsumerWidget {
             ),
           ),
         for (final t in a.tasks)
-          TaskTile(item: t, dense: true, onOpen: () => _open(context, s, t)),
+          DraggableTask(
+            item: t,
+            fromDay: days[i],
+            child: TaskTile(item: t, dense: true, onOpen: () => _open(context, s, t)),
+          ),
       ];
       return items.isEmpty
           ? [Text('—', style: Theme.of(context).textTheme.bodySmall)].first
@@ -77,6 +98,14 @@ class WeekView extends ConsumerWidget {
               children: items,
             );
     }
+
+    /// A day (column or section) that tasks can be dropped on.
+    Widget dropTarget(int i, Widget Function(bool hovering) builder) => DragTarget<TaskDrag>(
+      key: Key('week-drop-${days[i].day}'),
+      onWillAcceptWithDetails: (d) => d.data.fromDay == null || !sameDay(d.data.fromDay!, days[i]),
+      onAcceptWithDetails: (d) => ctrl.moveTaskToDay(d.data.id, days[i], fromDay: d.data.fromDay),
+      builder: (context, candidates, _) => builder(candidates.isNotEmpty),
+    );
 
     Widget header(int i) {
       final d = days[i];
@@ -112,24 +141,24 @@ class WeekView extends ConsumerWidget {
           children: [
             for (var i = 0; i < 7; i++)
               Expanded(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  padding: const EdgeInsets.all(Space.s4),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: c.border),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      header(i),
-                      const SizedBox(height: Space.s4),
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: dayBody(i, dense: true),
-                        ),
-                      ),
-                    ],
+                child: dropTarget(
+                  i,
+                  (hovering) => Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    padding: const EdgeInsets.all(Space.s4),
+                    decoration: BoxDecoration(
+                      color: hovering ? c.accentSoft : null,
+                      border: Border.all(color: hovering ? c.accent : c.border, width: hovering ? 2 : 1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        header(i),
+                        const SizedBox(height: Space.s4),
+                        Expanded(child: SingleChildScrollView(child: dayBody(i, dense: true))),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -137,22 +166,39 @@ class WeekView extends ConsumerWidget {
         ),
       );
     }
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.s16, Space.s8, Space.s16, 96),
-      children: [
-        for (var i = 0; i < 7; i++) ...[
-          header(i),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              Space.s8,
-              Space.s4,
-              0,
-              Space.s12,
+    // phone: the days are stacked; the list scrolls by itself while a dragged task is held near an edge
+    return DragScope(
+      onMove: _auto.move,
+      onEnd: _auto.end,
+      child: ListView(
+        key: _areaKey,
+        controller: _scroll,
+        padding: const EdgeInsets.fromLTRB(Space.s16, Space.s8, Space.s16, 96),
+        children: [
+          for (var i = 0; i < 7; i++)
+            dropTarget(
+              i,
+              (hovering) => Container(
+                margin: const EdgeInsets.only(bottom: Space.s4),
+                decoration: BoxDecoration(
+                  color: hovering ? c.accentSoft : null,
+                  borderRadius: BorderRadius.circular(8),
+                  border: hovering ? Border.all(color: c.accent, width: 2) : null,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    header(i),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(Space.s8, Space.s4, 0, Space.s12),
+                      child: dayBody(i, dense: false),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            child: dayBody(i, dense: false),
-          ),
         ],
-      ],
+      ),
     );
   }
 }

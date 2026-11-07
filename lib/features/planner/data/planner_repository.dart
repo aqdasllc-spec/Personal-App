@@ -39,6 +39,20 @@ class TaskInput {
   final String rrule;
   final int? remindMinutes;
 
+  /// The same task with its due date and / or time block replaced (null keeps the current one).
+  TaskInput withDates({DateTime? due, DateTime? planned}) => TaskInput(
+    title: title,
+    notes: notes,
+    priority: priority,
+    due: due ?? this.due,
+    dueHasTime: dueHasTime,
+    planned: planned ?? this.planned,
+    plannedMinutes: plannedMinutes,
+    rrule: rrule,
+    remindMinutes: remindMinutes,
+    checklist: checklist,
+  );
+
   /// The same task with a different time block.
   TaskInput withBlock(DateTime start, int minutes) => TaskInput(
     title: title,

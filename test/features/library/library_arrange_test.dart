@@ -42,7 +42,7 @@ Future<void> end(WidgetTester t) async {
 
 /// Four books shown newest first: Delta, Charlie, Bravo, Alpha, and one shelf "Work".
 Future<(TestEnv, Map<String, String>)> open(WidgetTester t, {String view = 'List'}) async {
-  t.view.physicalSize = const Size(411, 890);
+  t.view.physicalSize = const Size(411, 1200); // tall: rows stay clear of the auto-scroll zones at the list's edges
   t.view.devicePixelRatio = 1;
   addTearDown(t.view.reset);
   final env = await TestEnv.create();
@@ -226,6 +226,59 @@ void main() {
     await io(t, rounds: 6);
     expect(shown(t, ids), ['Delta', 'Charlie', 'Alpha', 'Bravo']);
     sem.dispose();
+    await end(t);
+  });
+
+  testWidgets('tap a book, then use the arrow buttons to move it earlier or later', (t) async {
+    final (env, ids) = await open(t);
+    expect(shown(t, ids), ['Delta', 'Charlie', 'Bravo', 'Alpha']);
+    await t.tap(find.byKey(const Key('library-edit')));
+    await io(t, rounds: 3);
+    expect(find.byKey(const Key('edit-left')), findsNothing, reason: 'no arrows until a book is picked');
+    await t.tap(book(ids, 'Delta'));
+    await io(t, rounds: 3);
+    expect(find.text('PDF view page 0'), findsNothing, reason: 'tapping while rearranging does not open the book');
+    expect(find.text('Move "Delta"'), findsOneWidget);
+    expect(t.widget<IconButton>(find.byKey(const Key('edit-left'))).onPressed, isNull, reason: 'already first');
+
+    await t.tap(find.byKey(const Key('edit-right')));
+    await io(t, rounds: 4);
+    await t.tap(find.byKey(const Key('edit-right')));
+    await io(t, rounds: 4);
+    expect(shown(t, ids), ['Charlie', 'Bravo', 'Delta', 'Alpha']);
+    expect(find.text('Move "Delta"'), findsOneWidget, reason: 'the book stays picked');
+    expect(await t.runAsync(() => env.store.state('library_sort')), 'manual');
+    await t.tap(find.byKey(const Key('edit-right')));
+    await io(t, rounds: 4);
+    expect(t.widget<IconButton>(find.byKey(const Key('edit-right'))).onPressed, isNull, reason: 'now last');
+    await t.tap(find.byKey(const Key('edit-left')));
+    await io(t, rounds: 4);
+    expect(shown(t, ids), ['Charlie', 'Bravo', 'Delta', 'Alpha']);
+
+    await t.tap(book(ids, 'Delta')); // tapping it again puts it down
+    await io(t, rounds: 3);
+    expect(find.byKey(const Key('edit-left')), findsNothing);
+    await t.tap(book(ids, 'Bravo'));
+    await io(t, rounds: 3);
+    expect(find.text('Move "Bravo"'), findsOneWidget, reason: 'picking another book switches');
+    await t.tap(find.byKey(const Key('edit-done')));
+    await io(t, rounds: 3);
+    await t.tap(find.byKey(const Key('library-edit')));
+    await io(t, rounds: 3);
+    expect(find.byKey(const Key('edit-left')), findsNothing, reason: 'leaving rearrange mode forgets the pick');
+    await end(t);
+  });
+
+  testWidgets('while a search is active the arrows are disabled', (t) async {
+    final (_, ids) = await open(t);
+    await t.enterText(find.byKey(const Key('library-search')), 'a');
+    await io(t, rounds: 3);
+    await t.tap(find.byKey(const Key('library-edit')));
+    await io(t, rounds: 3);
+    await t.tap(book(ids, 'Charlie'));
+    await io(t, rounds: 3);
+    expect(t.widget<IconButton>(find.byKey(const Key('edit-left'))).onPressed, isNull);
+    expect(t.widget<IconButton>(find.byKey(const Key('edit-right'))).onPressed, isNull);
     await end(t);
   });
 

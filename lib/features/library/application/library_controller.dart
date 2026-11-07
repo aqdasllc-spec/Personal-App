@@ -276,6 +276,16 @@ class ShelfEditController extends Notifier<bool> {
 
 final shelfEditProvider = NotifierProvider<ShelfEditController, bool>(ShelfEditController.new);
 
+/// The book picked in rearrange mode to be moved with the arrow buttons (null = none).
+class MoveSelectionController extends Notifier<String?> {
+  @override
+  String? build() => null;
+  void toggle(String id) => state = state == id ? null : id;
+  void clear() => state = null;
+}
+
+final moveSelectionProvider = NotifierProvider<MoveSelectionController, String?>(MoveSelectionController.new);
+
 /// Where [dragged] ends up when dropped on [target]: it takes the target's place (the others shift over).
 List<String> reorderIds(List<String> ids, String dragged, String target) {
   final from = ids.indexOf(dragged), to = ids.indexOf(target);

@@ -794,4 +794,99 @@ void main() {
       await dispose(t);
     });
   });
+
+  group('week view: drag a task to another day', () {
+    Future<(TestEnv, String)> week(WidgetTester t, {double w = 1200, double h = 800, Seed? extra, String title = 'Write report', DateTime? due, DateTime? planned, int? minutes, String rrule = ''}) async {
+      final (env, _) = await openPlanner(t, w: w, h: h, seed: (repo) async {
+        await repo.saveTask(TaskInput(title: title, due: due ?? d(2026, 11, 6, 15), dueHasTime: due == null, planned: planned, plannedMinutes: minutes, rrule: rrule));
+        if (extra != null) await extra(repo);
+      });
+      await t.tap(find.text('Week'));
+      await settleP(t);
+      final rows = await dbTasks(t, env);
+      return (env, rows.firstWhere((r) => r.title == title).id);
+    }
+
+    Future<void> dragTo(WidgetTester t, Finder from, Finder to) async {
+      final g = await t.startGesture(t.getCenter(from));
+      await t.pump(const Duration(milliseconds: 700)); // press and hold (touch)
+      final a = t.getCenter(from), b = t.getCenter(to);
+      for (var k = 1; k <= 6; k++) {
+        await g.moveTo(Offset.lerp(a, b, k / 6)!);
+        await t.pump(const Duration(milliseconds: 40));
+      }
+      await g.up();
+      await settleP(t);
+    }
+
+    testWidgets('drop a task on another day: its due date moves, the time of day stays, with Undo', (t) async {
+      final (env, id) = await week(t);
+      await dragTo(t, find.byKey(Key('task-$id')), find.byKey(const Key('week-day-8'))); // Sun 8 Nov
+      final row = (await dbTasks(t, env)).single;
+      expect(DateTime.fromMillisecondsSinceEpoch(row.dueAt!), d(2026, 11, 8, 15));
+      expect(row.dueHasTime, 1);
+      expect(find.text('Moved to Sun 8'), findsOneWidget);
+
+      await t.tap(find.text('Undo'));
+      await settleP(t);
+      expect(DateTime.fromMillisecondsSinceEpoch((await dbTasks(t, env)).single.dueAt!), d(2026, 11, 6, 15));
+      await dispose(t);
+    });
+
+    testWidgets('dropping on the same day changes nothing; finished tasks cannot be dragged', (t) async {
+      final (env, id) = await week(t, extra: (repo) async => repo.saveTask(TaskInput(title: 'Old chore', due: d(2026, 11, 6))));
+      final before = (await dbTasks(t, env)).firstWhere((r) => r.id == id).dueAt;
+      await dragTo(t, find.byKey(Key('task-$id')), find.byKey(const Key('week-day-6')));
+      expect((await dbTasks(t, env)).firstWhere((r) => r.id == id).dueAt, before);
+      expect(find.textContaining('Moved to'), findsNothing);
+
+      final chore = (await dbTasks(t, env)).firstWhere((r) => r.title == 'Old chore').id;
+      await t.tap(find.byKey(Key('done-$chore')));
+      await settleP(t);
+      expect(find.byKey(Key('drag-$chore')), findsNothing);
+      await dispose(t);
+    });
+
+    testWidgets('a task with a planned time block moves that block (same time) when dragged from its planned day', (t) async {
+      final (env, id) = await week(t, due: d(2026, 11, 12), planned: d(2026, 11, 5, 9, 30), minutes: 45, title: 'Prepare slides');
+      // planned on Thu 5 Nov (the week of 2-8 Nov), due Thu 12 Nov (next week)
+      await dragTo(t, find.byKey(Key('task-$id')), find.byKey(const Key('week-day-7')));
+      final row = (await dbTasks(t, env)).single;
+      expect(DateTime.fromMillisecondsSinceEpoch(row.plannedAt!), d(2026, 11, 7, 9, 30));
+      expect(row.plannedMinutes, 45);
+      expect(DateTime.fromMillisecondsSinceEpoch(row.dueAt!), d(2026, 11, 12), reason: 'the due date stays');
+      await dispose(t);
+    });
+
+    testWidgets('a repeating task moves its current date; the rule is kept', (t) async {
+      final (env, id) = await week(t, due: d(2026, 11, 6), rrule: 'FREQ=WEEKLY', title: 'Weekly review');
+      await dragTo(t, find.byKey(Key('task-$id')), find.byKey(const Key('week-day-8')));
+      final row = (await dbTasks(t, env)).single;
+      expect(DateTime.fromMillisecondsSinceEpoch(row.dueAt!), d(2026, 11, 8));
+      expect(row.rrule, 'FREQ=WEEKLY');
+      await dispose(t);
+    });
+
+    testWidgets('a day highlights while a task is held over it', (t) async {
+      final (_, id) = await week(t);
+      final g = await t.startGesture(t.getCenter(find.byKey(Key('task-$id'))));
+      await t.pump(const Duration(milliseconds: 700));
+      await g.moveTo(t.getCenter(find.byKey(const Key('week-drop-8'))));
+      await t.pump(const Duration(milliseconds: 80));
+      final box = t.widget<Container>(find.descendant(of: find.byKey(const Key('week-drop-8')), matching: find.byType(Container)).first);
+      expect((box.decoration as BoxDecoration).color, isNotNull, reason: 'tinted while hovering');
+      await g.up();
+      await settleP(t);
+      await dispose(t);
+    });
+
+    testWidgets('phone: days are stacked; dragging to a day below works, and the list scrolls near the edge', (t) async {
+      final (env, id) = await week(t, w: 411, h: 890);
+      expect(find.byKey(const Key('week-day-6')), findsOneWidget);
+      await dragTo(t, find.byKey(Key('task-$id')), find.byKey(const Key('week-day-7')));
+      final row = (await dbTasks(t, env)).single;
+      expect(DateTime.fromMillisecondsSinceEpoch(row.dueAt!), d(2026, 11, 7, 15));
+      await dispose(t);
+    });
+  });
 }

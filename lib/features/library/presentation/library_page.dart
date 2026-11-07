@@ -162,6 +162,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     final shelves = ref.watch(shelvesProvider).value ?? const <ShelfRow>[];
     final c = context.colors;
     final editing = ref.watch(shelfEditProvider);
+    final moveId = ref.watch(moveSelectionProvider);
     final canReorder = ui.query.trim().isEmpty && ui.activeFilters == 0;
     final selection = ref.watch(selectionProvider);
     final selCtl = ref.read(selectionProvider.notifier);
@@ -407,32 +408,48 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                 onRemove: _bulkRemove,
               ),
             if (editing)
-              Material(
-                key: const Key('edit-bar'),
-                color: context.colors.accentSoft,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Space.s16,
-                    vertical: Space.s8,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          canReorder
-                              ? 'Drag a book to a new place, or onto a shelf name to move it there.'
-                              : 'Clear the search and filters to change the order. You can still drop a book on a shelf name.',
-                          key: const Key('edit-hint'),
-                        ),
+              Builder(
+                builder: (context) {
+                  final ids = [for (final b in visible.value ?? const <BookRow>[]) b.id];
+                  final i = moveId == null ? -1 : ids.indexOf(moveId);
+                  final picked = i < 0 ? null : (visible.value ?? const <BookRow>[])[i];
+                  return Material(
+                    key: const Key('edit-bar'),
+                    color: context.colors.accentSoft,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: Space.s16, vertical: Space.s4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: picked != null
+                                ? Text('Move "${picked.title}"', key: const Key('edit-picked'), maxLines: 1, overflow: TextOverflow.ellipsis)
+                                : Text(
+                                    canReorder
+                                        ? 'Drag a book to a new place, or tap one and use the arrows. Drop a book on a shelf name to move it there.'
+                                        : 'Clear the search and filters to change the order. You can still drop a book on a shelf name.',
+                                    key: const Key('edit-hint'),
+                                  ),
+                          ),
+                          if (picked != null) ...[
+                            IconButton(
+                              key: const Key('edit-left'),
+                              tooltip: 'Move earlier',
+                              icon: const Icon(Icons.arrow_back),
+                              onPressed: canReorder && i > 0 ? () => _nudgeBook(picked.id, -1) : null,
+                            ),
+                            IconButton(
+                              key: const Key('edit-right'),
+                              tooltip: 'Move later',
+                              icon: const Icon(Icons.arrow_forward),
+                              onPressed: canReorder && i < ids.length - 1 ? () => _nudgeBook(picked.id, 1) : null,
+                            ),
+                          ],
+                          FilledButton(key: const Key('edit-done'), onPressed: _toggleEdit, child: const Text('Done')),
+                        ],
                       ),
-                      FilledButton(
-                        key: const Key('edit-done'),
-                        onPressed: _toggleEdit,
-                        child: const Text('Done'),
-                      ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               ),
             if (ui.activeFilters > 0)
               SizedBox(
@@ -485,6 +502,8 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                 canReorder: canReorder,
                 onDrop: _dropOnBook,
                 onNudge: _nudgeBook,
+                selectedId: moveId,
+                onSelect: ref.read(moveSelectionProvider.notifier).toggle,
                 onDragMove: _edgeScroll,
                 onDragEnd: _edgeScrollEnd,
                 child: PrimaryScrollController(
@@ -612,6 +631,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
   void _toggleEdit() {
     final on = !ref.read(shelfEditProvider);
     ref.read(shelfEditProvider.notifier).set(on);
+    ref.read(moveSelectionProvider.notifier).clear();
     if (on) ref.read(selectionProvider.notifier).clear();
   }
 

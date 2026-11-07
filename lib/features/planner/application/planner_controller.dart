@@ -227,6 +227,36 @@ class PlannerController extends AsyncNotifier<PlannerState> {
     }
   }
 
+  /// Moves a task to another day, keeping the time of day. [fromDay] is the day it was dragged from: the date(s)
+  /// that fall on that day move (the due date, the planned time block, or both); a task that is not on
+  /// [fromDay] at all moves its due date (or, with no due date, its planned time).
+  /// Used by drag and drop in the week view.
+  Future<void> moveTaskToDay(String id, DateTime toDay, {DateTime? fromDay}) async {
+    final t = _s.tasks.where((x) => x.id == id).firstOrNull;
+    if (t == null || t.done) return;
+    final to = dateOnly(toDay);
+    DateTime shift(DateTime when) => DateTime(to.year, to.month, to.day, when.hour, when.minute);
+    final from = fromDay == null ? null : dateOnly(fromDay);
+    final dueHere = t.due != null && (from == null || sameDay(t.due!, from));
+    final plannedHere = t.planned != null && from != null && sameDay(t.planned!, from);
+    // not dragged from a day it is on: fall back to the due date, else the planned time
+    final moveDue = dueHere || (!plannedHere && t.due != null);
+    final movePlanned = plannedHere || (!moveDue && t.planned != null);
+    if (!moveDue && !movePlanned) return;
+    final newDue = moveDue ? shift(t.due!) : null;
+    final newPlanned = movePlanned ? shift(t.planned!) : null;
+    if ((newDue == null || newDue == t.due) && (newPlanned == null || newPlanned == t.planned)) return; // dropped on its own day
+    try {
+      final before = TaskInput.of(t);
+      await repo.saveTask(before.withDates(due: newDue, planned: newPlanned), id: id);
+      const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      _offerUndo('Moved to ${wd[to.weekday - 1]} ${to.day}', () => repo.saveTask(before, id: id));
+      await refresh();
+    } catch (e) {
+      _fail(e);
+    }
+  }
+
   /// Ticks / unticks one sub-task of a task.
   Future<void> toggleChecklistItem(String taskId, String itemId) async {
     final t = _s.tasks.where((x) => x.id == taskId).firstOrNull;
