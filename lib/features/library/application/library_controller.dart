@@ -251,7 +251,37 @@ class LibraryUiController extends Notifier<LibraryUi> {
   }
 
   void clearFilters() => state = state.copyWith(status: ReadStatus.all, tags: const {});
+
+  /// A tag was renamed / merged everywhere: keep a filter on it working.
+  void renameFilterTag(String from, String to) {
+    final f = from.toLowerCase();
+    if (!state.tags.any((t) => t.toLowerCase() == f)) return;
+    state = state.copyWith(tags: {for (final t in state.tags) t.toLowerCase() == f ? to : t});
+  }
+
+  /// A tag was deleted everywhere: stop filtering by it.
+  void dropFilterTag(String tag) {
+    final f = tag.toLowerCase();
+    state = state.copyWith(tags: {for (final t in state.tags) if (t.toLowerCase() != f) t});
+  }
 }
+
+/// Selection mode: null = off, otherwise the chosen book ids.
+class SelectionController extends Notifier<Set<String>?> {
+  @override
+  Set<String>? build() => null;
+  void start([String? firstId]) => state = {?firstId};
+  void toggle(String id) {
+    final cur = state;
+    if (cur == null) return;
+    state = cur.contains(id) ? ({...cur}..remove(id)) : {...cur, id};
+  }
+
+  void selectAll(Iterable<String> ids) => state = {...ids};
+  void clear() => state = null;
+}
+
+final selectionProvider = NotifierProvider<SelectionController, Set<String>?>(SelectionController.new);
 
 final libraryUiProvider = NotifierProvider<LibraryUiController, LibraryUi>(
   LibraryUiController.new,

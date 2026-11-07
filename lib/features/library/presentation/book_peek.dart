@@ -21,10 +21,15 @@ class BookPeekTarget extends StatefulWidget {
     required this.child,
     required this.onOpen,
     this.onMore,
+    this.selected,
   });
   final BookRow book;
   final Widget child;
   final VoidCallback onOpen;
+
+  /// null = normal mode (hover / long-press preview). true / false = selection mode: the book shows a tick or an
+  /// empty ring and the preview is off.
+  final bool? selected;
 
   /// Opens the full book menu. Null hides the "More" button.
   final VoidCallback? onMore;
@@ -108,7 +113,50 @@ class _BookPeekTargetState extends State<BookPeekTarget> {
   }
 
   @override
-  Widget build(BuildContext context) => MouseRegion(
+  Widget build(BuildContext context) {
+    final sel = widget.selected;
+    if (sel != null) {
+      _hide();
+      final c = context.colors;
+      return Stack(
+        children: [
+          widget.child,
+          if (sel)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: c.accent.withValues(alpha: .18),
+                    border: Border.all(color: c.accent, width: 2),
+                    borderRadius: BorderRadius.circular(Radii.input),
+                  ),
+                ),
+              ),
+            ),
+          Positioned(
+            left: 4,
+            bottom: 4,
+            child: IgnorePointer(
+              child: Container(
+                key: Key(sel ? 'sel-${widget.book.id}' : 'unsel-${widget.book.id}'),
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: sel ? c.accent : c.surface.withValues(alpha: .85),
+                  border: Border.all(color: sel ? c.onAccent : c.textMuted, width: 1.5),
+                ),
+                child: sel ? Icon(Icons.check, size: 15, color: c.onAccent) : null,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    return _hoverAndPress();
+  }
+
+  Widget _hoverAndPress() => MouseRegion(
     onEnter: (_) {
       _hoverTimer?.cancel();
       _hoverTimer = Timer(

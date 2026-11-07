@@ -162,6 +162,10 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     final visible = ref.watch(visibleBooksProvider);
     final shelves = ref.watch(shelvesProvider).value ?? const <ShelfRow>[];
     final c = context.colors;
+    final selection = ref.watch(selectionProvider);
+    final selCtl = ref.read(selectionProvider.notifier);
+    void openBook(BookRow b) => selection == null ? _open(b) : selCtl.toggle(b.id);
+    void bookMenu(BookRow b) => selection == null ? _details(b) : selCtl.toggle(b.id);
     final cloudOn = ref.watch(cloudBooksProvider) != null;
     final busyIds = ref.watch(bookSyncProvider).busy;
     // The cloud dot is shown only in builds that have cloud sync at all.
@@ -250,6 +254,12 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                         ref.read(libraryUiProvider.notifier).setView(s.first),
                   ),
                   IconButton.outlined(
+                    key: const Key('library-select'),
+                    tooltip: 'Select several books',
+                    icon: const Icon(Icons.checklist),
+                    onPressed: selection == null ? selCtl.start : selCtl.clear,
+                  ),
+                  IconButton.outlined(
                     key: const Key('library-filter'),
                     tooltip: 'Sort and filter',
                     icon: Badge(
@@ -327,6 +337,14 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                 ],
               ),
             ),
+            if (selection != null)
+              _SelectionBar(
+                selection: selection,
+                visible: visible.value ?? const <BookRow>[],
+                onTags: _bulkTags,
+                onShelf: _bulkShelf,
+                onFavorite: _bulkFavorite,
+              ),
             if (ui.activeFilters > 0)
               SizedBox(
                 height: 44,
@@ -387,21 +405,24 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                   return switch (ui.view) {
                     LibraryView.shelf => _ShelfView(
                       books: list,
-                      onOpen: _open,
-                      onMenu: _details,
+                      onOpen: openBook,
+                      onMenu: bookMenu,
                       dotOf: dotOf,
+                      selection: selection,
                     ),
                     LibraryView.grid => _GridView(
                       books: list,
-                      onOpen: _open,
-                      onMenu: _details,
+                      onOpen: openBook,
+                      onMenu: bookMenu,
                       dotOf: dotOf,
+                      selection: selection,
                     ),
                     LibraryView.list => _ListView(
                       books: list,
-                      onOpen: _open,
-                      onMenu: _details,
+                      onOpen: openBook,
+                      onMenu: bookMenu,
                       dotOf: dotOf,
+                      selection: selection,
                     ),
                   };
                 },
@@ -411,6 +432,44 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _bulkTags(Set<String> ids) async {
+    final text = await showDialog<String>(
+      context: context,
+      builder: (_) => const _NameDialog(title: 'Add tags', label: 'Tags (comma separated)', action: 'Add'),
+    );
+    if (text == null || !mounted) return;
+    final repo = ref.read(libraryRepositoryProvider);
+    final tags = normalizeTags(text);
+    if (tags.isEmpty) return;
+    await repo.addTagsToBooks(ids, text);
+    ref.read(selectionProvider.notifier).clear();
+    _say('Added ${tags.map((t) => '#$t').join(' ')} to ${ids.length} ${ids.length == 1 ? 'book' : 'books'}.');
+  }
+
+  Future<void> _bulkShelf(Set<String> ids) async {
+    final shelves = ref.read(shelvesProvider).value ?? const <ShelfRow>[];
+    final choice = await showDialog<(String?,)>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Move to shelf'),
+        children: [
+          SimpleDialogOption(key: const Key('bulk-shelf-none'), onPressed: () => Navigator.pop(ctx, (null,)), child: const Text('No shelf')),
+          for (final s in shelves) SimpleDialogOption(key: Key('bulk-shelf-${s.id}'), onPressed: () => Navigator.pop(ctx, (s.id,)), child: Text(s.name)),
+        ],
+      ),
+    );
+    if (choice == null || !mounted) return;
+    await ref.read(libraryRepositoryProvider).moveBooksToShelf(ids, choice.$1);
+    ref.read(selectionProvider.notifier).clear();
+    _say('Moved ${ids.length} ${ids.length == 1 ? 'book' : 'books'}.');
+  }
+
+  Future<void> _bulkFavorite(Set<String> ids, bool fav) async {
+    await ref.read(libraryRepositoryProvider).setFavorites(ids, fav);
+    ref.read(selectionProvider.notifier).clear();
+    _say(fav ? 'Added ${ids.length} to favourites.' : 'Removed ${ids.length} from favourites.');
   }
 
   Widget _activeChip(String label, VoidCallback onRemove, {Key? key}) => Padding(
@@ -483,8 +542,10 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
 
 class _ShelfView extends StatelessWidget {
   final Widget? Function(BookRow) dotOf;
+  final Set<String>? selection;
   const _ShelfView({
     required this.dotOf,
+    required this.selection,
     required this.books,
     required this.onOpen,
     required this.onMenu,
@@ -531,6 +592,7 @@ class _ShelfView extends StatelessWidget {
                             book: b,
                             onOpen: () => onOpen(b),
                             onMore: () => onMenu(b),
+                            selected: selection?.contains(b.id),
                             child: Spine(
                               book: b,
                               onTap: () => onOpen(b),
@@ -569,8 +631,10 @@ class _ShelfView extends StatelessWidget {
 
 class _GridView extends StatelessWidget {
   final Widget? Function(BookRow) dotOf;
+  final Set<String>? selection;
   const _GridView({
     required this.dotOf,
+    required this.selection,
     required this.books,
     required this.onOpen,
     required this.onMenu,
@@ -593,6 +657,7 @@ class _GridView extends StatelessWidget {
         book: b,
         onOpen: () => onOpen(b),
         onMore: () => onMenu(b),
+        selected: selection?.contains(b.id),
         child: InkWell(
           key: Key('book-${b.id}'),
           borderRadius: BorderRadius.circular(Radii.card),
@@ -640,8 +705,10 @@ class _GridView extends StatelessWidget {
 
 class _ListView extends StatelessWidget {
   final Widget? Function(BookRow) dotOf;
+  final Set<String>? selection;
   const _ListView({
     required this.dotOf,
+    required this.selection,
     required this.books,
     required this.onOpen,
     required this.onMenu,
@@ -659,6 +726,7 @@ class _ListView extends StatelessWidget {
         book: b,
         onOpen: () => onOpen(b),
         onMore: () => onMenu(b),
+        selected: selection?.contains(b.id),
         child: ListTile(
           key: Key('book-${b.id}'),
           leading: CoverTile(book: b, size: 48, dot: dotOf(b)),
@@ -1067,7 +1135,23 @@ class _FilterSheet extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: Space.s16),
-              Text('Tags', style: t.titleSmall),
+              Row(
+                children: [
+                  Expanded(child: Text('Tags', style: t.titleSmall)),
+                  if (tags.isNotEmpty)
+                    TextButton.icon(
+                      key: const Key('manage-tags'),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Manage'),
+                      onPressed: () => showModalBottomSheet<void>(
+                        context: context,
+                        showDragHandle: true,
+                        isScrollControlled: true,
+                        builder: (_) => const _TagManager(),
+                      ),
+                    ),
+                ],
+              ),
               const SizedBox(height: Space.s8),
               if (tags.isEmpty)
                 Text('No tags yet. Open a book\'s menu → Edit details to add some (for example: work, to read, safety).', style: t.bodySmall)
@@ -1093,6 +1177,127 @@ class _FilterSheet extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+
+/// Shown while selecting books: how many, Select all, and what to do with them.
+class _SelectionBar extends ConsumerWidget {
+  const _SelectionBar({required this.selection, required this.visible, required this.onTags, required this.onShelf, required this.onFavorite});
+  final Set<String> selection;
+  final List<BookRow> visible;
+  final Future<void> Function(Set<String>) onTags, onShelf;
+  final Future<void> Function(Set<String>, bool) onFavorite;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ctl = ref.read(selectionProvider.notifier);
+    final all = ref.watch(booksProvider).value ?? const <BookRow>[];
+    final chosen = [for (final b in all) if (selection.contains(b.id)) b];
+    final allFav = chosen.isNotEmpty && chosen.every((b) => b.favorite == 1);
+    final n = selection.length;
+    final none = n == 0;
+    return Material(
+      key: const Key('selection-bar'),
+      color: context.colors.accentSoft,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Space.s8, vertical: Space.s4),
+        child: Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: Space.s4,
+          children: [
+            IconButton(key: const Key('selection-close'), tooltip: 'Done selecting', icon: const Icon(Icons.close), onPressed: ctl.clear),
+            Text(n == 0 ? 'Tap books to select' : '$n selected', key: const Key('selection-count')),
+            TextButton(key: const Key('selection-all'), onPressed: () => ctl.selectAll(visible.map((b) => b.id)), child: const Text('Select all')),
+            TextButton.icon(key: const Key('bulk-tags'), onPressed: none ? null : () => onTags(selection), icon: const Icon(Icons.sell_outlined, size: 18), label: const Text('Tag')),
+            TextButton.icon(key: const Key('bulk-shelf'), onPressed: none ? null : () => onShelf(selection), icon: const Icon(Icons.shelves, size: 18), label: const Text('Shelf')),
+            TextButton.icon(
+              key: const Key('bulk-favorite'),
+              onPressed: none ? null : () => onFavorite(selection, !allFav),
+              icon: Icon(allFav ? Icons.star : Icons.star_outline, size: 18),
+              label: Text(allFav ? 'Unfavourite' : 'Favourite'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Rename, merge or delete a tag on every book at once.
+class _TagManager extends ConsumerWidget {
+  const _TagManager();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tags = tagCounts(ref.watch(booksProvider).value ?? const <BookRow>[]);
+    final repo = ref.read(libraryRepositoryProvider);
+    final ui = ref.read(libraryUiProvider.notifier);
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.7),
+        child: tags.isEmpty
+            ? const Padding(padding: EdgeInsets.all(Space.s24), child: Text('No tags left.', textAlign: TextAlign.center))
+            : ListView(
+                shrinkWrap: true,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(Space.s16, 0, Space.s16, Space.s8),
+                    child: Text('Renaming to a tag that already exists merges the two. Changes apply to every book.'),
+                  ),
+                  for (final (tag, count) in tags)
+                    ListTile(
+                      key: Key('tag-row-$tag'),
+                      title: Text('#$tag'),
+                      subtitle: Text('$count ${count == 1 ? 'book' : 'books'}'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            key: Key('tag-rename-$tag'),
+                            tooltip: 'Rename or merge',
+                            icon: const Icon(Icons.edit_outlined),
+                            onPressed: () async {
+                              final to = await showDialog<String>(
+                                context: context,
+                                builder: (_) => _NameDialog(title: 'Rename tag', label: 'New name', action: 'Rename', initial: tag),
+                              );
+                              if (to == null) return;
+                              final target = normalizeTags(to).firstOrNull;
+                              if (target == null) return;
+                              await repo.renameTag(tag, target);
+                              ui.renameFilterTag(tag, target);
+                            },
+                          ),
+                          IconButton(
+                            key: Key('tag-delete-$tag'),
+                            tooltip: 'Remove from all books',
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () async {
+                              final ok = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: Text('Remove #$tag?'),
+                                  content: Text('It will be taken off $count ${count == 1 ? 'book' : 'books'}. The books themselves stay.'),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                    FilledButton(key: const Key('tag-delete-confirm'), onPressed: () => Navigator.pop(ctx, true), child: const Text('Remove')),
+                                  ],
+                                ),
+                              );
+                              if (ok != true) return;
+                              await repo.deleteTag(tag);
+                              ui.dropFilterTag(tag);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
       ),
     );
   }

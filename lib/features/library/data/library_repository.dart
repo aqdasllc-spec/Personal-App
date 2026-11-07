@@ -148,6 +148,59 @@ class LibraryRepository {
     return tags;
   }
 
+  // ------------------------------------------------------------ bulk / tag management
+  /// Applies [change] to the tag list of every book (removed books included, so Undo never brings back an old name).
+  /// Returns how many books changed.
+  Future<int> _rewriteTags(List<String> Function(List<String> tags) change, {Set<String>? onlyIds}) async {
+    var changed = 0;
+    await _db.transaction(() async {
+      for (final b in await _db.select(_db.books).get()) {
+        if (onlyIds != null && !onlyIds.contains(b.id)) continue;
+        final before = decodeTags(b.tags);
+        final after = _dedupe(change(before));
+        if (encodeTags(after) == encodeTags(before)) continue;
+        await (_db.update(_db.books)..where((x) => x.id.equals(b.id))).write(BooksCompanion(tags: Value(encodeTags(after))));
+        changed++;
+      }
+    });
+    return changed;
+  }
+
+  static List<String> _dedupe(List<String> tags) {
+    final seen = <String>{};
+    return [
+      for (final t in tags)
+        if (seen.add(t.toLowerCase())) t,
+    ].take(maxTags).toList();
+  }
+
+  /// Renames a tag on every book. Renaming to a tag that already exists merges the two.
+  Future<int> renameTag(String from, String to) async {
+    final target = normalizeTags(to).firstOrNull;
+    if (target == null) throw ArgumentError('A tag needs a name.');
+    final f = from.toLowerCase();
+    return await _rewriteTags((tags) => [for (final t in tags) t.toLowerCase() == f ? target : t]);
+  }
+
+  /// Removes a tag from every book.
+  Future<int> deleteTag(String tag) {
+    final f = tag.toLowerCase();
+    return _rewriteTags((tags) => [for (final t in tags) if (t.toLowerCase() != f) t]);
+  }
+
+  /// Adds the tags typed in [input] to each of [ids] (existing tags are kept).
+  Future<int> addTagsToBooks(Iterable<String> ids, String input) {
+    final add = normalizeTags(input);
+    if (add.isEmpty) return Future.value(0);
+    return _rewriteTags((tags) => [...tags, ...add], onlyIds: ids.toSet());
+  }
+
+  Future<void> moveBooksToShelf(Iterable<String> ids, String? shelfId) =>
+      (_db.update(_db.books)..where((b) => b.id.isIn(ids.toList()))).write(BooksCompanion(shelfId: Value(shelfId)));
+
+  Future<void> setFavorites(Iterable<String> ids, bool fav) =>
+      (_db.update(_db.books)..where((b) => b.id.isIn(ids.toList()))).write(BooksCompanion(favorite: Value(fav ? 1 : 0)));
+
   Future<void> setFavorite(String id, bool fav) =>
       (_db.update(_db.books)..where((b) => b.id.equals(id))).write(
         BooksCompanion(favorite: Value(fav ? 1 : 0)),

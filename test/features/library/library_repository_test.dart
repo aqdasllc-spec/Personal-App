@@ -147,4 +147,66 @@ void main() {
     await repo.setTags(b.id, '');
     expect((await repo.book(b.id))!.tags, '[]');
   });
+
+  group('tag management and bulk actions', () {
+    Future<List<String>> tagsOf(String id) async => decodeTags((await repo.book(id))!.tags);
+
+    test('rename: every book changes, case-only renames work, renaming onto an existing tag merges', () async {
+      final a = (await repo.importPdf(pdf('a.pdf', pages: 1))).book!;
+      final b = (await repo.importPdf(pdf('b.pdf', pages: 2))).book!;
+      final c = (await repo.importPdf(pdf('c.pdf', pages: 3))).book!;
+      await repo.setTags(a.id, 'work, safety');
+      await repo.setTags(b.id, 'Work');
+      await repo.setTags(c.id, 'fiction');
+      expect(await repo.renameTag('WORK', 'Job'), 2);
+      expect(await tagsOf(a.id), ['Job', 'safety']);
+      expect(await tagsOf(b.id), ['Job']);
+      expect(await tagsOf(c.id), ['fiction'], reason: 'untouched');
+      expect(await repo.renameTag('job', 'Job'), 0, reason: 'nothing to change');
+      expect(await repo.renameTag('safety', 'job'), 1, reason: 'merge into the existing tag');
+      expect(await tagsOf(a.id), ['Job'], reason: 'no duplicate left after the merge');
+      await repo.renameTag('fiction', 'Fiction');
+      expect(await tagsOf(c.id), ['Fiction'], reason: 'only the spelling changed');
+      await expectLater(repo.renameTag('Job', '  # , '), throwsArgumentError);
+    });
+
+    test('delete removes the tag from every book and keeps the books', () async {
+      final a = (await repo.importPdf(pdf('a.pdf', pages: 1))).book!;
+      final b = (await repo.importPdf(pdf('b.pdf', pages: 2))).book!;
+      await repo.setTags(a.id, 'x, y');
+      await repo.setTags(b.id, 'X');
+      expect(await repo.deleteTag('x'), 2);
+      expect(await tagsOf(a.id), ['y']);
+      expect(await tagsOf(b.id), isEmpty);
+      expect((await repo.watchBooks().first).length, 2);
+    });
+
+    test('add tags to several books: merged with what they have, only the chosen ones, capped at 20', () async {
+      final a = (await repo.importPdf(pdf('a.pdf', pages: 1))).book!;
+      final b = (await repo.importPdf(pdf('b.pdf', pages: 2))).book!;
+      final c = (await repo.importPdf(pdf('c.pdf', pages: 3))).book!;
+      await repo.setTags(a.id, 'keep');
+      expect(await repo.addTagsToBooks([a.id, b.id], 'New, keep'), 2);
+      expect(await tagsOf(a.id), ['keep', 'New']);
+      expect(await tagsOf(b.id), ['New', 'keep']);
+      expect(await tagsOf(c.id), isEmpty);
+      expect(await repo.addTagsToBooks([a.id], '  '), 0);
+      await repo.addTagsToBooks([c.id], [for (var i = 0; i < 25; i++) 't$i'].join(','));
+      expect((await tagsOf(c.id)).length, 20);
+    });
+
+    test('move several books to a shelf and favourite them in one go', () async {
+      final a = (await repo.importPdf(pdf('a.pdf', pages: 1))).book!;
+      final b = (await repo.importPdf(pdf('b.pdf', pages: 2))).book!;
+      final c = (await repo.importPdf(pdf('c.pdf', pages: 3))).book!;
+      final shelf = await repo.createShelf('Work');
+      await repo.moveBooksToShelf([a.id, b.id], shelf.id);
+      await repo.setFavorites([a.id, b.id], true);
+      expect(((await repo.book(a.id))!.shelfId, (await repo.book(b.id))!.shelfId, (await repo.book(c.id))!.shelfId), (shelf.id, shelf.id, null));
+      expect(((await repo.book(a.id))!.favorite, (await repo.book(c.id))!.favorite), (1, 0));
+      await repo.moveBooksToShelf([a.id], null);
+      await repo.setFavorites([a.id], false);
+      expect(((await repo.book(a.id))!.shelfId, (await repo.book(a.id))!.favorite), (null, 0));
+    });
+  });
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:folio/data/local/app_database.dart';
 import 'package:folio/features/library/data/library_repository.dart';
 
 import '../../helpers.dart';
@@ -40,6 +41,7 @@ Future<(TestEnv, Map<String, String>)> open(WidgetTester t, {String? savedSort})
     await add('Zebra', 10, 'work, safety', 0);
     await add('Apple', 20, 'work', 5);
     await add('Mango', 30, 'fiction', 30);
+    ids['#shelf'] = (await repo.createShelf('Work')).id; // a shelf to move books to
     if (savedSort != null) await env.store.setState('library_sort', savedSort);
   });
   await t.pumpWidget(env.app);
@@ -55,6 +57,7 @@ Future<(TestEnv, Map<String, String>)> open(WidgetTester t, {String? savedSort})
 List<String> shown(WidgetTester t, Map<String, String> ids) {
   final found = <(String, double)>[];
   ids.forEach((title, id) {
+    if (title.startsWith('#')) return;
     final f = find.byKey(Key('book-$id'));
     if (f.evaluate().isNotEmpty) found.add((title, t.getTopLeft(f).dy));
   });
@@ -179,5 +182,175 @@ void main() {
     expect(find.byKey(const Key('peek-tags')), findsOneWidget);
     expect(find.text('#to read'), findsOneWidget);
     await end(t);
+  });
+
+  group('select several books', () {
+    Future<void> tapBook(WidgetTester t, Map<String, String> ids, String title) async {
+      await t.tap(find.byKey(Key('book-${ids[title]}')));
+      await io(t, rounds: 3);
+    }
+
+    Future<List<BookRow>> rows(WidgetTester t, TestEnv env) async => (await t.runAsync(() => env.db.select(env.db.books).get()))!;
+
+    testWidgets('selection mode: taps select instead of opening; the bar counts; Select all; Done leaves', (t) async {
+      final (_, ids) = await open(t);
+      await t.tap(find.byKey(const Key('library-select')));
+      await io(t, rounds: 3);
+      expect(find.text('Tap books to select'), findsOneWidget);
+      expect(find.byKey(Key('unsel-${ids['Apple']}')), findsOneWidget, reason: 'an empty ring shows that books can be picked');
+      expect(t.widget<TextButton>(find.byKey(const Key('bulk-tags'))).onPressed, isNull, reason: 'nothing chosen yet');
+      await tapBook(t, ids, 'Apple');
+      await tapBook(t, ids, 'Zebra');
+      expect(find.text('2 selected'), findsOneWidget);
+      expect(find.byKey(Key('sel-${ids['Apple']}')), findsOneWidget);
+      expect(find.text('PDF view page 0'), findsNothing, reason: 'tapping a book while selecting does not open it');
+      await tapBook(t, ids, 'Apple'); // tap again = deselect
+      expect(find.text('1 selected'), findsOneWidget);
+      await t.tap(find.byKey(const Key('selection-all')));
+      await io(t, rounds: 3);
+      expect(find.text('3 selected'), findsOneWidget);
+      await t.longPress(find.byKey(Key('book-${ids['Mango']}')));
+      await io(t, rounds: 3);
+      expect(find.byKey(Key('peek-${ids['Mango']}')), findsNothing, reason: 'no preview card while selecting');
+      await t.tap(find.byKey(const Key('selection-close')));
+      await io(t, rounds: 3);
+      expect(find.byKey(const Key('selection-bar')), findsNothing);
+      expect(find.byKey(Key('sel-${ids['Apple']}')), findsNothing);
+      await end(t);
+    });
+
+    testWidgets('Select all only takes the books that are shown (respects filters)', (t) async {
+      final (_, ids) = await open(t);
+      await openSheet(t);
+      await t.tap(find.byKey(const Key('tag-filter-work')));
+      await io(t);
+      await closeSheet(t);
+      await t.tap(find.byKey(const Key('library-select')));
+      await io(t, rounds: 3);
+      await t.tap(find.byKey(const Key('selection-all')));
+      await io(t, rounds: 3);
+      expect(find.text('2 selected'), findsOneWidget, reason: 'Mango is hidden by the filter');
+      expect(shown(t, ids), ['Apple', 'Zebra']);
+      await end(t);
+    });
+
+    testWidgets('Tag: adds tags to all selected books and leaves selection mode', (t) async {
+      final (env, ids) = await open(t);
+      await t.tap(find.byKey(const Key('library-select')));
+      await io(t, rounds: 3);
+      await tapBook(t, ids, 'Apple');
+      await tapBook(t, ids, 'Mango');
+      await t.tap(find.byKey(const Key('bulk-tags')));
+      await io(t, rounds: 3);
+      await t.enterText(find.byKey(const Key('name-field')), 'to read, #urgent');
+      await t.tap(find.byKey(const Key('name-ok')));
+      await io(t);
+      final r = {for (final b in await rows(t, env)) b.title: b.tags};
+      expect(r['Apple'], '["work","to read","urgent"]');
+      expect(r['Mango'], '["fiction","to read","urgent"]');
+      expect(r['Zebra'], '["work","safety"]', reason: 'not selected, not touched');
+      expect(find.byKey(const Key('selection-bar')), findsNothing);
+      expect(find.textContaining('Added #to read #urgent to 2 books'), findsOneWidget);
+      await end(t);
+    });
+
+    testWidgets('Shelf moves the selection; Favourite toggles (all favourite -> Unfavourite)', (t) async {
+      final (env, ids) = await open(t);
+      await t.tap(find.byKey(const Key('library-select')));
+      await io(t, rounds: 3);
+      await tapBook(t, ids, 'Zebra');
+      await tapBook(t, ids, 'Apple');
+      await t.tap(find.byKey(const Key('bulk-shelf')));
+      await io(t, rounds: 3);
+      await t.tap(find.byKey(Key('bulk-shelf-${ids['#shelf']}')));
+      await io(t);
+      var r = {for (final b in await rows(t, env)) b.title: b};
+      expect((r['Zebra']!.shelfId, r['Apple']!.shelfId, r['Mango']!.shelfId), (ids['#shelf'], ids['#shelf'], null));
+
+      await t.tap(find.byKey(const Key('library-select')));
+      await io(t, rounds: 3);
+      await tapBook(t, ids, 'Zebra');
+      await t.tap(find.byKey(const Key('bulk-favorite')));
+      await io(t);
+      r = {for (final b in await rows(t, env)) b.title: b};
+      expect(r['Zebra']!.favorite, 1);
+      await t.tap(find.byKey(const Key('library-select')));
+      await io(t, rounds: 3);
+      await tapBook(t, ids, 'Zebra');
+      expect(find.text('Unfavourite'), findsOneWidget);
+      await t.tap(find.byKey(const Key('bulk-favorite')));
+      await io(t);
+      r = {for (final b in await rows(t, env)) b.title: b};
+      expect(r['Zebra']!.favorite, 0);
+      await end(t);
+    });
+  });
+
+  group('manage tags', () {
+    testWidgets('rename updates every book and an active filter on it; merging combines tags', (t) async {
+      final (env, ids) = await open(t);
+      await openSheet(t);
+      await t.tap(find.byKey(const Key('tag-filter-work')));
+      await io(t);
+      await t.tap(find.byKey(const Key('manage-tags')));
+      await io(t);
+      await t.tap(find.byKey(const Key('tag-rename-work')));
+      await io(t, rounds: 3);
+      await t.enterText(find.byKey(const Key('name-field')), 'Job');
+      await t.tap(find.byKey(const Key('name-ok')));
+      await io(t);
+      final rows1 = (await t.runAsync(() => env.db.select(env.db.books).get()))!;
+      expect({for (final b in rows1) b.title: b.tags}['Apple'], '["Job"]');
+      expect({for (final b in rows1) b.title: b.tags}['Zebra'], '["Job","safety"]');
+      expect(find.byKey(const Key('tag-row-Job')), findsOneWidget);
+      expect(find.byKey(const Key('tag-row-work')), findsNothing);
+
+      // merge "safety" into "Job"
+      await t.tap(find.byKey(const Key('tag-rename-safety')));
+      await io(t, rounds: 3);
+      await t.enterText(find.byKey(const Key('name-field')), 'job');
+      await t.tap(find.byKey(const Key('name-ok')));
+      await io(t);
+      final zebra = (await t.runAsync(() => env.db.select(env.db.books).get()))!.firstWhere((b) => b.title == 'Zebra');
+      expect(zebra.tags, '["Job"]');
+      expect(find.text('2 books'), findsOneWidget);
+      expect(find.byKey(const Key('tag-row-safety')), findsNothing);
+      // the screen behind still shows the books that carry the renamed tag (the filter followed the rename)
+      Navigator.of(t.element(find.byKey(const Key('tag-row-Job')))).pop();
+      await io(t);
+      Navigator.of(t.element(find.byKey(const Key('sort-title')))).pop();
+      await io(t);
+      expect(find.byKey(const Key('active-tag-Job')), findsOneWidget);
+      expect(shown(t, ids), ['Apple', 'Zebra']);
+      await end(t);
+    });
+
+    testWidgets('delete asks first, then removes the tag from all books (and from the active filter)', (t) async {
+      final (env, ids) = await open(t);
+      await openSheet(t);
+      await t.tap(find.byKey(const Key('tag-filter-fiction')));
+      await io(t);
+      await t.tap(find.byKey(const Key('manage-tags')));
+      await io(t);
+      await t.tap(find.byKey(const Key('tag-delete-fiction')));
+      await io(t, rounds: 3);
+      expect(find.text('Remove #fiction?'), findsOneWidget);
+      await t.tap(find.text('Cancel'));
+      await io(t, rounds: 3);
+      expect((await t.runAsync(() => env.db.select(env.db.books).get()))!.firstWhere((b) => b.title == 'Mango').tags, '["fiction"]');
+      await t.tap(find.byKey(const Key('tag-delete-fiction')));
+      await io(t, rounds: 3);
+      await t.tap(find.byKey(const Key('tag-delete-confirm')));
+      await io(t);
+      expect((await t.runAsync(() => env.db.select(env.db.books).get()))!.firstWhere((b) => b.title == 'Mango').tags, '[]');
+      expect(find.byKey(const Key('tag-row-fiction')), findsNothing);
+      Navigator.of(t.element(find.byKey(const Key('tag-row-work')))).pop();
+      await io(t);
+      Navigator.of(t.element(find.byKey(const Key('sort-title')))).pop();
+      await io(t);
+      expect(find.byKey(const Key('active-filters')), findsNothing, reason: 'the deleted tag is no longer a filter');
+      expect(shown(t, ids).length, 3);
+      await end(t);
+    });
   });
 }
