@@ -1,4 +1,6 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderMetaData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -344,6 +346,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                 onTags: _bulkTags,
                 onShelf: _bulkShelf,
                 onFavorite: _bulkFavorite,
+                onRemove: _bulkRemove,
               ),
             if (ui.activeFilters > 0)
               SizedBox(
@@ -371,7 +374,10 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
               ),
             const _CloudBanner(),
             Expanded(
-              child: books.when(
+              child: SelectDragScope(
+                onStart: _dragSelectStart,
+                onMove: _dragSelectMove,
+                child: books.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => EmptyState(
                   icon: Icons.error_outline,
@@ -426,12 +432,89 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                     ),
                   };
                 },
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  // ----- drag-select: press and hold a book in selection mode, then slide over others
+  bool _dragAdding = true;
+
+  void _dragSelectStart(String id, Offset global) {
+    final sel = ref.read(selectionProvider) ?? const <String>{};
+    _dragAdding = !sel.contains(id); // starting on an unselected book selects; on a selected one deselects
+    ref.read(selectionProvider.notifier).setSelected(id, _dragAdding);
+  }
+
+  void _dragSelectMove(Offset global) {
+    final result = HitTestResult();
+    WidgetsBinding.instance.hitTestInView(result, global, View.of(context).viewId);
+    for (final entry in result.path) {
+      final target = entry.target;
+      if (target is RenderMetaData && target.metaData is BookTag) {
+        ref.read(selectionProvider.notifier).setSelected((target.metaData as BookTag).id, _dragAdding);
+        return;
+      }
+    }
+  }
+
+  Future<void> _bulkRemove(Set<String> ids) async {
+    final books = [for (final b in ref.read(booksProvider).value ?? const <BookRow>[]) if (ids.contains(b.id)) b];
+    if (books.isEmpty) return;
+    final synced = books.where((b) => b.cloudState == 'synced').length;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: const Key('bulk-remove-dialog'),
+        title: Text('Remove ${books.length} ${books.length == 1 ? 'book' : 'books'}?'),
+        content: Text(
+          'They disappear from your library; you can undo right after.'
+          '${synced > 0 ? ' $synced of them ${synced == 1 ? 'has' : 'have'} a cloud copy, which is deleted too.' : ''}',
+        ),
+        actions: [
+          TextButton(key: const Key('bulk-remove-cancel'), onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            key: const Key('bulk-remove-confirm'),
+            style: FilledButton.styleFrom(backgroundColor: context.colors.danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final repo = ref.read(libraryRepositoryProvider);
+    final r = await ref.read(bookSyncProvider.notifier).removeBooks(books);
+    if (!mounted) return;
+    ref.read(selectionProvider.notifier).clear();
+    final m = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
+    if (r.removed.isNotEmpty) {
+      m.showSnackBar(
+        SnackBar(
+          content: Text('Removed ${r.removed.length} ${r.removed.length == 1 ? 'book' : 'books'}'),
+          action: SnackBarAction(label: 'Undo', onPressed: () async {
+            for (final b in r.removed) {
+              await repo.restore(b.id);
+            }
+          }),
+        ),
+      );
+    }
+    if (r.failed.isNotEmpty && mounted) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          key: const Key('bulk-remove-failed'),
+          title: const Text('Some books were kept'),
+          content: Text('${r.failed.length} ${r.failed.length == 1 ? 'book' : 'books'} could not be removed because the cloud copy could not be deleted (are you offline?): ${r.failed.map((b) => '"${b.title}"').join(', ')}. Try again when you are connected.'),
+          actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+        ),
+      );
+    }
   }
 
   Future<void> _bulkTags(Set<String> ids) async {
@@ -1185,11 +1268,12 @@ class _FilterSheet extends ConsumerWidget {
 
 /// Shown while selecting books: how many, Select all, and what to do with them.
 class _SelectionBar extends ConsumerWidget {
-  const _SelectionBar({required this.selection, required this.visible, required this.onTags, required this.onShelf, required this.onFavorite});
+  const _SelectionBar({required this.selection, required this.visible, required this.onTags, required this.onShelf, required this.onFavorite, required this.onRemove});
   final Set<String> selection;
   final List<BookRow> visible;
   final Future<void> Function(Set<String>) onTags, onShelf;
   final Future<void> Function(Set<String>, bool) onFavorite;
+  final Future<void> Function(Set<String>) onRemove;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1218,6 +1302,13 @@ class _SelectionBar extends ConsumerWidget {
               onPressed: none ? null : () => onFavorite(selection, !allFav),
               icon: Icon(allFav ? Icons.star : Icons.star_outline, size: 18),
               label: Text(allFav ? 'Unfavourite' : 'Favourite'),
+            ),
+            TextButton.icon(
+              key: const Key('bulk-remove'),
+              style: TextButton.styleFrom(foregroundColor: context.colors.danger),
+              onPressed: none ? null : () => onRemove(selection),
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: const Text('Remove'),
             ),
           ],
         ),

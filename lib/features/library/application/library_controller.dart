@@ -277,6 +277,13 @@ class SelectionController extends Notifier<Set<String>?> {
     state = cur.contains(id) ? ({...cur}..remove(id)) : {...cur, id};
   }
 
+  /// Selects or deselects [id] (used by drag-select); does nothing outside selection mode.
+  void setSelected(String id, bool on) {
+    final cur = state;
+    if (cur == null || cur.contains(id) == on) return;
+    state = on ? {...cur, id} : ({...cur}..remove(id));
+  }
+
   void selectAll(Iterable<String> ids) => state = {...ids};
   void clear() => state = null;
 }

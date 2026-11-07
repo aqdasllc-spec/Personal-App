@@ -10,6 +10,23 @@ import '../application/library_controller.dart';
 import '../domain_tags.dart';
 import 'book_visuals.dart';
 
+/// Lets a finger drag across books to select (or deselect) them while in selection mode.
+/// Each selectable book registers itself; the owner turns pointer positions into book ids.
+class SelectDragScope extends InheritedWidget {
+  const SelectDragScope({super.key, required this.onStart, required this.onMove, required super.child});
+  final void Function(String bookId, Offset global) onStart;
+  final void Function(Offset global) onMove;
+  static SelectDragScope? maybeOf(BuildContext c) => c.dependOnInheritedWidgetOfExactType<SelectDragScope>();
+  @override
+  bool updateShouldNotify(SelectDragScope old) => false;
+}
+
+/// Marks a selectable book on screen so a drag can find which book is under the finger.
+class BookTag {
+  const BookTag(this.id);
+  final String id;
+}
+
 /// Wraps a book so that:
 ///  * hovering it with a mouse (desktop) floats a preview card above it, and
 ///  * long-pressing it (phone/tablet) opens the same card with Read / More buttons.
@@ -118,7 +135,16 @@ class _BookPeekTargetState extends State<BookPeekTarget> {
     if (sel != null) {
       _hide();
       final c = context.colors;
-      return Stack(
+      final drag = SelectDragScope.maybeOf(context);
+      return GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        // press and hold on a book, then slide over others: they get the same state as the first one
+        onLongPressStart: (d) => drag?.onStart(widget.book.id, d.globalPosition),
+        onLongPressMoveUpdate: (d) => drag?.onMove(d.globalPosition),
+        child: MetaData(
+          metaData: BookTag(widget.book.id),
+          behavior: HitTestBehavior.translucent,
+          child: Stack(
         children: [
           widget.child,
           if (sel)
@@ -151,6 +177,8 @@ class _BookPeekTargetState extends State<BookPeekTarget> {
             ),
           ),
         ],
+      ),
+        ),
       );
     }
     return _hoverAndPress();
