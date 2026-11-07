@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../design_system/components.dart';
 import '../../../data/local/app_database.dart';
+import '../application/export_notes.dart';
 import '../application/library_controller.dart';
 import '../domain_highlights.dart';
 
@@ -214,6 +215,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                     showDragHandle: true,
                     isScrollControlled: true,
                     builder: (_) => _MarksSheet(
+                      book: book,
                       bookId: book.id,
                       current: current,
                       onJump: (p) => _control.goTo?.call(p),
@@ -252,10 +254,12 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
 /// Bookmarks and highlights of the open book, in two tabs.
 class _MarksSheet extends ConsumerWidget {
   const _MarksSheet({
+    required this.book,
     required this.bookId,
     required this.current,
     required this.onJump,
   });
+  final BookRow book;
   final String bookId;
   final int current;
   final void Function(int page) onJump;
@@ -287,6 +291,33 @@ class _MarksSheet extends ConsumerWidget {
                   ),
                 ],
               ),
+              if (marks.isNotEmpty || highlights.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Row(
+                    children: [
+                      const Expanded(child: Text('Export your notes', style: TextStyle(fontWeight: FontWeight.w600))),
+                      TextButton.icon(
+                        key: const Key('export-copy'),
+                        icon: const Icon(Icons.copy, size: 18),
+                        label: const Text('Copy'),
+                        onPressed: () async {
+                          final m = await exportBookNotes(ref, book, copy: true);
+                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+                        },
+                      ),
+                      TextButton.icon(
+                        key: const Key('export-share'),
+                        icon: const Icon(Icons.ios_share, size: 18),
+                        label: const Text('Share'),
+                        onPressed: () async {
+                          final m = await exportBookNotes(ref, book, copy: false);
+                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: TabBarView(
                   children: [

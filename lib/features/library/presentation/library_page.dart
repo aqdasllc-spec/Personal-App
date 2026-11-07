@@ -7,6 +7,7 @@ import '../../../data/local/app_database.dart';
 import '../../../design_system/components.dart';
 import '../../../design_system/tokens.dart';
 import '../application/book_sync.dart';
+import '../application/export_notes.dart';
 import '../application/library_controller.dart';
 import '../data/library_repository.dart';
 import 'book_peek.dart';
@@ -724,6 +725,12 @@ class _BookSheet extends ConsumerWidget {
                       await repo.updateDetails(b.id, title: r.$1, author: r.$2);
                     }
                   },
+                ),
+                OutlinedButton.icon(
+                  key: const Key('book-export'),
+                  icon: const Icon(Icons.ios_share),
+                  label: const Text('Share notes'),
+                  onPressed: () async => onSay(await exportBookNotes(ref, b, copy: false)),
                 ),
               ],
             ),

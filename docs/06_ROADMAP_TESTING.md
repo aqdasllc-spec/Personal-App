@@ -17,6 +17,9 @@ Sections: **Home, Library, Planner, Settings**. The tracker engine (old Phase 2)
 
 *Order note:* the Planner is small compared with the PDF reader; if you want something useful on your phone sooner, Planner first is reasonable — say so.
 
+## 1o. Export highlights and notes (2026-11-07)
+Reader -> list icon -> **Copy** / **Share** (shown once the book has a highlight or bookmark), and **Share notes** in the book menu. Produces one Markdown (.md) file per book: title, author, counts, then every highlight grouped by page (coloured marker, quoted text, your note), then the bookmarks. Opens in any text editor and pastes into Obsidian/Notion/Word/e-mail. Tested: exact output format, ordering, empty cases, safe file names, copy and share paths (217 tests). The real share sheet on a phone is unverified. Not built: exporting a PDF with the highlights drawn in.
+
 ## 1n. Drag a task onto the day timeline (2026-11-07)
 In the Day view, press-and-hold a task (touch) or drag it (mouse) and drop it on the schedule: it gets a time block at the drop position, snapped to 15 minutes, keeping its length (default 1 h). A line with the drop time follows the pointer. Existing task blocks can be dragged to move them. Undo is offered ("Scheduled for 14:30"). Done tasks and events are not draggable. The schedule grid now also shows on days with open tasks but nothing timed, so there is somewhere to drop. Tested on a wide layout (4 tests). **Phone:** the list now scrolls by itself while a dragged task is held near the top/bottom edge, so a long list can reach the schedule; and every open task has a clock button ("Pick a time") that opens a time picker (starts at 09:00 or at the task's current time) — the quickest way without dragging. Both tested headless; the feel of the auto-scroll speed is unverified on a device.
 
