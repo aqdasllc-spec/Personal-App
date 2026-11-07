@@ -359,7 +359,8 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
 
   bool get _editing => widget.task != null;
 
-  TextEditingController _controllerFor(ChecklistItem i) => _itemControllers.putIfAbsent(i.id, () => TextEditingController(text: i.title));
+  TextEditingController _controllerFor(ChecklistItem i) => _itemControllers
+      .putIfAbsent(i.id, () => TextEditingController(text: i.title));
 
   void _addItem() {
     final text = _newItem.text.trim();
@@ -395,7 +396,8 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
     checklist: [
       // an item typed but not yet added with + still counts
       for (final i in _items) i.copyWith(title: _controllerFor(i).text),
-      if (_newItem.text.trim().isNotEmpty) ChecklistItem(id: const Uuid().v4(), title: _newItem.text.trim()),
+      if (_newItem.text.trim().isNotEmpty)
+        ChecklistItem(id: const Uuid().v4(), title: _newItem.text.trim()),
     ],
   );
 
@@ -501,21 +503,41 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
                   ReorderableDragStartListener(
                     index: index,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: Space.s8, vertical: Space.s8),
-                      child: Icon(Icons.drag_indicator, key: Key('item-handle-${i.id}'), size: 20, semanticLabel: 'Drag to reorder'),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Space.s8,
+                        vertical: Space.s8,
+                      ),
+                      child: Icon(
+                        Icons.drag_indicator,
+                        key: Key('item-handle-${i.id}'),
+                        size: 20,
+                        semanticLabel: 'Drag to reorder',
+                      ),
                     ),
                   ),
                   Checkbox(
                     key: Key('item-done-${i.id}'),
                     value: i.done,
-                    onChanged: (v) => setState(() => _items = [for (final x in _items) x.id == i.id ? x.copyWith(done: v ?? false) : x]),
+                    onChanged: (v) => setState(
+                      () => _items = [
+                        for (final x in _items)
+                          x.id == i.id ? x.copyWith(done: v ?? false) : x,
+                      ],
+                    ),
                   ),
                   Expanded(
                     child: TextField(
                       key: Key('item-title-${i.id}'),
                       controller: _controllerFor(i),
-                      decoration: const InputDecoration(isDense: true, border: InputBorder.none),
-                      style: i.done ? const TextStyle(decoration: TextDecoration.lineThrough) : null,
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
+                      ),
+                      style: i.done
+                          ? const TextStyle(
+                              decoration: TextDecoration.lineThrough,
+                            )
+                          : null,
                     ),
                   ),
                   IconButton(
@@ -523,7 +545,10 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
                     tooltip: 'Remove sub-task',
                     icon: const Icon(Icons.close, size: 18),
                     onPressed: () => setState(() {
-                      _items = [for (final x in _items) if (x.id != i.id) x];
+                      _items = [
+                        for (final x in _items)
+                          if (x.id != i.id) x,
+                      ];
                       _itemControllers.remove(i.id)?.dispose();
                     }),
                   ),
@@ -540,7 +565,12 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
               isDense: true,
               hintText: 'Add a sub-task',
               prefixIcon: const Icon(Icons.add),
-              suffixIcon: IconButton(key: const Key('add-subtask'), tooltip: 'Add sub-task', icon: const Icon(Icons.keyboard_return), onPressed: _addItem),
+              suffixIcon: IconButton(
+                key: const Key('add-subtask'),
+                tooltip: 'Add sub-task',
+                icon: const Icon(Icons.keyboard_return),
+                onPressed: _addItem,
+              ),
             ),
           ),
           const Divider(height: Space.s32),

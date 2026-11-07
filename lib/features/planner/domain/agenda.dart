@@ -31,9 +31,13 @@ class AgendaItem {
     this.color = '',
     this.hasTime = false,
     this.checklist = const [],
+    this.plannedAt,
   });
 
   final ItemKind kind;
+
+  /// When the task's time block starts (tasks only; null = not scheduled).
+  final DateTime? plannedAt;
 
   /// Sub-tasks (tasks only).
   final List<ChecklistItem> checklist;
@@ -143,6 +147,7 @@ AgendaItem _taskItem(PlannerTask t, {bool block = false}) {
     repeats: t.repeats,
     hasTime: block || t.dueHasTime,
     checklist: t.checklist,
+    plannedAt: t.planned,
   );
 }
 

@@ -180,10 +180,14 @@ class PlannerRepository {
   void _validateTask(TaskInput t) {
     _validateCommon(t.title, t.rrule, t.remindMinutes);
     if (t.checklist.length > maxChecklistItems) {
-      throw PlannerValidationException('A task can have at most $maxChecklistItems sub-tasks.');
+      throw PlannerValidationException(
+        'A task can have at most $maxChecklistItems sub-tasks.',
+      );
     }
     if (t.checklist.any((c) => c.title.trim().length > maxChecklistTitle)) {
-      throw PlannerValidationException('A sub-task title is too long (max $maxChecklistTitle characters).');
+      throw PlannerValidationException(
+        'A sub-task title is too long (max $maxChecklistTitle characters).',
+      );
     }
     if (t.notes.length > 20000) {
       throw PlannerValidationException('The notes are too long.');
@@ -262,13 +266,21 @@ class PlannerRepository {
       : (v != null && v != '' && v != 0 && v != '[]');
 
   /// Ticks / unticks one sub-task (writes only the checklist field).
-  Future<void> setChecklistItemDone(String taskId, String itemId, bool done) async {
-    final row = await (db.select(db.tasks)..where((t) => t.id.equals(taskId))).getSingle();
+  Future<void> setChecklistItemDone(
+    String taskId,
+    String itemId,
+    bool done,
+  ) async {
+    final row = await (db.select(
+      db.tasks,
+    )..where((t) => t.id.equals(taskId))).getSingle();
     final items = decodeChecklist(row.checklist);
     final i = items.indexWhere((c) => c.id == itemId);
     if (i < 0 || items[i].done == done) return;
     items[i] = items[i].copyWith(done: done);
-    await store.setFields('tasks', taskId, {'checklist': encodeChecklist(items)});
+    await store.setFields('tasks', taskId, {
+      'checklist': encodeChecklist(items),
+    });
   }
 
   /// A fresh id for a new sub-task.
@@ -304,7 +316,8 @@ class PlannerRepository {
         // the next occurrence starts with every sub-task unticked again
         final reset = [for (final c in t.checklist) c.copyWith(done: false)];
         await store.setFields('tasks', id, {
-          if (t.checklist.any((c) => c.done)) 'checklist': encodeChecklist(reset),
+          if (t.checklist.any((c) => c.done))
+            'checklist': encodeChecklist(reset),
           if (t.due != null) 'due_at': next.millisecondsSinceEpoch,
           if (t.due == null && t.planned != null)
             'planned_at': next.millisecondsSinceEpoch,

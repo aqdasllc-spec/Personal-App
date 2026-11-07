@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -27,11 +28,15 @@ class TaskTile extends ConsumerStatefulWidget {
     required this.onOpen,
     this.showDate = false,
     this.dense = false,
+    this.onPickTime,
   });
   final AgendaItem item;
   final VoidCallback onOpen;
   final bool showDate;
   final bool dense;
+
+  /// Shows a clock button that lets the user pick the time for this task (opens a time picker).
+  final VoidCallback? onPickTime;
 
   @override
   ConsumerState<TaskTile> createState() => _TaskTileState();
@@ -63,13 +68,17 @@ class _TaskTileState extends ConsumerState<TaskTile> {
             key: Key('task-${item.id}'),
             onTap: widget.onOpen,
             child: Padding(
-              padding: EdgeInsets.symmetric(vertical: widget.dense ? 0 : Space.s4),
+              padding: EdgeInsets.symmetric(
+                vertical: widget.dense ? 0 : Space.s4,
+              ),
               child: Row(
                 children: [
                   Checkbox(
                     key: Key('done-${item.id}'),
                     value: item.done,
-                    visualDensity: widget.dense ? VisualDensity.compact : VisualDensity.standard,
+                    visualDensity: widget.dense
+                        ? VisualDensity.compact
+                        : VisualDensity.standard,
                     onChanged: (_) => ctrl.toggleDone(item.id),
                   ),
                   if (item.priority != Priority.none)
@@ -91,7 +100,9 @@ class _TaskTileState extends ConsumerState<TaskTile> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: t.bodyMedium?.copyWith(
-                            decoration: item.done ? TextDecoration.lineThrough : null,
+                            decoration: item.done
+                                ? TextDecoration.lineThrough
+                                : null,
                             color: item.done ? c.textMuted : c.text,
                           ),
                         ),
@@ -106,19 +117,57 @@ class _TaskTileState extends ConsumerState<TaskTile> {
                       borderRadius: BorderRadius.circular(Radii.pill),
                       onTap: () => setState(() => _open = !_open),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: Space.s8, vertical: Space.s4),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(allDone ? Icons.checklist_rtl : Icons.checklist, size: 16, color: allDone ? c.ok : c.textMuted),
-                          const SizedBox(width: Space.s4),
-                          Text('${item.checkDone}/$total', style: t.bodySmall?.copyWith(color: allDone ? c.ok : c.textMuted)),
-                          Icon(_open ? Icons.expand_less : Icons.expand_more, size: 16, color: c.textMuted),
-                        ]),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Space.s8,
+                          vertical: Space.s4,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              allDone ? Icons.checklist_rtl : Icons.checklist,
+                              size: 16,
+                              color: allDone ? c.ok : c.textMuted,
+                            ),
+                            const SizedBox(width: Space.s4),
+                            Text(
+                              '${item.checkDone}/$total',
+                              style: t.bodySmall?.copyWith(
+                                color: allDone ? c.ok : c.textMuted,
+                              ),
+                            ),
+                            Icon(
+                              _open ? Icons.expand_less : Icons.expand_more,
+                              size: 16,
+                              color: c.textMuted,
+                            ),
+                          ],
+                        ),
                       ),
+                    ),
+                  if (widget.onPickTime != null && !item.done)
+                    IconButton(
+                      key: Key('schedule-${item.id}'),
+                      tooltip: item.start != null && item.hasTime
+                          ? 'Change time'
+                          : 'Pick a time',
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(
+                        Icons.schedule,
+                        size: 20,
+                        color: item.hasTime ? c.accent : c.textMuted,
+                      ),
+                      onPressed: widget.onPickTime,
                     ),
                   if (item.repeats)
                     Padding(
                       padding: const EdgeInsets.only(left: Space.s4),
-                      child: Icon(Icons.repeat, size: 16, color: c.textMuted, semanticLabel: 'Repeats'),
+                      child: Icon(
+                        Icons.repeat,
+                        size: 16,
+                        color: c.textMuted,
+                        semanticLabel: 'Repeats',
+                      ),
                     ),
                 ],
               ),
@@ -134,22 +183,27 @@ class _TaskTileState extends ConsumerState<TaskTile> {
                     InkWell(
                       key: Key('sub-${sc.id}'),
                       onTap: () => ctrl.toggleChecklistItem(item.id, sc.id),
-                      child: Row(children: [
-                        Checkbox(
-                          visualDensity: VisualDensity.compact,
-                          value: sc.done,
-                          onChanged: (_) => ctrl.toggleChecklistItem(item.id, sc.id),
-                        ),
-                        Expanded(
-                          child: Text(
-                            sc.title,
-                            style: t.bodyMedium?.copyWith(
-                              decoration: sc.done ? TextDecoration.lineThrough : null,
-                              color: sc.done ? c.textMuted : c.text,
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            visualDensity: VisualDensity.compact,
+                            value: sc.done,
+                            onChanged: (_) =>
+                                ctrl.toggleChecklistItem(item.id, sc.id),
+                          ),
+                          Expanded(
+                            child: Text(
+                              sc.title,
+                              style: t.bodyMedium?.copyWith(
+                                decoration: sc.done
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                                color: sc.done ? c.textMuted : c.text,
+                              ),
                             ),
                           ),
-                        ),
-                      ]),
+                        ],
+                      ),
                     ),
                 ],
               ),
@@ -166,6 +220,25 @@ class TaskDrag {
   final String id, title;
 }
 
+/// Lets a scrolling parent (the phone day view) follow a drag: it is told where the pointer is and when
+/// the drag ends, so it can scroll while the pointer is near an edge.
+class DragScope extends InheritedWidget {
+  const DragScope({
+    super.key,
+    required this.onMove,
+    required this.onEnd,
+    required super.child,
+  });
+  final void Function(Offset globalPosition) onMove;
+  final VoidCallback onEnd;
+
+  static DragScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<DragScope>();
+
+  @override
+  bool updateShouldNotify(DragScope old) => false;
+}
+
 /// Makes an open task draggable: press-and-hold on touch screens (so scrolling still works), plain drag with a
 /// mouse. Drop it on the day timeline to give it a time block.
 class DraggableTask extends StatelessWidget {
@@ -173,7 +246,10 @@ class DraggableTask extends StatelessWidget {
   final AgendaItem item;
   final Widget child;
 
-  static bool get isTouch => defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.fuchsia;
+  static bool get isTouch =>
+      defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS ||
+      defaultTargetPlatform == TargetPlatform.fuchsia;
 
   @override
   Widget build(BuildContext context) {
@@ -186,12 +262,26 @@ class DraggableTask extends StatelessWidget {
       color: c.surface,
       child: Container(
         width: 220,
-        padding: const EdgeInsets.symmetric(horizontal: Space.s12, vertical: Space.s8),
-        decoration: BoxDecoration(border: Border(left: BorderSide(color: c.brass, width: 3)), borderRadius: BorderRadius.circular(Radii.input)),
-        child: Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodyMedium),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Space.s12,
+          vertical: Space.s8,
+        ),
+        decoration: BoxDecoration(
+          border: Border(left: BorderSide(color: c.brass, width: 3)),
+          borderRadius: BorderRadius.circular(Radii.input),
+        ),
+        child: Text(
+          item.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
       ),
     );
     final dim = Opacity(opacity: .35, child: child);
+    final scope = DragScope.maybeOf(context);
+    void move(DragUpdateDetails d) => scope?.onMove(d.globalPosition);
+    void end(DraggableDetails _) => scope?.onEnd();
     return isTouch
         ? LongPressDraggable<TaskDrag>(
             key: Key('drag-${item.id}'),
@@ -199,6 +289,8 @@ class DraggableTask extends StatelessWidget {
             dragAnchorStrategy: pointerDragAnchorStrategy,
             feedback: feedback,
             childWhenDragging: dim,
+            onDragUpdate: move,
+            onDragEnd: end,
             child: child,
           )
         : Draggable<TaskDrag>(
@@ -207,6 +299,8 @@ class DraggableTask extends StatelessWidget {
             dragAnchorStrategy: pointerDragAnchorStrategy,
             feedback: feedback,
             childWhenDragging: dim,
+            onDragUpdate: move,
+            onDragEnd: end,
             child: child,
           );
   }
@@ -252,10 +346,15 @@ class _DayTimelineState extends State<DayTimeline> {
 
   @override
   Widget build(BuildContext context) {
-    final day = widget.day, agenda = widget.agenda, today = widget.today, hourHeight = widget.hourHeight;
+    final day = widget.day,
+        agenda = widget.agenda,
+        today = widget.today,
+        hourHeight = widget.hourHeight;
     final c = context.colors;
     final blocks = layoutBlocks(agenda.timed, day);
-    final nowMin = sameDay(day, today) ? DateTime.now().difference(dateOnly(day)).inMinutes : null;
+    final nowMin = sameDay(day, today)
+        ? DateTime.now().difference(dateOnly(day)).inMinutes
+        : null;
     // show from 7:00 (or earlier if something starts earlier) to 21:00 (or later if needed)
     var startH = 7, endH = 21;
     for (final b in blocks) {
@@ -286,7 +385,13 @@ class _DayTimelineState extends State<DayTimeline> {
                   right: 0,
                   child: Row(
                     children: [
-                      SizedBox(width: labelW, child: Text('${two(h % 24)}:00', style: Theme.of(context).textTheme.bodySmall)),
+                      SizedBox(
+                        width: labelW,
+                        child: Text(
+                          '${two(h % 24)}:00',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
                       Expanded(child: Divider(height: 1, color: c.border)),
                     ],
                   ),
@@ -296,15 +401,28 @@ class _DayTimelineState extends State<DayTimeline> {
                   top: (b.startMinute / 60 - startH) * hourHeight + 1,
                   left: labelW + b.column * (w / b.columns),
                   width: w / b.columns - 3,
-                  height: ((b.endMinute - b.startMinute) / 60 * hourHeight - 2).clamp(22, double.infinity),
-                  child: DraggableTask(item: b.item, child: _Block(item: b.item, onTap: () => widget.onOpen(b.item))),
+                  height: ((b.endMinute - b.startMinute) / 60 * hourHeight - 2)
+                      .clamp(22, double.infinity),
+                  child: DraggableTask(
+                    item: b.item,
+                    child: _Block(
+                      item: b.item,
+                      onTap: () => widget.onOpen(b.item),
+                    ),
+                  ),
                 ),
-              if (nowMin != null && nowMin >= startH * 60 && nowMin <= endH * 60)
+              if (nowMin != null &&
+                  nowMin >= startH * 60 &&
+                  nowMin <= endH * 60)
                 Positioned(
                   top: (nowMin / 60 - startH) * hourHeight,
                   left: labelW - 4,
                   right: 0,
-                  child: Container(key: const Key('now-line'), height: 2, color: c.danger),
+                  child: Container(
+                    key: const Key('now-line'),
+                    height: 2,
+                    color: c.danger,
+                  ),
                 ),
               if (_hoverMinute != null)
                 Positioned(
@@ -316,9 +434,22 @@ class _DayTimelineState extends State<DayTimeline> {
                     children: [
                       Container(
                         width: labelW,
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
                         color: c.accent,
-                        child: Text(timeLabel(dateOnly(day).add(Duration(minutes: _hoverMinute!))), key: const Key('drop-time'), style: TextStyle(color: c.onAccent, fontSize: 11, fontWeight: FontWeight.w700)),
+                        child: Text(
+                          timeLabel(
+                            dateOnly(day).add(Duration(minutes: _hoverMinute!)),
+                          ),
+                          key: const Key('drop-time'),
+                          style: TextStyle(
+                            color: c.onAccent,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                       Expanded(child: Container(height: 3, color: c.accent)),
                     ],
@@ -343,7 +474,12 @@ class _DayTimelineState extends State<DayTimeline> {
       onAcceptWithDetails: (d) {
         final m = _minuteAt(d.offset);
         setState(() => _hoverMinute = null);
-        if (m != null) widget.onSchedule!(d.data.id, dateOnly(day).add(Duration(minutes: m)));
+        if (m != null) {
+          widget.onSchedule!(
+            d.data.id,
+            dateOnly(day).add(Duration(minutes: m)),
+          );
+        }
       },
       builder: (context, candidates, rejected) => grid,
     );

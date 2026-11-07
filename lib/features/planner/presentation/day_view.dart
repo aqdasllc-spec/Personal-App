@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -18,10 +20,18 @@ class DayView extends ConsumerStatefulWidget {
 
 class _DayViewState extends ConsumerState<DayView> {
   final _quick = TextEditingController();
+
+  // phone layout: scroll by itself while a task is dragged near the top / bottom edge
+  final _scroll = ScrollController();
+  final _areaKey = GlobalKey();
+  Timer? _autoScroll;
+  double _velocity = 0;
   final _focus = FocusNode();
 
   @override
   void dispose() {
+    _autoScroll?.cancel();
+    _scroll.dispose();
     _quick.dispose();
     _focus.dispose();
     super.dispose();
@@ -37,6 +47,51 @@ class _DayViewState extends ConsumerState<DayView> {
       _quick.clear();
       _focus.requestFocus();
     }
+  }
+
+  void _dragMoved(Offset global) {
+    final box = _areaKey.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.attached || !_scroll.hasClients) return;
+    final y = box.globalToLocal(global).dy;
+    final h = box.size.height;
+    const edge = 90.0, max = 18.0;
+    _velocity = y < edge
+        ? -(edge - y).clamp(0, edge) / edge * max
+        : (y > h - edge ? (y - (h - edge)).clamp(0, edge) / edge * max : 0);
+    if (_velocity != 0) {
+      _autoScroll ??= Timer.periodic(const Duration(milliseconds: 16), (_) {
+        if (!_scroll.hasClients || _velocity == 0) return;
+        final p = _scroll.position;
+        _scroll.jumpTo(
+          (p.pixels + _velocity).clamp(p.minScrollExtent, p.maxScrollExtent),
+        );
+      });
+    }
+  }
+
+  void _dragEnded() {
+    _velocity = 0;
+    _autoScroll?.cancel();
+    _autoScroll = null;
+  }
+
+  /// "Pick a time" button: choose a time for [item] on the day being shown.
+  Future<void> _pickTime(AgendaItem item) async {
+    final day = widget.state.day;
+    final picked = await showTimePicker(
+      context: context,
+      helpText: 'Time for "${item.title}"',
+      initialTime: item.plannedAt != null
+          ? TimeOfDay.fromDateTime(item.plannedAt!)
+          : const TimeOfDay(hour: 9, minute: 0),
+    );
+    if (picked == null || !mounted) return;
+    await ref
+        .read(plannerControllerProvider.notifier)
+        .scheduleTask(
+          item.id,
+          DateTime(day.year, day.month, day.day, picked.hour, picked.minute),
+        );
   }
 
   void _open(AgendaItem item) {
@@ -87,7 +142,15 @@ class _DayViewState extends ConsumerState<DayView> {
       if (a.overdue.isNotEmpty) ...[
         _Section(title: 'Overdue', color: c.danger, count: a.overdue.length),
         for (final i in a.overdue)
-          DraggableTask(item: i, child: TaskTile(item: i, showDate: true, onOpen: () => _open(i))),
+          DraggableTask(
+            item: i,
+            child: TaskTile(
+              item: i,
+              showDate: true,
+              onOpen: () => _open(i),
+              onPickTime: () => _pickTime(i),
+            ),
+          ),
         const SizedBox(height: Space.s8),
       ],
       if (a.allDay.isNotEmpty) ...[
@@ -114,7 +177,15 @@ class _DayViewState extends ConsumerState<DayView> {
           child: Text('No tasks for this day.', style: t.bodySmall),
         )
       else
-        for (final i in a.tasks) DraggableTask(item: i, child: TaskTile(item: i, onOpen: () => _open(i))),
+        for (final i in a.tasks)
+          DraggableTask(
+            item: i,
+            child: TaskTile(
+              item: i,
+              onOpen: () => _open(i),
+              onPickTime: () => _pickTime(i),
+            ),
+          ),
     ];
 
     final canSchedule = a.tasks.any((x) => !x.done) || a.overdue.isNotEmpty;
@@ -123,7 +194,8 @@ class _DayViewState extends ConsumerState<DayView> {
       agenda: a,
       today: s.today,
       onOpen: _open,
-      onSchedule: (id, start) => ref.read(plannerControllerProvider.notifier).scheduleTask(id, start),
+      onSchedule: (id, start) =>
+          ref.read(plannerControllerProvider.notifier).scheduleTask(id, start),
     );
     final timeline = a.timed.isEmpty && !canSchedule
         ? Padding(
@@ -133,18 +205,23 @@ class _DayViewState extends ConsumerState<DayView> {
               style: t.bodySmall,
             ),
           )
-        : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            if (a.timed.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: Space.s8),
-                child: Text(
-                  DraggableTask.isTouch ? 'Nothing scheduled yet. Press and hold a task, then drop it here to give it a time.' : 'Nothing scheduled yet. Drag a task here to give it a time.',
-                  key: const Key('schedule-hint'),
-                  style: t.bodySmall,
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (a.timed.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Space.s8),
+                  child: Text(
+                    DraggableTask.isTouch
+                        ? 'Nothing scheduled yet. Press and hold a task, then drop it here to give it a time.'
+                        : 'Nothing scheduled yet. Drag a task here to give it a time.',
+                    key: const Key('schedule-hint'),
+                    style: t.bodySmall,
+                  ),
                 ),
-              ),
-            timelineGrid,
-          ]);
+              timelineGrid,
+            ],
+          );
 
     if (a.isEmpty && s.tasks.isEmpty && s.events.isEmpty) {
       return ListView(
@@ -187,15 +264,21 @@ class _DayViewState extends ConsumerState<DayView> {
         ),
       );
     }
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.s16, Space.s8, Space.s16, 96),
-      children: [
-        quickAdd,
-        ...checklist,
-        const SizedBox(height: Space.s16),
-        const _Section(title: 'Schedule'),
-        timeline,
-      ],
+    return DragScope(
+      onMove: _dragMoved,
+      onEnd: _dragEnded,
+      child: ListView(
+        key: _areaKey,
+        controller: _scroll,
+        padding: const EdgeInsets.fromLTRB(Space.s16, Space.s8, Space.s16, 96),
+        children: [
+          quickAdd,
+          ...checklist,
+          const SizedBox(height: Space.s16),
+          const _Section(title: 'Schedule'),
+          timeline,
+        ],
+      ),
     );
   }
 }

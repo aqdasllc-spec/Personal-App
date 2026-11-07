@@ -718,5 +718,80 @@ void main() {
       expect(find.byKey(const Key('title')), findsOneWidget, reason: 'tap = open the editor, drag only starts after press-and-hold');
       await dispose(t);
     });
+
+    testWidgets('"Pick a time" on a task opens a time picker (starts at 09:00, or at its current time); Cancel changes nothing', (t) async {
+      final (env, _) = await openPlanner(t, seed: (repo) async {
+        await repo.saveTask(TaskInput(title: 'Write report', due: d(2026, 11, 6)));
+        await repo.saveTask(TaskInput(title: 'Call bank', due: d(2026, 11, 6), planned: d(2026, 11, 6, 14, 30), plannedMinutes: 45));
+      });
+      final rows = await dbTasks(t, env);
+      final report = rows.firstWhere((r) => r.title == 'Write report').id;
+      final bank = rows.firstWhere((r) => r.title == 'Call bank').id;
+
+      await t.tap(find.byKey(Key('schedule-$report')));
+      await settleP(t);
+      expect(find.text('Time for "Write report"'), findsOneWidget);
+      await t.tap(find.text('Cancel'));
+      await settleP(t);
+      expect((await dbTasks(t, env)).firstWhere((r) => r.id == report).plannedAt, isNull);
+
+      await t.tap(find.byKey(Key('schedule-$report')));
+      await settleP(t);
+      await t.tap(find.text('OK'));
+      await settleP(t);
+      var row = (await dbTasks(t, env)).firstWhere((r) => r.id == report);
+      expect(DateTime.fromMillisecondsSinceEpoch(row.plannedAt!), d(2026, 11, 6, 9, 0));
+      expect(row.plannedMinutes, 60);
+      expect(find.text('Scheduled for 09:00'), findsOneWidget);
+
+      // an already scheduled task opens the picker at its own time and keeps its length when the time is kept
+      await t.tap(find.byKey(Key('schedule-$bank')));
+      await settleP(t);
+      await t.tap(find.text('OK'));
+      await settleP(t);
+      row = (await dbTasks(t, env)).firstWhere((r) => r.id == bank);
+      expect(DateTime.fromMillisecondsSinceEpoch(row.plannedAt!), d(2026, 11, 6, 14, 30));
+      expect(row.plannedMinutes, 45);
+      await dispose(t);
+    });
+
+    testWidgets('phone: dragging a task to the bottom edge scrolls the list by itself until the timeline is reachable', (t) async {
+      final (env, _) = await openPlanner(t, seed: (repo) async {
+        for (var i = 0; i < 30; i++) {
+          await repo.saveTask(TaskInput(title: 'Task ${i.toString().padLeft(2, '0')}', due: d(2026, 11, 6)));
+        }
+      });
+      final first = (await dbTasks(t, env)).firstWhere((r) => r.title == 'Task 00').id;
+      expect(find.byType(DayTimeline), findsNothing, reason: 'far below the fold (lazy list)');
+      final scrollable = find.byType(Scrollable).first;
+      double offset() => t.state<ScrollableState>(scrollable).position.pixels;
+
+      final g = await t.startGesture(t.getCenter(find.byKey(Key('task-$first'))));
+      await t.pump(const Duration(milliseconds: 700));
+      await g.moveTo(const Offset(200, 700));
+      await t.pump(const Duration(milliseconds: 50));
+      await g.moveTo(const Offset(200, 880)); // bottom edge
+      var guard = 0;
+      while (find.byType(DayTimeline).evaluate().isEmpty && guard++ < 400) {
+        await t.pump(const Duration(milliseconds: 50));
+      }
+      expect(offset(), greaterThan(300), reason: 'the list scrolled on its own while the pointer sat at the edge');
+      // keep scrolling until the 07:00-09:00 part of the grid is above the bottom edge, then move onto it and drop
+      guard = 0;
+      while ((find.byType(DayTimeline).evaluate().isEmpty || t.getTopLeft(find.byType(DayTimeline)).dy > 560) && guard++ < 600) {
+        await t.pump(const Duration(milliseconds: 50));
+      }
+      final top = t.getTopLeft(find.byType(DayTimeline)).dy;
+      await g.moveTo(Offset(250, top + 3 * 56 + 10)); // about 10:10 -> snaps to 10:15
+      await t.pump(const Duration(milliseconds: 50));
+      await g.up();
+      await settleP(t);
+      final row = (await dbTasks(t, env)).firstWhere((r) => r.id == first);
+      expect(row.plannedAt, isNotNull);
+      final dropped = DateTime.fromMillisecondsSinceEpoch(row.plannedAt!);
+      expect(dropped.hour, inInclusiveRange(9, 12), reason: 'landed near where the pointer was (the list may still move a little)');
+      expect(dropped.minute % 15, 0);
+      await dispose(t);
+    });
   });
 }

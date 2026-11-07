@@ -213,8 +213,14 @@ class PlannerController extends AsyncNotifier<PlannerState> {
     if (t == null || t.done) return;
     try {
       final before = TaskInput.of(t);
-      await repo.saveTask(before.withBlock(start, t.plannedMinutes ?? 60), id: id);
-      _offerUndo('Scheduled for ${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}', () => repo.saveTask(before, id: id));
+      await repo.saveTask(
+        before.withBlock(start, t.plannedMinutes ?? 60),
+        id: id,
+      );
+      _offerUndo(
+        'Scheduled for ${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}',
+        () => repo.saveTask(before, id: id),
+      );
       await refresh();
     } catch (e) {
       _fail(e);
