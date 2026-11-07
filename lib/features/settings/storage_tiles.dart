@@ -30,7 +30,8 @@ class StorageTiles extends ConsumerWidget {
     final cloudOn = ref.watch(cloudBooksProvider) != null;
     final t = Theme.of(context).textTheme;
     return report.when(
-      loading: () => const Padding(padding: EdgeInsets.all(Space.s16), child: LinearProgressIndicator()),
+      // plain text, not a spinner: it resolves in a blink and nothing should animate forever while waiting
+      loading: () => const ListTile(key: Key('storage-loading'), leading: Icon(Icons.storage_outlined), title: Text('Reading storage use…')),
       error: (e, _) => ListTile(title: const Text('Couldn\'t read the storage use'), subtitle: Text('$e')),
       data: (r) {
         final used = r.cloudBytes / freeCloudBytes;
