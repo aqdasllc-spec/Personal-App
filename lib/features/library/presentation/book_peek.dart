@@ -7,6 +7,7 @@ import '../../../data/local/app_database.dart';
 import '../../../design_system/tokens.dart';
 import '../application/covers.dart';
 import '../application/library_controller.dart';
+import '../domain_tags.dart';
 import 'book_visuals.dart';
 
 /// Wraps a book so that:
@@ -206,6 +207,25 @@ class _PeekCard extends ConsumerWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: t.bodySmall,
+                    ),
+                  if (decodeTags(book.tags).isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: Space.s4),
+                      child: Wrap(
+                        key: const Key('peek-tags'),
+                        spacing: Space.s4,
+                        runSpacing: 0,
+                        children: [
+                          for (final tag in decodeTags(book.tags))
+                            Chip(
+                              label: Text('#$tag'),
+                              visualDensity: VisualDensity.compact,
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              padding: EdgeInsets.zero,
+                              labelStyle: t.bodySmall,
+                            ),
+                        ],
+                      ),
                     ),
                   const SizedBox(height: Space.s4),
                   Text(

@@ -10,6 +10,7 @@ import '../application/book_sync.dart';
 import '../application/export_notes.dart';
 import '../application/library_controller.dart';
 import '../data/library_repository.dart';
+import '../domain_tags.dart';
 import 'book_peek.dart';
 import 'book_visuals.dart';
 
@@ -248,6 +249,21 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                     onSelectionChanged: (s) =>
                         ref.read(libraryUiProvider.notifier).setView(s.first),
                   ),
+                  IconButton.outlined(
+                    key: const Key('library-filter'),
+                    tooltip: 'Sort and filter',
+                    icon: Badge(
+                      isLabelVisible: ui.activeFilters > 0,
+                      label: Text('${ui.activeFilters}'),
+                      child: const Icon(Icons.tune),
+                    ),
+                    onPressed: () => showModalBottomSheet<void>(
+                      context: context,
+                      showDragHandle: true,
+                      isScrollControlled: true,
+                      builder: (_) => const _FilterSheet(),
+                    ),
+                  ),
                   FilledButton.icon(
                     key: const Key('library-add'),
                     onPressed: _importing ? null : _import,
@@ -311,6 +327,30 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                 ],
               ),
             ),
+            if (ui.activeFilters > 0)
+              SizedBox(
+                height: 44,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ListView(
+                        key: const Key('active-filters'),
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: Space.s16),
+                        children: [
+                          if (ui.status != ReadStatus.all)
+                            _activeChip(ui.status.label, () => ref.read(libraryUiProvider.notifier).setStatus(ReadStatus.all), key: const Key('active-status')),
+                          for (final t in ui.tags)
+                            _activeChip('#$t', () => ref.read(libraryUiProvider.notifier).toggleTag(t), key: Key('active-tag-$t')),
+                        ],
+                      ),
+                    ),
+                    // always visible, however many chips there are
+                    TextButton(key: const Key('clear-filters'), onPressed: ref.read(libraryUiProvider.notifier).clearFilters, child: const Text('Clear filters')),
+                    const SizedBox(width: Space.s8),
+                  ],
+                ),
+              ),
             const _CloudBanner(),
             Expanded(
               child: books.when(
@@ -337,9 +377,11 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                       title: 'Nothing here',
                       message: ui.query.isNotEmpty
                           ? 'No book matches "${ui.query}".'
+                          : (ui.activeFilters > 0
+                              ? 'No book matches these filters. Remove one above to see more.'
                           : (ui.filter is Favorites
                                 ? 'Star a book to find it here.'
-                                : 'This shelf is empty. Open a book\'s menu to move it here.'),
+                                : 'This shelf is empty. Open a book\'s menu to move it here.')),
                     );
                   }
                   return switch (ui.view) {
@@ -370,6 +412,11 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
       ),
     );
   }
+
+  Widget _activeChip(String label, VoidCallback onRemove, {Key? key}) => Padding(
+        padding: const EdgeInsets.only(right: Space.s8),
+        child: InputChip(key: key, label: Text(label), onDeleted: onRemove, deleteButtonTooltipMessage: 'Remove filter'),
+      );
 
   Widget _chip(
     String label,
@@ -716,13 +763,17 @@ class _BookSheet extends ConsumerWidget {
                   icon: const Icon(Icons.edit_outlined),
                   label: const Text('Edit details'),
                   onPressed: () async {
-                    final r = await showDialog<(String, String)>(
+                    final r = await showDialog<(String, String, String)>(
                       context: context,
-                      builder: (_) =>
-                          _DetailsDialog(title: b.title, author: b.author),
+                      builder: (_) => _DetailsDialog(
+                        title: b.title,
+                        author: b.author,
+                        tags: tagsToText(decodeTags(b.tags)),
+                      ),
                     );
                     if (r != null) {
                       await repo.updateDetails(b.id, title: r.$1, author: r.$2);
+                      await repo.setTags(b.id, r.$3);
                     }
                   },
                 ),
@@ -855,8 +906,8 @@ class _NameDialogState extends State<_NameDialog> {
 }
 
 class _DetailsDialog extends StatefulWidget {
-  const _DetailsDialog({required this.title, required this.author});
-  final String title, author;
+  const _DetailsDialog({required this.title, required this.author, required this.tags});
+  final String title, author, tags;
   @override
   State<_DetailsDialog> createState() => _DetailsDialogState();
 }
@@ -864,10 +915,12 @@ class _DetailsDialog extends StatefulWidget {
 class _DetailsDialogState extends State<_DetailsDialog> {
   late final _t = TextEditingController(text: widget.title);
   late final _a = TextEditingController(text: widget.author);
+  late final _g = TextEditingController(text: widget.tags);
   @override
   void dispose() {
     _t.dispose();
     _a.dispose();
+    _g.dispose();
     super.dispose();
   }
 
@@ -887,6 +940,11 @@ class _DetailsDialogState extends State<_DetailsDialog> {
           controller: _a,
           decoration: const InputDecoration(labelText: 'Author'),
         ),
+        TextField(
+          key: const Key('details-tags'),
+          controller: _g,
+          decoration: const InputDecoration(labelText: 'Tags', hintText: 'work, to read, safety'),
+        ),
       ],
     ),
     actions: [
@@ -898,7 +956,7 @@ class _DetailsDialogState extends State<_DetailsDialog> {
         key: const Key('details-save'),
         onPressed: _t.text.trim().isEmpty
             ? null
-            : () => Navigator.pop(context, (_t.text, _a.text)),
+            : () => Navigator.pop(context, (_t.text, _a.text, _g.text)),
         child: const Text('Save'),
       ),
     ],
@@ -952,6 +1010,89 @@ class _CloudBanner extends ConsumerWidget {
             child: Text(busy ? 'Downloading…' : 'Download'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+/// Sort order, reading status and tags.
+class _FilterSheet extends ConsumerWidget {
+  const _FilterSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ui = ref.watch(libraryUiProvider);
+    final ctl = ref.read(libraryUiProvider.notifier);
+    final tags = tagCounts(ref.watch(booksProvider).value ?? const <BookRow>[]);
+    final t = Theme.of(context).textTheme;
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.8),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(Space.s16, 0, Space.s16, Space.s16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Sort by', style: t.titleSmall),
+              const SizedBox(height: Space.s8),
+              Wrap(
+                spacing: Space.s8,
+                runSpacing: Space.s4,
+                children: [
+                  for (final s in LibrarySort.values)
+                    ChoiceChip(
+                      key: Key('sort-${s.name}'),
+                      label: Text(s.label),
+                      selected: ui.sort == s,
+                      onSelected: (_) => ctl.setSort(s),
+                    ),
+                ],
+              ),
+              const SizedBox(height: Space.s16),
+              Text('Reading status', style: t.titleSmall),
+              const SizedBox(height: Space.s8),
+              Wrap(
+                spacing: Space.s8,
+                runSpacing: Space.s4,
+                children: [
+                  for (final s in ReadStatus.values)
+                    ChoiceChip(
+                      key: Key('status-${s.name}'),
+                      label: Text(s.label),
+                      selected: ui.status == s,
+                      onSelected: (_) => ctl.setStatus(s),
+                    ),
+                ],
+              ),
+              const SizedBox(height: Space.s16),
+              Text('Tags', style: t.titleSmall),
+              const SizedBox(height: Space.s8),
+              if (tags.isEmpty)
+                Text('No tags yet. Open a book\'s menu → Edit details to add some (for example: work, to read, safety).', style: t.bodySmall)
+              else
+                Wrap(
+                  spacing: Space.s8,
+                  runSpacing: Space.s4,
+                  children: [
+                    for (final (tag, count) in tags)
+                      FilterChip(
+                        key: Key('tag-filter-$tag'),
+                        label: Text('$tag · $count'),
+                        selected: ui.tags.any((x) => x.toLowerCase() == tag.toLowerCase()),
+                        onSelected: (_) => ctl.toggleTag(tag),
+                      ),
+                  ],
+                ),
+              if (ui.activeFilters > 0)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(key: const Key('sheet-clear'), onPressed: ctl.clearFilters, child: const Text('Clear filters')),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

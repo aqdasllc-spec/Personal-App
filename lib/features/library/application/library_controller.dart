@@ -9,6 +9,7 @@ import '../../../app/providers.dart';
 import '../../../data/local/app_database.dart';
 import '../data/library_repository.dart';
 import '../domain_highlights.dart';
+import '../domain_tags.dart';
 import '../data/pdf_inspector.dart';
 
 /// Where PDFs are stored. Overridden in tests with a temp folder.
@@ -129,51 +130,203 @@ class ShelfFilter extends LibraryFilter {
   int get hashCode => shelfId.hashCode;
 }
 
+/// How the list is ordered.
+enum LibrarySort {
+  added('Recently added'),
+  read('Recently read'),
+  title('Title A–Z'),
+  author('Author A–Z'),
+  pages('Longest first');
+
+  const LibrarySort(this.label);
+  final String label;
+}
+
+/// Reading status filter.
+enum ReadStatus {
+  all('All'),
+  unread('Not started'),
+  reading('Reading'),
+  finished('Finished');
+
+  const ReadStatus(this.label);
+  final String label;
+}
+
+/// A book counts as finished once 95 % of its pages are behind you.
+ReadStatus statusOf(BookRow b) {
+  if (b.lastPage <= 0) return ReadStatus.unread;
+  return readingProgress(b) >= 0.95 ? ReadStatus.finished : ReadStatus.reading;
+}
+
 class LibraryUi {
   const LibraryUi({
     this.view = LibraryView.shelf,
     this.filter = const AllBooks(),
     this.query = '',
+    this.sort = LibrarySort.added,
+    this.status = ReadStatus.all,
+    this.tags = const {},
   });
   final LibraryView view;
   final LibraryFilter filter;
   final String query;
+  final LibrarySort sort;
+  final ReadStatus status;
+
+  /// Only books that have ALL of these tags (compared ignoring case).
+  final Set<String> tags;
+
+  /// Number of narrowing filters on top of the shelf choice (status + tags).
+  int get activeFilters => (status == ReadStatus.all ? 0 : 1) + tags.length;
+
   LibraryUi copyWith({
     LibraryView? view,
     LibraryFilter? filter,
     String? query,
+    LibrarySort? sort,
+    ReadStatus? status,
+    Set<String>? tags,
   }) => LibraryUi(
     view: view ?? this.view,
     filter: filter ?? this.filter,
     query: query ?? this.query,
+    sort: sort ?? this.sort,
+    status: status ?? this.status,
+    tags: tags ?? this.tags,
   );
 }
 
+const _sortKey = 'library_sort';
+const _viewKey = 'library_view';
+
 class LibraryUiController extends Notifier<LibraryUi> {
   @override
-  LibraryUi build() => const LibraryUi();
-  void setView(LibraryView v) => state = state.copyWith(view: v);
+  LibraryUi build() {
+    // restore what the user chose last time (sort and view), without delaying the first frame
+    Future.microtask(_restore);
+    return const LibraryUi();
+  }
+
+  Future<void> _restore() async {
+    try {
+      final store = ref.read(syncedStoreProvider);
+      final savedSort = await store.state(_sortKey);
+      final savedView = await store.state(_viewKey);
+      final sort = LibrarySort.values.where((v) => v.name == savedSort).firstOrNull;
+      final view = LibraryView.values.where((v) => v.name == savedView).firstOrNull;
+      if (sort != null || view != null) state = state.copyWith(sort: sort, view: view);
+    } catch (_) {
+      // preferences are a convenience only
+    }
+  }
+
+  void _save(String key, String value) {
+    try {
+      ref.read(syncedStoreProvider).setState(key, value);
+    } catch (_) {}
+  }
+
+  void setView(LibraryView v) {
+    state = state.copyWith(view: v);
+    _save(_viewKey, v.name);
+  }
+
   void setFilter(LibraryFilter f) => state = state.copyWith(filter: f);
   void setQuery(String q) => state = state.copyWith(query: q);
+
+  void setSort(LibrarySort s) {
+    state = state.copyWith(sort: s);
+    _save(_sortKey, s.name);
+  }
+
+  void setStatus(ReadStatus s) => state = state.copyWith(status: s);
+
+  void toggleTag(String tag) {
+    final lower = tag.toLowerCase();
+    final has = state.tags.any((t) => t.toLowerCase() == lower);
+    state = state.copyWith(
+      tags: has ? {for (final t in state.tags) if (t.toLowerCase() != lower) t} : {...state.tags, tag},
+    );
+  }
+
+  void clearFilters() => state = state.copyWith(status: ReadStatus.all, tags: const {});
 }
 
 final libraryUiProvider = NotifierProvider<LibraryUiController, LibraryUi>(
   LibraryUiController.new,
 );
 
-/// Pure filtering so it can be tested directly.
+/// Every tag used in the library (first spelling wins), alphabetical, with how many books carry it.
+List<(String tag, int count)> tagCounts(List<BookRow> all) {
+  final spelling = <String, String>{};
+  final counts = <String, int>{};
+  for (final b in all) {
+    for (final t in decodeTags(b.tags)) {
+      final k = t.toLowerCase();
+      spelling.putIfAbsent(k, () => t);
+      counts[k] = (counts[k] ?? 0) + 1;
+    }
+  }
+  final keys = counts.keys.toList()..sort();
+  return [for (final k in keys) (spelling[k]!, counts[k]!)];
+}
+
+int _cmpText(String a, String b) => a.toLowerCase().compareTo(b.toLowerCase());
+
+/// Orders [books] (a copy) as chosen. Ties fall back to newest-added so the order is stable.
+List<BookRow> sortBooks(List<BookRow> books, LibrarySort sort) {
+  int byAdded(BookRow a, BookRow b) => b.addedAt.compareTo(a.addedAt);
+  final out = [...books];
+  out.sort(switch (sort) {
+    LibrarySort.added => byAdded,
+    LibrarySort.read => (a, b) {
+        final x = a.lastOpenedAt, y = b.lastOpenedAt;
+        if (x == null && y == null) return byAdded(a, b);
+        if (x == null) return 1; // never opened: after everything that was
+        if (y == null) return -1;
+        return y.compareTo(x);
+      },
+    LibrarySort.title => (a, b) {
+        final c = _cmpText(a.title, b.title);
+        return c != 0 ? c : byAdded(a, b);
+      },
+    LibrarySort.author => (a, b) {
+        if (a.author.trim().isEmpty != b.author.trim().isEmpty) return a.author.trim().isEmpty ? 1 : -1; // unknown authors last
+        final c = _cmpText(a.author, b.author);
+        if (c != 0) return c;
+        final t = _cmpText(a.title, b.title);
+        return t != 0 ? t : byAdded(a, b);
+      },
+    LibrarySort.pages => (a, b) {
+        final c = b.pageCount.compareTo(a.pageCount);
+        return c != 0 ? c : byAdded(a, b);
+      },
+  });
+  return out;
+}
+
+/// Pure filtering + ordering so it can be tested directly.
 List<BookRow> filterBooks(List<BookRow> all, LibraryUi ui) {
   final q = ui.query.trim().toLowerCase();
+  final wanted = {for (final t in ui.tags) t.toLowerCase()};
   final out = all.where((b) {
     final f = ui.filter;
     if (f is Favorites && b.favorite != 1) return false;
     if (f is ShelfFilter && b.shelfId != f.shelfId) return false;
+    if (ui.status != ReadStatus.all && statusOf(b) != ui.status) return false;
+    final tags = decodeTags(b.tags);
+    if (wanted.isNotEmpty) {
+      final have = {for (final t in tags) t.toLowerCase()};
+      if (!wanted.every(have.contains)) return false;
+    }
     if (q.isEmpty) return true;
     return b.title.toLowerCase().contains(q) ||
         b.author.toLowerCase().contains(q) ||
-        b.fileName.toLowerCase().contains(q);
+        b.fileName.toLowerCase().contains(q) ||
+        tags.any((t) => t.toLowerCase().contains(q));
   }).toList();
-  return out;
+  return sortBooks(out, ui.sort);
 }
 
 final visibleBooksProvider = Provider<AsyncValue<List<BookRow>>>((ref) {

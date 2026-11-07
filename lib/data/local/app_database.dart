@@ -86,6 +86,9 @@ class Books extends Table {
   /// progress is tracked in memory only, so a crash can never leave a book stuck "syncing".
   TextColumn get cloudState => text().withDefault(const Constant('local'))();
 
+  /// Free-form tags the user put on the book: JSON list of strings.
+  TextColumn get tags => text().withDefault(const Constant('[]'))();
+
   /// Last page read (1-based; 0 = never opened).
   IntColumn get lastPage => integer().withDefault(const Constant(0))();
   IntColumn get lastOpenedAt => integer().nullable()();
@@ -196,7 +199,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -266,6 +269,10 @@ class AppDatabase extends _$AppDatabase {
           from8To9: (m, schema) async {
             // v9: sub-tasks (checklist) on tasks.
             await m.addColumn(schema.tasks, schema.tasks.checklist);
+          },
+          from9To10: (m, schema) async {
+            // v10: tags on books.
+            await m.addColumn(schema.books, schema.books.tags);
           },
         ),
         beforeOpen: (details) async {

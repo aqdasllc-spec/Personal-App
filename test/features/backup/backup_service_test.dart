@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/features/backup/backup_service.dart';
 import 'package:folio/features/library/data/library_repository.dart';
 import 'package:folio/features/library/domain_highlights.dart';
+import 'package:folio/features/library/domain_tags.dart';
 import 'package:folio/features/planner/data/planner_repository.dart';
 import 'package:folio/features/planner/domain/models.dart';
 
@@ -55,6 +56,7 @@ void main() {
     final book = (await a.lib.importPdf(pdf('Spec.pdf', 40))).book!;
     await a.lib.moveToShelf(book.id, shelf.id);
     await a.lib.setFavorite(book.id, true);
+    await a.lib.setTags(book.id, 'work, safety');
     await a.lib.saveProgress(book.id, 12);
     await a.lib.importPdf(pdf('Other.pdf', 7));
     await a.lib.toggleBookmark(book.id, 5);
@@ -87,6 +89,7 @@ void main() {
     expect(spec.shelfId, isNotNull);
     expect((await b.lib.watchShelves().first).single.name, 'Work');
     expect((await b.lib.watchBookmarks(spec.id).first).map((m) => m.page), [5, 31], reason: 'bookmarks come back with the book');
+    expect(decodeTags(spec.tags), ['work', 'safety'], reason: 'tags come back too');
     final hl = (await b.lib.watchHighlights(spec.id).first).single;
     expect((hl.snippet, hl.color, hl.page), ('kept passage', 'green', 4), reason: 'highlights too');
 

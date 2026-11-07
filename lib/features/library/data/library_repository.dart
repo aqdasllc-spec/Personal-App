@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../data/local/app_database.dart';
 import '../domain_highlights.dart';
+import '../domain_tags.dart';
 
 /// What we learn about a PDF before accepting it.
 class PdfInfo {
@@ -136,6 +137,15 @@ class LibraryRepository {
         author: author == null ? const Value.absent() : Value(author.trim()),
       ),
     );
+  }
+
+  /// Replaces the book's tags with the cleaned-up version of [input] (see [normalizeTags]).
+  Future<List<String>> setTags(String id, String input) async {
+    final tags = normalizeTags(input);
+    await (_db.update(_db.books)..where((b) => b.id.equals(id))).write(
+      BooksCompanion(tags: Value(encodeTags(tags))),
+    );
+    return tags;
   }
 
   Future<void> setFavorite(String id, bool fav) =>

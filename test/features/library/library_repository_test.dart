@@ -5,6 +5,7 @@ import 'package:folio/data/local/app_database.dart';
 import 'package:folio/data/local/database_opener.dart';
 import 'package:folio/features/library/data/library_repository.dart';
 import 'package:folio/features/library/domain_highlights.dart';
+import 'package:folio/features/library/domain_tags.dart';
 
 import '../../helpers.dart';
 
@@ -137,5 +138,13 @@ void main() {
     await repo.remove(b.id);
     await repo.purge();
     expect(await db.select(db.highlights).get(), isEmpty);
+  });
+
+  test('tags: stored cleaned-up, replaced as a whole, empty clears', () async {
+    final b = (await repo.importPdf(pdf('a.pdf'))).book!;
+    expect(await repo.setTags(b.id, ' Work, #to read ,work'), ['Work', 'to read']);
+    expect(decodeTags((await repo.book(b.id))!.tags), ['Work', 'to read']);
+    await repo.setTags(b.id, '');
+    expect((await repo.book(b.id))!.tags, '[]');
   });
 }
