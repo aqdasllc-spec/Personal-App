@@ -3832,6 +3832,265 @@ class PageTextsCompanion extends UpdateCompanion<PageTextRow> {
   }
 }
 
+class $PageInkTable extends PageInk with TableInfo<$PageInkTable, PageInkRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PageInkTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _bookIdMeta = const VerificationMeta('bookId');
+  @override
+  late final GeneratedColumn<String> bookId = GeneratedColumn<String>(
+    'book_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pageMeta = const VerificationMeta('page');
+  @override
+  late final GeneratedColumn<int> page = GeneratedColumn<int>(
+    'page',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _strokesMeta = const VerificationMeta(
+    'strokes',
+  );
+  @override
+  late final GeneratedColumn<String> strokes = GeneratedColumn<String>(
+    'strokes',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [bookId, page, strokes];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'page_ink';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PageInkRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('book_id')) {
+      context.handle(
+        _bookIdMeta,
+        bookId.isAcceptableOrUnknown(data['book_id']!, _bookIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bookIdMeta);
+    }
+    if (data.containsKey('page')) {
+      context.handle(
+        _pageMeta,
+        page.isAcceptableOrUnknown(data['page']!, _pageMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pageMeta);
+    }
+    if (data.containsKey('strokes')) {
+      context.handle(
+        _strokesMeta,
+        strokes.isAcceptableOrUnknown(data['strokes']!, _strokesMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {bookId, page};
+  @override
+  PageInkRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PageInkRow(
+      bookId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}book_id'],
+      )!,
+      page: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}page'],
+      )!,
+      strokes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}strokes'],
+      )!,
+    );
+  }
+
+  @override
+  $PageInkTable createAlias(String alias) {
+    return $PageInkTable(attachedDatabase, alias);
+  }
+}
+
+class PageInkRow extends DataClass implements Insertable<PageInkRow> {
+  final String bookId;
+  final int page;
+  final String strokes;
+  const PageInkRow({
+    required this.bookId,
+    required this.page,
+    required this.strokes,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['book_id'] = Variable<String>(bookId);
+    map['page'] = Variable<int>(page);
+    map['strokes'] = Variable<String>(strokes);
+    return map;
+  }
+
+  PageInkCompanion toCompanion(bool nullToAbsent) {
+    return PageInkCompanion(
+      bookId: Value(bookId),
+      page: Value(page),
+      strokes: Value(strokes),
+    );
+  }
+
+  factory PageInkRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PageInkRow(
+      bookId: serializer.fromJson<String>(json['bookId']),
+      page: serializer.fromJson<int>(json['page']),
+      strokes: serializer.fromJson<String>(json['strokes']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'bookId': serializer.toJson<String>(bookId),
+      'page': serializer.toJson<int>(page),
+      'strokes': serializer.toJson<String>(strokes),
+    };
+  }
+
+  PageInkRow copyWith({String? bookId, int? page, String? strokes}) =>
+      PageInkRow(
+        bookId: bookId ?? this.bookId,
+        page: page ?? this.page,
+        strokes: strokes ?? this.strokes,
+      );
+  PageInkRow copyWithCompanion(PageInkCompanion data) {
+    return PageInkRow(
+      bookId: data.bookId.present ? data.bookId.value : this.bookId,
+      page: data.page.present ? data.page.value : this.page,
+      strokes: data.strokes.present ? data.strokes.value : this.strokes,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PageInkRow(')
+          ..write('bookId: $bookId, ')
+          ..write('page: $page, ')
+          ..write('strokes: $strokes')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(bookId, page, strokes);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PageInkRow &&
+          other.bookId == this.bookId &&
+          other.page == this.page &&
+          other.strokes == this.strokes);
+}
+
+class PageInkCompanion extends UpdateCompanion<PageInkRow> {
+  final Value<String> bookId;
+  final Value<int> page;
+  final Value<String> strokes;
+  final Value<int> rowid;
+  const PageInkCompanion({
+    this.bookId = const Value.absent(),
+    this.page = const Value.absent(),
+    this.strokes = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PageInkCompanion.insert({
+    required String bookId,
+    required int page,
+    this.strokes = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : bookId = Value(bookId),
+       page = Value(page);
+  static Insertable<PageInkRow> custom({
+    Expression<String>? bookId,
+    Expression<int>? page,
+    Expression<String>? strokes,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (bookId != null) 'book_id': bookId,
+      if (page != null) 'page': page,
+      if (strokes != null) 'strokes': strokes,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PageInkCompanion copyWith({
+    Value<String>? bookId,
+    Value<int>? page,
+    Value<String>? strokes,
+    Value<int>? rowid,
+  }) {
+    return PageInkCompanion(
+      bookId: bookId ?? this.bookId,
+      page: page ?? this.page,
+      strokes: strokes ?? this.strokes,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (bookId.present) {
+      map['book_id'] = Variable<String>(bookId.value);
+    }
+    if (page.present) {
+      map['page'] = Variable<int>(page.value);
+    }
+    if (strokes.present) {
+      map['strokes'] = Variable<String>(strokes.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PageInkCompanion(')
+          ..write('bookId: $bookId, ')
+          ..write('page: $page, ')
+          ..write('strokes: $strokes, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $FieldMetaTable extends FieldMeta
     with TableInfo<$FieldMetaTable, FieldMetaData> {
   @override
@@ -5601,6 +5860,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $BookmarksTable bookmarks = $BookmarksTable(this);
   late final $HighlightsTable highlights = $HighlightsTable(this);
   late final $PageTextsTable pageTexts = $PageTextsTable(this);
+  late final $PageInkTable pageInk = $PageInkTable(this);
   late final $FieldMetaTable fieldMeta = $FieldMetaTable(this);
   late final $SyncOutboxTable syncOutbox = $SyncOutboxTable(this);
   late final $SyncStateTable syncState = $SyncStateTable(this);
@@ -5649,6 +5909,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     bookmarks,
     highlights,
     pageTexts,
+    pageInk,
     fieldMeta,
     syncOutbox,
     syncState,
@@ -7631,6 +7892,172 @@ typedef $$PageTextsTableProcessedTableManager =
       PageTextRow,
       PrefetchHooks Function()
     >;
+typedef $$PageInkTableCreateCompanionBuilder = PageInkCompanion Function({
+  required String bookId,
+  required int page,
+  Value<String> strokes,
+  Value<int> rowid,
+});
+typedef $$PageInkTableUpdateCompanionBuilder = PageInkCompanion Function({
+  Value<String> bookId,
+  Value<int> page,
+  Value<String> strokes,
+  Value<int> rowid,
+});
+
+class $$PageInkTableFilterComposer
+    extends Composer<_$AppDatabase, $PageInkTable> {
+  $$PageInkTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get bookId => $composableBuilder(
+    column: $table.bookId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get page => $composableBuilder(
+    column: $table.page,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get strokes => $composableBuilder(
+    column: $table.strokes,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PageInkTableOrderingComposer
+    extends Composer<_$AppDatabase, $PageInkTable> {
+  $$PageInkTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get bookId => $composableBuilder(
+    column: $table.bookId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get page => $composableBuilder(
+    column: $table.page,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get strokes => $composableBuilder(
+    column: $table.strokes,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PageInkTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PageInkTable> {
+  $$PageInkTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get bookId =>
+      $composableBuilder(column: $table.bookId, builder: (column) => column);
+
+  GeneratedColumn<int> get page =>
+      $composableBuilder(column: $table.page, builder: (column) => column);
+
+  GeneratedColumn<String> get strokes =>
+      $composableBuilder(column: $table.strokes, builder: (column) => column);
+}
+
+class $$PageInkTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PageInkTable,
+          PageInkRow,
+          $$PageInkTableFilterComposer,
+          $$PageInkTableOrderingComposer,
+          $$PageInkTableAnnotationComposer,
+          $$PageInkTableCreateCompanionBuilder,
+          $$PageInkTableUpdateCompanionBuilder,
+          (
+            PageInkRow,
+            BaseReferences<_$AppDatabase, $PageInkTable, PageInkRow>,
+          ),
+          PageInkRow,
+          PrefetchHooks Function()
+        > {
+  $$PageInkTableTableManager(_$AppDatabase db, $PageInkTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PageInkTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PageInkTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PageInkTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> bookId = const Value.absent(),
+                Value<int> page = const Value.absent(),
+                Value<String> strokes = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PageInkCompanion(
+                bookId: bookId,
+                page: page,
+                strokes: strokes,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String bookId,
+                required int page,
+                Value<String> strokes = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PageInkCompanion.insert(
+                bookId: bookId,
+                page: page,
+                strokes: strokes,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$PageInkTable, PageInkRow>(table),
+                  BaseReferences<_$AppDatabase, $PageInkTable, PageInkRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PageInkTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PageInkTable,
+      PageInkRow,
+      $$PageInkTableFilterComposer,
+      $$PageInkTableOrderingComposer,
+      $$PageInkTableAnnotationComposer,
+      $$PageInkTableCreateCompanionBuilder,
+      $$PageInkTableUpdateCompanionBuilder,
+      (PageInkRow, BaseReferences<_$AppDatabase, $PageInkTable, PageInkRow>),
+      PageInkRow,
+      PrefetchHooks Function()
+    >;
 typedef $$FieldMetaTableCreateCompanionBuilder = FieldMetaCompanion Function({
   required String tbl,
   required String rowId,
@@ -8596,6 +9023,8 @@ class $AppDatabaseManager {
       $$HighlightsTableTableManager(_db, _db.highlights);
   $$PageTextsTableTableManager get pageTexts =>
       $$PageTextsTableTableManager(_db, _db.pageTexts);
+  $$PageInkTableTableManager get pageInk =>
+      $$PageInkTableTableManager(_db, _db.pageInk);
   $$FieldMetaTableTableManager get fieldMeta =>
       $$FieldMetaTableTableManager(_db, _db.fieldMeta);
   $$SyncOutboxTableTableManager get syncOutbox =>

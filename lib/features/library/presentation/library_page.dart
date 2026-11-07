@@ -15,6 +15,8 @@ import '../application/export_notes.dart';
 import '../application/library_controller.dart';
 import '../data/library_repository.dart';
 import '../domain_tags.dart';
+import '../domain_tag_colors.dart';
+import 'tag_dot.dart';
 import 'book_edit.dart';
 import 'book_peek.dart';
 import 'book_visuals.dart';
@@ -499,6 +501,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                                   .read(libraryUiProvider.notifier)
                                   .toggleTag(t),
                               key: Key('active-tag-$t'),
+                              avatar: TagDot(t),
                             ),
                         ],
                       ),
@@ -842,11 +845,16 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     );
   }
 
-  Widget _activeChip(String label, VoidCallback onRemove, {Key? key}) =>
-      Padding(
+  Widget _activeChip(
+    String label,
+    VoidCallback onRemove, {
+    Key? key,
+    Widget? avatar,
+  }) => Padding(
         padding: const EdgeInsets.only(right: Space.s8),
         child: InputChip(
           key: key,
+          avatar: avatar,
           label: Text(label),
           onDeleted: onRemove,
           deleteButtonTooltipMessage: 'Remove filter',
@@ -1581,6 +1589,7 @@ class _FilterSheet extends ConsumerWidget {
                     for (final (tag, count) in tags)
                       FilterChip(
                         key: Key('tag-filter-$tag'),
+                        avatar: TagDot(tag),
                         label: Text('$tag · $count'),
                         selected: ui.tags.any(
                           (x) => x.toLowerCase() == tag.toLowerCase(),
@@ -1730,6 +1739,19 @@ class _TagManager extends ConsumerWidget {
                   for (final (tag, count) in tags)
                     ListTile(
                       key: Key('tag-row-$tag'),
+                      leading: IconButton(
+                        key: Key('tag-color-$tag'),
+                        tooltip: 'Choose a colour for #$tag',
+                        icon: TagDot(tag, size: 18, outlineIfNone: true),
+                        onPressed: () async {
+                          final cur = ref.read(tagColorsProvider)[tagKey(tag)];
+                          final pick = await pickTagColor(context, tag, cur);
+                          if (pick == null) return;
+                          ref
+                              .read(tagColorsProvider.notifier)
+                              .set(tag, pick < 0 ? null : pick);
+                        },
+                      ),
                       title: Text('#$tag'),
                       subtitle: Text('$count ${count == 1 ? 'book' : 'books'}'),
                       trailing: Row(
@@ -1753,6 +1775,7 @@ class _TagManager extends ConsumerWidget {
                               final target = normalizeTags(to).firstOrNull;
                               if (target == null) return;
                               await repo.renameTag(tag, target);
+                              ref.read(tagColorsProvider.notifier).rename(tag, target);
                               ui.renameFilterTag(tag, target);
                             },
                           ),

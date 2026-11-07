@@ -13,6 +13,7 @@ Everything works offline. Signing in only adds syncing between your devices.
 ## Library
 - **Add PDFs** (the + button). Same file twice is detected.
 - **Shelves**: group books; the pen next to a shelf = *edit shelf* (books wiggle; drag them left/right to reorder).
+- **Tag colours**: Sort and filter → Tags → Manage → tap the circle by a tag to give it one of 8 colours; a coloured dot then shows on the filter chips and the book preview.
 - **Search**, **Sort and filter** (recent, title, author, status, tags). **Select several books** (checklist icon) to tag, move, favourite or remove many at once.
 - **Long-press / hover** a book for a preview (first page, progress, tags).
 - Cloud dot on a book: red = only on this device, green = also in your cloud (Sync / Unsync).
@@ -29,6 +30,7 @@ Everything works offline. Signing in only adds syncing between your devices.
 | Lock orientation / keep screen on | **Aa** → Orientation, Keep screen on |
 | Search the text | Magnifier at the top |
 | Bookmark / highlight | Bookmark icon / select text → Highlight; the list icon shows both, with notes and export |
+| Draw or write on a page | ⋮ menu → **Draw with a pen**: pick colour and thickness, draw with a finger or stylus, Undo, Clear page, Done. Zoom and scrolling are off while the pen is on |
 | Scanned or handwritten PDF | See below |
 
 ### Scanned and handwritten PDFs
@@ -53,4 +55,4 @@ Everything works offline. Signing in only adds syncing between your devices.
 Press and hold the Folio icon: **Continue reading**, **Add a task**, **Planner: today**, **Library**.
 
 ---
-Not built yet: pen/drawing annotations, tag colours, a Windows/macOS text-recogniser.
+Not built yet: eraser for single strokes, exporting drawings into a PDF, smart collections, a Windows/macOS text-recogniser.

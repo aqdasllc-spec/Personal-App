@@ -134,6 +134,19 @@ class PageTexts extends Table {
   Set<Column> get primaryKey => {bookId, page};
 }
 
+/// Pen drawings on a page (device-local). [strokes] is JSON: a list of
+/// {"c": colour index, "w": width (fraction of page width), "p": [x1, y1, x2, y2, ...]} with x, y as fractions (0..1)
+/// of the page, so they stay put at any zoom.
+@DataClassName('PageInkRow')
+class PageInk extends Table {
+  TextColumn get bookId => text()();
+  IntColumn get page => integer()();
+  TextColumn get strokes => text().withDefault(const Constant('[]'))();
+
+  @override
+  Set<Column> get primaryKey => {bookId, page};
+}
+
 /// Text highlighted in a book, with an optional note (device-local, like the rest of the library).
 /// [rects] is JSON: a list of [left, top, right, bottom] in PDF page coordinates, one per line of text.
 @DataClassName('HighlightRow')
@@ -224,6 +237,7 @@ class LocalConflicts extends Table {
     Bookmarks,
     Highlights,
     PageTexts,
+    PageInk,
     FieldMeta,
     SyncOutbox,
     SyncState,
@@ -234,7 +248,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -329,6 +343,10 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(schema.books, schema.books.textState);
         await m.createTable(schema.pageTexts);
         await m.createIndex(schema.pageTextsBook);
+      },
+      from12To13: (m, schema) async {
+        // v13: pen drawings on pages.
+        await m.createTable(schema.pageInk);
       },
     ),
     beforeOpen: (details) async {

@@ -10,6 +10,8 @@ import '../../../data/local/app_database.dart';
 import '../data/library_repository.dart';
 import '../domain_highlights.dart';
 import 'reader_prefs.dart';
+import '../domain_ink.dart';
+import '../domain_tag_colors.dart';
 import '../domain_tags.dart';
 import '../data/pdf_inspector.dart';
 
@@ -63,6 +65,11 @@ class ReaderControl {
   /// A single tap on the page: which third of the width it landed in.
   void Function(TapZone zone)? onZoneTap;
 
+  // pen drawings: the tool, the strokes per page, and a new stroke coming from the page
+  final pen = ValueNotifier<PenState>(const PenState());
+  final ink = ValueNotifier<Map<int, List<Stroke>>>(const {});
+  Future<void> Function(int page, Stroke stroke)? onStroke;
+
   // recognised text of scanned pages: boxes to highlight (search hits)
   final ocrBoxes = ValueNotifier<List<OcrHit>>(const []);
 
@@ -72,6 +79,19 @@ class ReaderControl {
 }
 
 enum TapZone { left, center, right }
+
+/// The pen tool: on/off, colour (index in [penColors]) and width (index in [penWidths]).
+class PenState {
+  const PenState({this.on = false, this.color = 0, this.width = 1});
+  final bool on;
+  final int color, width;
+  PenState copyWith({bool? on, int? color, int? width}) =>
+      PenState(on: on ?? this.on, color: color ?? this.color, width: width ?? this.width);
+  @override
+  bool operator ==(Object other) => other is PenState && other.on == on && other.color == color && other.width == width;
+  @override
+  int get hashCode => Object.hash(on, color, width);
+}
 
 /// One search hit on a scanned page: the page and the line's rectangle as fractions (0..1) of the page.
 class OcrHit {
@@ -98,6 +118,10 @@ class ReaderSearch {
   /// Still scanning pages for more matches.
   final bool searching;
 }
+
+final inkProvider = StreamProvider.family<List<PageInkRow>, String>(
+  (ref, bookId) => ref.watch(libraryRepositoryProvider).watchInk(bookId),
+);
 
 final pdfViewBuilderProvider = Provider<PdfViewBuilder>((ref) => buildPdfView);
 
@@ -511,3 +535,50 @@ final homeReadingOrderProvider = NotifierProvider<HomeReadingOrder, String>(
 
 double readingProgress(BookRow b) =>
     b.pageCount <= 0 ? 0 : (b.lastPage / b.pageCount).clamp(0.0, 1.0);
+
+/// A colour per tag (tag name, ignoring case -> palette index). Remembered; a tag without an entry has no colour.
+class TagColors extends Notifier<Map<String, int>> {
+  static const key = 'tag_colors';
+  @override
+  Map<String, int> build() {
+    Future.microtask(() async {
+      try {
+        final v = decodeTagColors(await ref.read(syncedStoreProvider).state(key));
+        if (v.isNotEmpty) state = {...v, ...state};
+      } catch (_) {}
+    });
+    return const {};
+  }
+
+  void _save() {
+    try {
+      ref.read(syncedStoreProvider).setState(key, encodeTagColors(state));
+    } catch (_) {}
+  }
+
+  /// [index] null = no colour.
+  void set(String tag, int? index) {
+    final m = {...state};
+    if (index == null) {
+      m.remove(tagKey(tag));
+    } else {
+      m[tagKey(tag)] = index;
+    }
+    state = m;
+    _save();
+  }
+
+  /// A renamed tag keeps its colour (when merging into a coloured tag, the target's colour wins).
+  void rename(String from, String to) {
+    final c = state[tagKey(from)];
+    if (c == null) return;
+    final m = {...state}..remove(tagKey(from));
+    m.putIfAbsent(tagKey(to), () => c);
+    state = m;
+    _save();
+  }
+}
+
+final tagColorsProvider = NotifierProvider<TagColors, Map<String, int>>(
+  TagColors.new,
+);

@@ -132,7 +132,9 @@ class BackupService {
     final bookmarks = await _db.select(_db.bookmarks).get();
     final highlights = await _db.select(_db.highlights).get();
     final pageTexts = await _db.select(_db.pageTexts).get();
+    final ink = await _db.select(_db.pageInk).get();
     final data = jsonEncode({
+      'pageInk': [for (final t in ink) t.toJson()],
       'pageTexts': [for (final t in pageTexts) t.toJson()],
       'highlights': [for (final h in highlights) h.toJson()],
       'bookmarks': [for (final m in bookmarks) m.toJson()],
@@ -444,6 +446,11 @@ class BackupService {
       final t = PageTextRow.fromJson(j);
       if (!restoredIds.contains(t.bookId)) continue;
       await _db.into(_db.pageTexts).insertOnConflictUpdate(t);
+    }
+    for (final j in list('pageInk')) {
+      final t = PageInkRow.fromJson(j);
+      if (!restoredIds.contains(t.bookId)) continue;
+      await _db.into(_db.pageInk).insertOnConflictUpdate(t);
     }
     // bookmarks of books that are on this device now (restored or already there)
     final bookIds = {

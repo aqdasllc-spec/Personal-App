@@ -171,6 +171,14 @@ Security review & MASVS walkthrough · RLS tests green · dependency/OSV scan cl
 
 **App-icon shortcuts (Android/iOS):** Continue reading, Add a task (opens Home with the cursor in the quick-add box), Planner: today, Library. Tested with a fake shortcut port; the real long-press menu is unverified, and the shortcut icons use the plugin default.
 
-**Accessibility audit (automated only):** Home, Library, Planner in light and dark at 2x text: no overflow, tap targets big enough, tap targets labelled. It found and we fixed overflows (sync chip, Home card header). **Known leftover: Settings still overflows at 2x text** and is not yet in the audit. Not done: contrast checks, TalkBack on a real phone.
+**Accessibility audit (automated only):** Home, Library, Planner in light and dark at 2x text: no overflow, tap targets big enough, tap targets labelled. It found and we fixed overflows (sync chip, Home card header). Settings was fixed afterwards (the Account button moved under its text) and is in the audit too. Not done: contrast checks, TalkBack on a real phone.
 
 **Guide:** `docs/APP_GUIDE.md` lists what is where.
+
+## 1w. Settings at large text, tag colours, pen drawings (2026-11-07)
+
+**Settings** no longer overflows at 2x text (the Account button moved under its text); Settings is in the accessibility audit now (Home, Library, Planner, Settings x light/dark).
+
+**Tag colours:** Sort and filter -> Tags -> Manage -> the circle by a tag picks one of 8 colours (or none). A dot shows on the filter chips, active filter chips and the preview card; renaming a tag keeps its colour (merging: the target's colour wins). Stored as one setting (`tag_colors`, synced like other settings), **not** in backups yet. Tested headless.
+
+**Pen drawings:** reader menu -> Draw with a pen. Colour (6), thickness (3), Undo, Clear page, Done. Strokes are saved per page as fractions of the page (DB v13 `page_ink`), so they stay in place at any zoom; included in backups; removed with the book. While the pen is on, pan/zoom are switched off so a drag draws. Tested headless: capture of a drag into a stroke, saving, undo/clear, reopening, backup-independent repository tests. **Unverified on a device:** the real drawing feel (latency, smoothness), whether the viewer really stops scrolling while drawing, and the painting over the real PDF. Not built: eraser for single strokes, palm rejection, stylus pressure, exporting drawings into a PDF, drawings in cloud sync.

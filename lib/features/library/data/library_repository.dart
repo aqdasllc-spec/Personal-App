@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../../../data/local/app_database.dart';
 import '../domain_highlights.dart';
 import '../domain_tags.dart';
+import '../domain_ink.dart';
 import '../domain_ocr.dart';
 import 'ocr.dart';
 
@@ -382,6 +383,7 @@ class LibraryRepository {
     if (await cover.exists()) await cover.delete();
     await (_db.delete(_db.bookmarks)..where((x) => x.bookId.equals(b.id))).go();
     await (_db.delete(_db.pageTexts)..where((x) => x.bookId.equals(b.id))).go();
+    await (_db.delete(_db.pageInk)..where((x) => x.bookId.equals(b.id))).go();
     await (_db.delete(
       _db.highlights,
     )..where((x) => x.bookId.equals(b.id))).go();
@@ -438,6 +440,18 @@ class LibraryRepository {
     )..where((t) => t.bookId.equals(bookId))).go();
     await setTextState(bookId, 'scanned');
   }
+
+  // ------------------------------------------------------------- pen drawings
+  /// Saves the strokes of a page; an empty list removes the row.
+  Future<void> saveInk(String bookId, int page, List<Stroke> strokes) async {
+    if (strokes.isEmpty) {
+      await (_db.delete(_db.pageInk)..where((t) => t.bookId.equals(bookId) & t.page.equals(page))).go();
+      return;
+    }
+    await _db.into(_db.pageInk).insertOnConflictUpdate(PageInkCompanion.insert(bookId: bookId, page: page, strokes: Value(encodeStrokes(strokes))));
+  }
+
+  Stream<List<PageInkRow>> watchInk(String bookId) => (_db.select(_db.pageInk)..where((t) => t.bookId.equals(bookId))).watch();
 
   // ---------------------------------------------------------------- highlights
   Stream<List<HighlightRow>> watchHighlights(String bookId) =>

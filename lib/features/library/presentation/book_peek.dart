@@ -9,6 +9,7 @@ import '../application/covers.dart';
 import '../application/library_controller.dart';
 import '../domain_tags.dart';
 import 'book_edit.dart';
+import 'tag_dot.dart';
 import 'book_visuals.dart';
 
 /// Lets a finger drag across books to select (or deselect) them while in selection mode.
@@ -314,6 +315,7 @@ class _PeekCard extends ConsumerWidget {
                         children: [
                           for (final tag in decodeTags(book.tags))
                             Chip(
+                              avatar: TagDot(tag, size: 8),
                               label: Text('#$tag'),
                               visualDensity: VisualDensity.compact,
                               materialTapTargetSize:

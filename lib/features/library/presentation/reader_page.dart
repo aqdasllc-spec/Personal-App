@@ -10,6 +10,7 @@ import '../../../data/local/app_database.dart';
 import '../application/export_notes.dart';
 import '../application/library_controller.dart';
 import '../application/ocr_controller.dart';
+import '../domain_ink.dart';
 import '../domain_ocr.dart';
 import '../application/reader_prefs.dart';
 import '../../settings/rotation.dart';
@@ -41,6 +42,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     ref.read(pageRecognizerProvider),
     ref.read(textProbeProvider),
   );
+  final _inkOrder = <int>[]; // pages in the order strokes were drawn (for Undo)
   String _textState = 'unknown';
   bool _probed = false;
   List<OcrMatch> _hits = const [];
@@ -53,6 +55,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     _container = ProviderScope.containerOf(context, listen: false);
     _control.prefs.value = ref.read(readerPrefsProvider);
     _control.onZoneTap = _onZone;
+    _control.onStroke = _onStroke;
     _ocr.progress.addListener(() {
       if (mounted) setState(() {});
     });
@@ -106,6 +109,111 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     _control.goTo?.call(target);
   }
 
+  Future<void> _onStroke(int page, Stroke s) async {
+    final list = [...(_control.ink.value[page] ?? const <Stroke>[]), s];
+    _control.ink.value = {..._control.ink.value, page: list};
+    _inkOrder.add(page);
+    await _repo.saveInk(widget.bookId, page, list);
+  }
+
+  Future<void> _undoStroke() async {
+    while (_inkOrder.isNotEmpty) {
+      final page = _inkOrder.removeLast();
+      final list = [...(_control.ink.value[page] ?? const <Stroke>[])];
+      if (list.isEmpty) continue;
+      list.removeLast();
+      _control.ink.value = {..._control.ink.value, page: list};
+      await _repo.saveInk(widget.bookId, page, list);
+      return;
+    }
+  }
+
+  Future<void> _clearInkPage(int page) async {
+    _inkOrder.removeWhere((p) => p == page);
+    _control.ink.value = {..._control.ink.value, page: const []};
+    await _repo.saveInk(widget.bookId, page, const []);
+  }
+
+  void _setPen(PenState p) {
+    _control.pen.value = p;
+    setState(() {});
+  }
+
+  /// Colours, thickness, Undo and Clear page, shown while the pen is on.
+  Widget _penBar(int page) {
+    final pen = _control.pen.value;
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      key: const Key('pen-bar'),
+      color: scheme.surfaceContainerHigh,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          // wraps onto a second line on narrow screens so every button stays reachable
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              for (var i = 0; i < penColors.length; i++)
+                Semantics(
+                  button: true,
+                  selected: pen.color == i,
+                  label: '${penColors[i].$1} pen',
+                  child: InkResponse(
+                    key: Key('pen-color-$i'),
+                    onTap: () => _setPen(pen.copyWith(color: i)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: Color(penColors[i].$2),
+                          shape: BoxShape.circle,
+                          border: pen.color == i
+                              ? Border.all(color: scheme.primary, width: 3)
+                              : null,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 8),
+              SegmentedButton<int>(
+                key: const Key('pen-width'),
+                showSelectedIcon: false,
+                segments: [
+                  for (var i = 0; i < penWidths.length; i++)
+                    ButtonSegment(value: i, label: Text(penWidths[i].$1)),
+                ],
+                selected: {pen.width},
+                onSelectionChanged: (v) => _setPen(pen.copyWith(width: v.first)),
+              ),
+              IconButton(
+                key: const Key('pen-undo'),
+                tooltip: 'Undo last stroke',
+                icon: const Icon(Icons.undo),
+                onPressed: _undoStroke,
+              ),
+              IconButton(
+                key: const Key('pen-clear'),
+                tooltip: 'Clear drawings on this page',
+                icon: const Icon(Icons.delete_sweep_outlined),
+                onPressed: () => _clearInkPage(page),
+              ),
+              TextButton(
+                key: const Key('pen-done'),
+                onPressed: () => _setPen(pen.copyWith(on: false)),
+                child: const Text('Done'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _onPage(int page) {
     setState(() => _page = page);
     _debounce?.cancel();
@@ -131,6 +239,13 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
         .read(orientationLockProvider)
         .apply(_container.read(rotationProvider));
     super.dispose();
+  }
+
+  static bool _sameInk(Map<int, List<Stroke>> a, Map<int, List<Stroke>> b) {
+    final ka = a.keys.where((k) => a[k]!.isNotEmpty).toSet();
+    final kb = b.keys.where((k) => b[k]!.isNotEmpty).toSet();
+    if (ka.length != kb.length || !ka.containsAll(kb)) return false;
+    return ka.every((k) => a[k]!.length == b[k]!.length);
   }
 
   void _openSearch() => setState(() => _searching = true);
@@ -500,6 +615,13 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
         if (mounted) _control.highlights.value = highlights;
       });
     }
+    final inkRows = ref.watch(inkProvider(book.id)).value ?? const <PageInkRow>[];
+    final inkMap = {for (final r in inkRows) r.page: decodeStrokes(r.strokes)};
+    if (!_sameInk(_control.ink.value, inkMap)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _control.ink.value = inkMap;
+      });
+    }
     return Scaffold(
       appBar: _immersive
           ? null
@@ -542,8 +664,24 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                             });
                           }
                           if (v == 'text') _showPageText(book, current);
+                          if (v == 'pen') {
+                            _setPen(
+                              _control.pen.value.copyWith(
+                                on: !_control.pen.value.on,
+                              ),
+                            );
+                          }
                         },
                         itemBuilder: (_) => [
+                          PopupMenuItem(
+                            key: const Key('reader-pen'),
+                            value: 'pen',
+                            child: Text(
+                              _control.pen.value.on
+                                  ? 'Stop drawing'
+                                  : 'Draw with a pen',
+                            ),
+                          ),
                           if (_ocr.supported && _textState != 'ocr')
                             const PopupMenuItem(
                               value: 'ocr',
@@ -606,9 +744,15 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                         ),
                     ],
             ),
-      bottomNavigationBar: _immersive || book.pageCount < 2
+      bottomNavigationBar: _immersive
           ? null
-          : _pageBar(current, book.pageCount),
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_control.pen.value.on) _penBar(current),
+                if (book.pageCount >= 2) _pageBar(current, book.pageCount),
+              ],
+            ),
       body: file.existsSync()
           ? Column(
               children: [

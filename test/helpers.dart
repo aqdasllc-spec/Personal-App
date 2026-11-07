@@ -13,6 +13,7 @@ import 'package:folio/features/library/application/reader_prefs.dart';
 import 'package:folio/features/library/application/ocr_controller.dart';
 import 'package:folio/features/library/data/ocr.dart';
 import 'package:folio/features/library/domain_highlights.dart';
+import 'package:folio/features/library/domain_ink.dart';
 import 'package:folio/features/library/data/cloud_books.dart';
 import 'package:folio/features/library/data/library_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -320,6 +321,16 @@ class TestEnv {
               onPressed: () => control.onHighlight?.call(const HighlightDraft(page: 3, rects: [[10, 100, 80, 90]], text: 'an important passage')),
               child: const Text('select and highlight'),
             ),
+            // pen: draws a stroke on page 2 with the chosen colour/width; shows what the page would paint
+            TextButton(
+              onPressed: () => control.onStroke?.call(2, Stroke(control.pen.value.color, penWidths[control.pen.value.width].$2, const [0.1, 0.1, 0.5, 0.5])),
+              child: const Text('draw stroke'),
+            ),
+            ValueListenableBuilder(
+              valueListenable: control.ink,
+              builder: (_, v, _) => Text('ink ${{for (final e in v.entries) if (e.value.isNotEmpty) e.key: e.value.length}}'),
+            ),
+            ValueListenableBuilder(valueListenable: control.pen, builder: (_, v, _) => Text('pen ${v.on ? 'on' : 'off'}')),
             ValueListenableBuilder(valueListenable: control.highlights, builder: (_, v, _) => Text('painting ${v.length} highlights')),
           ]);
         }),

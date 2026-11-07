@@ -10,6 +10,7 @@ import 'package:pdfrx/pdfrx.dart';
 import '../application/library_controller.dart';
 import '../application/reader_prefs.dart';
 import '../domain_highlights.dart';
+import '../domain_ink.dart';
 import 'library_repository.dart';
 
 /// Real inspector backed by PDFium (via pdfrx).
@@ -138,6 +139,8 @@ class _PdfViewState extends State<_PdfView> {
     c.highlights.addListener(
       _controller.invalidate,
     ); // repaint when highlights change
+    c.ink.addListener(_controller.invalidate);
+    c.pen.addListener(_penChanged);
     c.startSearch = (q) {
       _query = q.trim();
       if (_query.isEmpty) {
@@ -176,11 +179,42 @@ class _PdfViewState extends State<_PdfView> {
   void dispose() {
     final c = widget.control;
     c.highlights.removeListener(_controller.invalidate);
+    c.ink.removeListener(_controller.invalidate);
+    c.pen.removeListener(_penChanged);
     c.ocrBoxes.removeListener(_controller.invalidate);
     c.prefs.removeListener(_prefsChanged);
     c.goTo = c.startSearch = c.nextMatch = c.prevMatch = c.stopSearch = null;
     _searcher.dispose();
     super.dispose();
+  }
+
+  void _penChanged() {
+    if (mounted) setState(() {}); // pan / zoom are off while drawing
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _controller.invalidate();
+    });
+  }
+
+  /// The pen drawings of a page, scaled to where the page is drawn.
+  void _paintInk(ui.Canvas canvas, Rect pageRect, PdfPage page) {
+    final strokes = widget.control.ink.value[page.pageNumber];
+    if (strokes == null) return;
+    for (final s in strokes) {
+      paintStroke(canvas, pageRect, s);
+    }
+  }
+
+  /// While the pen is on: a layer over each page that turns a finger drag into a stroke.
+  List<Widget> _inkOverlay(BuildContext context, Rect pageRect, PdfPage page) {
+    if (!widget.control.pen.value.on) return const [];
+    return [
+      Positioned.fill(
+        child: InkCapture(
+          pen: widget.control.pen.value,
+          onStroke: (s) => widget.control.onStroke?.call(page.pageNumber, s),
+        ),
+      ),
+    ];
   }
 
   void _paintHighlights(ui.Canvas canvas, Rect pageRect, PdfPage page) {
@@ -265,12 +299,104 @@ class _PdfViewState extends State<_PdfView> {
       pagePaintCallbacks: [
         _paintHighlights,
         _paintOcr,
+        _paintInk,
         _searcher.pageTextMatchPaintCallback,
       ],
+      pageOverlaysBuilder: _inkOverlay,
+      panEnabled: !widget.control.pen.value.on,
+      scaleEnabled: !widget.control.pen.value.on,
       customizeContextMenuItems: _addHighlightItem,
       onPageChanged: (n) {
         if (n != null) widget.onPage(n);
       },
     ),
   );
+}
+
+/// Draws one stroke inside [pageRect] (points are fractions of the page).
+void paintStroke(ui.Canvas canvas, Rect pageRect, Stroke s) {
+  final paint = Paint()
+    ..color = Color(penColors[s.color].$2)
+    ..style = PaintingStyle.stroke
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round
+    ..strokeWidth = (s.width * pageRect.width).clamp(1.0, 40.0);
+  final p = s.points;
+  Offset at(int i) => Offset(pageRect.left + p[i] * pageRect.width, pageRect.top + p[i + 1] * pageRect.height);
+  if (p.length == 2) {
+    canvas.drawCircle(at(0), paint.strokeWidth / 2, paint..style = PaintingStyle.fill);
+    return;
+  }
+  final path = Path()..moveTo(at(0).dx, at(0).dy);
+  for (var i = 2; i < p.length; i += 2) {
+    path.lineTo(at(i).dx, at(i).dy);
+  }
+  canvas.drawPath(path, paint);
+}
+
+/// Catches a drag over a page and reports it as a stroke (also shows the line while it is being drawn).
+class InkCapture extends StatefulWidget {
+  const InkCapture({super.key, required this.pen, required this.onStroke});
+  final PenState pen;
+  final void Function(Stroke stroke) onStroke;
+  @override
+  State<InkCapture> createState() => _InkCaptureState();
+}
+
+class _InkCaptureState extends State<InkCapture> {
+  final _pts = <double>[];
+  Size _size = Size.zero;
+
+  void _add(Offset o) {
+    if (_size.isEmpty) return;
+    setState(() {
+      _pts
+        ..add((o.dx / _size.width).clamp(0.0, 1.0))
+        ..add((o.dy / _size.height).clamp(0.0, 1.0));
+    });
+  }
+
+  void _finish() {
+    if (_pts.length >= 2) {
+      widget.onStroke(Stroke(widget.pen.color, penWidths[widget.pen.width].$2, simplify(List.of(_pts))));
+    }
+    setState(_pts.clear);
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      _size = box.biggest;
+      return GestureDetector(
+        key: const Key('ink-capture'),
+        behavior: HitTestBehavior.opaque,
+        onPanStart: (d) => _add(d.localPosition),
+        onPanUpdate: (d) => _add(d.localPosition),
+        onPanEnd: (_) => _finish(),
+        onPanCancel: () => setState(_pts.clear),
+        onTapUp: (d) {
+          _add(d.localPosition);
+          _finish();
+        },
+        child: CustomPaint(
+          painter: _LivePainter(List.of(_pts), widget.pen),
+          size: Size.infinite,
+        ),
+      );
+    },
+  );
+}
+
+class _LivePainter extends CustomPainter {
+  _LivePainter(this.pts, this.pen);
+  final List<double> pts;
+  final PenState pen;
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (pts.length < 2) return;
+    paintStroke(canvas, Offset.zero & size, Stroke(pen.color, penWidths[pen.width].$2, pts));
+  }
+
+  @override
+  bool shouldRepaint(_LivePainter old) => true;
 }

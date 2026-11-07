@@ -8,8 +8,7 @@ import '../helpers.dart';
 /// big enough and labelled. This does not replace trying the app with TalkBack.
 void main() {
   for (final dark in [false, true]) {
-    // Settings still overflows at 2x text (known; see the roadmap), so it is not audited yet.
-    for (final tab in ['Home', 'Library', 'Planner']) {
+    for (final tab in ['Home', 'Library', 'Planner', 'Settings']) {
       testWidgets(
         '$tab: ${dark ? 'dark' : 'light'}, text 2x, targets labelled and big enough',
         (t) async {
