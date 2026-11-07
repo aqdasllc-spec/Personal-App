@@ -14,6 +14,7 @@ import '../planner/application/planner_controller.dart';
 import '../planner/domain/agenda.dart';
 import '../planner/presentation/format.dart';
 import '../planner/presentation/planner_widgets.dart';
+import '../welcome/welcome_page.dart';
 
 /// Home: what needs attention today, what is coming up, and where you stopped reading.
 class HomePage extends ConsumerWidget {
@@ -48,6 +49,7 @@ class HomePage extends ConsumerWidget {
             return ListView(
               padding: const EdgeInsets.all(Space.s16),
               children: [
+                const WelcomeGate(),
                 _Header(today: today),
                 const SizedBox(height: Space.s16),
                 const _QuickAdd(),
@@ -356,13 +358,31 @@ class _ReadingCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
-    final recent = recentBooks(books, limit: 6);
+    final mine = ref.watch(homeReadingOrderProvider) == 'mine';
+    final recent = readingBooks(books, mine: mine, limit: 8);
     return _Card(
       title: 'Continue reading',
-      trailing: TextButton(
-        key: const Key('home-open-library'),
-        onPressed: () => context.go(Routes.library),
-        child: Text(books.isEmpty ? 'Add PDFs' : 'Library'),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (books.isNotEmpty)
+            PopupMenuButton<String>(
+              key: const Key('home-reading-order'),
+              tooltip: 'Order',
+              icon: const Icon(Icons.swap_vert, size: 20),
+              initialValue: mine ? 'mine' : 'recent',
+              onSelected: ref.read(homeReadingOrderProvider.notifier).set,
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'recent', child: Text('Recently read first')),
+                PopupMenuItem(value: 'mine', child: Text('My order')),
+              ],
+            ),
+          TextButton(
+            key: const Key('home-open-library'),
+            onPressed: () => context.go(Routes.library),
+            child: Text(books.isEmpty ? 'Add PDFs' : 'Library'),
+          ),
+        ],
       ),
       children: [
         if (books.isEmpty)

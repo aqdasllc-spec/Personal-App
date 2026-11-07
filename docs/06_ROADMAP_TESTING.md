@@ -17,6 +17,9 @@ Sections: **Home, Library, Planner, Settings**. The tracker engine (old Phase 2)
 
 *Order note:* the Planner is small compared with the PDF reader; if you want something useful on your phone sooner, Planner first is reasonable — say so.
 
+## 1u. Welcome tour, month-view drag, Home order (2026-11-07)
+**Welcome tour:** four screens (Welcome, Your library, Plan your days, Yours to keep) open once over Home on first launch; Skip or Get started marks it seen. **Settings -> Help:** reopen the tour and a cheat-sheet of gestures. **Month view:** on screens at least ~460 px tall a panel under the grid lists the picked day's tasks (arrows change the day); drag one onto any day cell to move it (time kept, Undo); tapping a cell still opens the day; short landscape screens have no panel (use the Week view). **Home -> Continue reading:** a menu switches between "Recently read first" and "My order" (the Library's own order, started books only); remembered. 296 headless tests. The tour copy is English only and unreviewed by a designer.
+
 ## 1t. Week view drag between days + arrow buttons (2026-11-07)
 **Planner week view:** press-and-hold (touch) / drag (mouse) a task and drop it on another day: the date that falls on the day it was picked up moves (due date, planned time block, or both), the time of day stays, repeat rules and sub-tasks are kept; Undo is offered ("Moved to Sun 8"). Dropping on its own day does nothing; finished tasks are not draggable. The target day is tinted while hovering; on phones (days stacked) the list scrolls by itself near its edges. **Library rearrange mode:** tap a book to pick it (accent outline, tapping again puts it down) and use the **← →** buttons in the bar to move it one place earlier/later (disabled at the ends and while a search/filter is active); drag and drop still works. 286 headless tests. Unverified on a device: drag feel and auto-scroll speed. Not built: drag in the month view.
 

@@ -889,4 +889,79 @@ void main() {
       await dispose(t);
     });
   });
+
+  group('month view: drag a task to another day', () {
+    Future<(TestEnv, String)> month(WidgetTester t, {double w = 411, double h = 890}) async {
+      final (env, _) = await openPlanner(t, w: w, h: h, seed: (repo) async {
+        await repo.saveTask(TaskInput(title: 'Write report', due: d(2026, 11, 6, 15), dueHasTime: true));
+        await repo.saveTask(TaskInput(title: 'Buy milk', due: d(2026, 11, 6)));
+      });
+      await t.tap(find.text('Month'));
+      await settleP(t);
+      final rows = await dbTasks(t, env);
+      return (env, rows.firstWhere((r) => r.title == 'Write report').id);
+    }
+
+    Future<void> dragTo(WidgetTester t, Finder from, Finder to) async {
+      final g = await t.startGesture(t.getCenter(from));
+      await t.pump(const Duration(milliseconds: 700));
+      final a = t.getCenter(from), b = t.getCenter(to);
+      for (var k = 1; k <= 6; k++) {
+        await g.moveTo(Offset.lerp(a, b, k / 6)!);
+        await t.pump(const Duration(milliseconds: 40));
+      }
+      await g.up();
+      await settleP(t);
+    }
+
+    testWidgets('the panel under the grid lists the day\'s tasks; drop one on a cell to move it (time kept), with Undo', (t) async {
+      final (env, id) = await month(t);
+      expect(find.byKey(const Key('month-panel')), findsOneWidget);
+      expect(find.text('Friday 6 November · 2 open'), findsOneWidget);
+      await dragTo(t, find.byKey(Key('task-$id')), find.byKey(const Key('month-11-10')));
+      final row = (await dbTasks(t, env)).firstWhere((r) => r.id == id);
+      expect(DateTime.fromMillisecondsSinceEpoch(row.dueAt!), d(2026, 11, 10, 15));
+      expect(find.text('Moved to Tue 10'), findsOneWidget);
+      expect(find.text('Friday 6 November · 1 open'), findsOneWidget, reason: 'the panel follows');
+      await t.tap(find.text('Undo'));
+      await settleP(t);
+      expect(DateTime.fromMillisecondsSinceEpoch((await dbTasks(t, env)).firstWhere((r) => r.id == id).dueAt!), d(2026, 11, 6, 15));
+      await dispose(t);
+    });
+
+    testWidgets('the arrows pick another day to move tasks from; dropping on that same day does nothing', (t) async {
+      final (env, id) = await month(t);
+      await t.tap(find.byKey(const Key('month-panel-next')));
+      await settleP(t);
+      expect(find.text('Saturday 7 November · no tasks'), findsOneWidget);
+      expect(find.textContaining('Nothing to move'), findsOneWidget);
+      await t.tap(find.byKey(const Key('month-panel-prev')));
+      await settleP(t);
+      await dragTo(t, find.byKey(Key('task-$id')), find.byKey(const Key('month-11-6')));
+      expect(DateTime.fromMillisecondsSinceEpoch((await dbTasks(t, env)).firstWhere((r) => r.id == id).dueAt!), d(2026, 11, 6, 15));
+      expect(find.textContaining('Moved to'), findsNothing);
+      await dispose(t);
+    });
+
+    testWidgets('a cell tints while a task is held over it; tapping a cell still opens the day', (t) async {
+      final (_, id) = await month(t);
+      final g = await t.startGesture(t.getCenter(find.byKey(Key('task-$id'))));
+      await t.pump(const Duration(milliseconds: 700));
+      await g.moveTo(t.getCenter(find.byKey(const Key('month-11-12'))));
+      await t.pump(const Duration(milliseconds: 80));
+      expect(find.descendant(of: find.byKey(const Key('month-drop-11-12')), matching: find.byType(DecoratedBox)), findsWidgets);
+      await g.up();
+      await settleP(t);
+      await t.tap(find.byKey(const Key('month-11-10')));
+      await settleP(t);
+      expect(find.text('Tuesday 10 November'), findsOneWidget);
+      await dispose(t);
+    });
+
+    testWidgets('a short landscape screen has no panel (room is needed for the grid)', (t) async {
+      await month(t, w: 850, h: 390);
+      expect(find.byKey(const Key('month-panel')), findsNothing);
+      await dispose(t);
+    });
+  });
 }

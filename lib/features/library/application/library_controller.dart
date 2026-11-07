@@ -422,5 +422,37 @@ List<BookRow> recentBooks(List<BookRow> all, {int limit = 8}) {
   return r.take(limit).toList();
 }
 
+/// Books you have started (opened or read into), for Home. [mine] puts them in the user's own order ("My order");
+/// otherwise the most recently opened come first.
+List<BookRow> readingBooks(List<BookRow> all, {required bool mine, int limit = 8}) {
+  final started = all.where((b) => b.lastOpenedAt != null || b.lastPage > 0).toList();
+  if (!mine) return recentBooks(started, limit: limit);
+  return sortBooks(started, LibrarySort.manual).take(limit).toList();
+}
+
+/// Home's "Continue reading" order: 'recent' (default) or 'mine'. Remembered.
+class HomeReadingOrder extends Notifier<String> {
+  static const key = 'home_reading_order';
+  @override
+  String build() {
+    Future.microtask(() async {
+      try {
+        final v = await ref.read(syncedStoreProvider).state(key);
+        if (v == 'mine' || v == 'recent') state = v!;
+      } catch (_) {}
+    });
+    return 'recent';
+  }
+
+  void set(String v) {
+    state = v;
+    try {
+      ref.read(syncedStoreProvider).setState(key, v);
+    } catch (_) {}
+  }
+}
+
+final homeReadingOrderProvider = NotifierProvider<HomeReadingOrder, String>(HomeReadingOrder.new);
+
 double readingProgress(BookRow b) =>
     b.pageCount <= 0 ? 0 : (b.lastPage / b.pageCount).clamp(0.0, 1.0);

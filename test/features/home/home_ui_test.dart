@@ -118,4 +118,41 @@ void main() {
       await end(t);
     }
   });
+
+  testWidgets('Continue reading: recently read first by default; the menu switches to My order and it is remembered', (t) async {
+    late List<String> ids;
+    final env = await openHome(t, (env) async {
+      final lib = LibraryRepository(env.db, directory: env.libraryDir, inspector: FakePdfInspector());
+      ids = [];
+      for (final (name, pages) in [('Alpha', 11), ('Bravo', 12), ('Charlie', 13), ('Unread', 14)]) {
+        final b = (await lib.importPdf(await env.writePdf('$name.pdf', pages))).book!;
+        await lib.updateDetails(b.id, title: name);
+        ids.add(b.id);
+      }
+      // read in the order Bravo, Alpha, Charlie (Charlie most recent); Unread is never opened
+      for (final i in [1, 0, 2]) {
+        await lib.saveProgress(ids[i], 3);
+        await Future<void>.delayed(const Duration(milliseconds: 4));
+      }
+      await lib.setOrder([ids[0], ids[1], ids[2], ids[3]]); // my order: Alpha, Bravo, Charlie, Unread
+    });
+    List<String> shownOrder() {
+      final found = <(int, double)>[];
+      for (var i = 0; i < ids.length; i++) {
+        final f = find.byKey(Key('home-book-${ids[i]}'));
+        if (f.evaluate().isNotEmpty) found.add((i, t.getTopLeft(f).dx));
+      }
+      found.sort((a, b) => a.$2.compareTo(b.$2));
+      return [for (final f in found) ['Alpha', 'Bravo', 'Charlie', 'Unread'][f.$1]];
+    }
+
+    expect(shownOrder(), ['Charlie', 'Alpha', 'Bravo'], reason: 'most recently read first; unread books are not listed');
+    await t.tap(find.byKey(const Key('home-reading-order')));
+    await settleH(t);
+    await t.tap(find.text('My order'));
+    await settleH(t);
+    expect(shownOrder(), ['Alpha', 'Bravo', 'Charlie']);
+    expect(await t.runAsync(() => env.store.state('home_reading_order')), 'mine');
+    await end(t);
+  });
 }

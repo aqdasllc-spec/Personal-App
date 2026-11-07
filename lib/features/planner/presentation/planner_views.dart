@@ -225,6 +225,9 @@ class MonthView extends ConsumerWidget {
     final ctrl = ref.read(plannerControllerProvider.notifier);
     final t = Theme.of(context).textTheme;
 
+    return LayoutBuilder(builder: (context, outer) {
+    // the tasks of the picked day (drag source) need room: only on screens tall enough
+    final showPanel = outer.maxHeight >= 460;
     return Padding(
       padding: const EdgeInsets.all(Space.s8),
       child: Column(
@@ -257,7 +260,7 @@ class MonthView extends ConsumerWidget {
                           final isToday = sameDay(d, s.today);
                           final isSel = sameDay(d, s.day);
                           final n = counts[d];
-                          return Semantics(
+                          final cell = Semantics(
                             button: true,
                             label:
                                 '${dayTitle(d)}${n == null ? ', nothing planned' : ', ${n.events} events, ${n.open} open tasks'}',
@@ -367,12 +370,107 @@ class MonthView extends ConsumerWidget {
                               ),
                             ),
                           );
+                          return DragTarget<TaskDrag>(
+                            key: Key('month-drop-${d.month}-${d.day}'),
+                            onWillAcceptWithDetails: (x) => x.data.fromDay == null || !sameDay(x.data.fromDay!, d),
+                            onAcceptWithDetails: (x) => ctrl.moveTaskToDay(x.data.id, d, fromDay: x.data.fromDay),
+                            builder: (context, candidates, _) => candidates.isEmpty
+                                ? cell
+                                : DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: c.accent, width: 3),
+                                    ),
+                                    child: cell,
+                                  ),
+                          );
                         },
                       ),
                     ),
                 ],
               ),
             ),
+          if (showPanel) _MonthDayPanel(state: s),
+        ],
+      ),
+    );
+    });
+  }
+}
+
+/// The tasks of the day shown in the month view, to be dragged onto any day of the grid above.
+class _MonthDayPanel extends ConsumerWidget {
+  const _MonthDayPanel({required this.state});
+  final PlannerState state;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = state;
+    final c = context.colors;
+    final t = Theme.of(context).textTheme;
+    final ctrl = ref.read(plannerControllerProvider.notifier);
+    final tasks = dayAgenda(s.day, s.tasks, s.events, today: s.today).tasks;
+    final open = tasks.where((x) => !x.done).length;
+    return Container(
+      key: const Key('month-panel'),
+      margin: const EdgeInsets.only(top: Space.s8),
+      padding: const EdgeInsets.all(Space.s8),
+      decoration: BoxDecoration(color: c.surface, border: Border.all(color: c.border), borderRadius: BorderRadius.circular(8)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                key: const Key('month-panel-prev'),
+                tooltip: 'Previous day',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.chevron_left),
+                onPressed: () => ctrl.setDay(addDays(s.day, -1)),
+              ),
+              Expanded(
+                child: Text(
+                  '${dayTitle(s.day)} · ${tasks.isEmpty ? 'no tasks' : '$open open'}',
+                  key: const Key('month-panel-title'),
+                  style: t.titleSmall,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              IconButton(
+                key: const Key('month-panel-next'),
+                tooltip: 'Next day',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.chevron_right),
+                onPressed: () => ctrl.setDay(addDays(s.day, 1)),
+              ),
+            ],
+          ),
+          if (tasks.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(Space.s8),
+              child: Text('Nothing to move. Use the arrows to look at another day.', style: t.bodySmall),
+            )
+          else ...[
+            Text(
+              DraggableTask.isTouch ? 'Press and hold a task, then drop it on a day above.' : 'Drag a task onto a day above to move it.',
+              style: t.bodySmall?.copyWith(color: c.textMuted),
+            ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 150),
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final i in tasks)
+                    DraggableTask(
+                      item: i,
+                      fromDay: s.day,
+                      child: TaskTile(item: i, dense: true, onOpen: () => _open(context, s, i)),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

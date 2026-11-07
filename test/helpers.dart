@@ -165,10 +165,11 @@ class TestEnv {
   final InMemoryTransport? transport;
   final FakeServer? server;
 
-  static Future<TestEnv> create({AppSession session = const LocalOnlySession(), bool lockEnabled = false, bool withSync = false}) async {
+  static Future<TestEnv> create({AppSession session = const LocalOnlySession(), bool lockEnabled = false, bool withSync = false, bool showWelcome = false}) async {
     quietDrift();
     final db = openInMemory();
     final store = await SyncedStore.open(db, deviceId: 'test-device');
+    if (!showWelcome) await store.setState('welcome_done', '1'); // the first-run tour would cover every other test
     final server = withSync ? FakeServer() : null;
     final transport = withSync ? InMemoryTransport(server!) : null;
     return TestEnv._(db, store, FakeAuthenticator(), FakeAuthRepository(session), withSync ? SyncService(store, transport!) : null, transport, server)
