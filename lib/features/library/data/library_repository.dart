@@ -24,6 +24,23 @@ abstract class PdfInspector {
 
 enum ImportStatus { added, duplicate, unreadable, missing }
 
+class StorageReport {
+  const StorageReport({
+    required this.bookCount,
+    required this.bookBytes,
+    required this.removedCount,
+    required this.removedBytes,
+    required this.cloudCount,
+    required this.cloudBytes,
+    required this.coverBytes,
+    required this.largest,
+  });
+  final int bookCount, bookBytes, removedCount, removedBytes, cloudCount, cloudBytes, coverBytes;
+
+  /// The biggest books, largest first.
+  final List<BookRow> largest;
+}
+
 class ImportResult {
   const ImportResult(this.status, this.fileName, [this.book]);
   final ImportStatus status;
@@ -235,6 +252,46 @@ class LibraryRepository {
       (_db.update(_db.books)..where((b) => b.id.equals(id))).write(
         const BooksCompanion(deletedAt: Value(null)),
       );
+
+  /// What the library takes up on this device and in the cloud.
+  Future<StorageReport> storageReport() async {
+    final all = await _db.select(_db.books).get();
+    final live = all.where((b) => b.deletedAt == null).toList();
+    final removed = all.where((b) => b.deletedAt != null).toList();
+    final synced = live.where((b) => b.cloudState == 'synced').toList();
+    var cover = 0;
+    final coverDir = Directory(p.join(directory.path, 'covers'));
+    if (await coverDir.exists()) {
+      await for (final e in coverDir.list()) {
+        if (e is File) cover += await e.length();
+      }
+    }
+    final largest = [...live]..sort((a, b) => b.sizeBytes.compareTo(a.sizeBytes));
+    return StorageReport(
+      bookCount: live.length,
+      bookBytes: live.fold(0, (n, b) => n + b.sizeBytes),
+      removedCount: removed.length,
+      removedBytes: removed.fold(0, (n, b) => n + b.sizeBytes),
+      cloudCount: synced.length,
+      cloudBytes: synced.fold(0, (n, b) => n + b.sizeBytes),
+      coverBytes: cover,
+      largest: largest.take(5).toList(),
+    );
+  }
+
+  /// Deletes the cached first-page images (they are rendered again when needed). Returns the bytes freed.
+  Future<int> clearCovers() async {
+    final dir = Directory(p.join(directory.path, 'covers'));
+    if (!await dir.exists()) return 0;
+    var freed = 0;
+    await for (final e in dir.list()) {
+      if (e is File) {
+        freed += await e.length();
+        await e.delete();
+      }
+    }
+    return freed;
+  }
 
   /// Permanently deletes removed books and their files. Returns how many were purged.
   Future<int> purge() async {
