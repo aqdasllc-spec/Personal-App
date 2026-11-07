@@ -596,5 +596,40 @@ void main() {
       expect(find.text('1/1'), findsOneWidget);
       await dispose(t);
     });
+
+    testWidgets('drag a sub-task by its handle to reorder; the new order is saved (and ticks/edits travel with their item)', (t) async {
+      final (env, _) = await openPlanner(t, seed: (repo) async {
+        await repo.saveTask(TaskInput(title: 'Pack', due: d(2026, 11, 6), checklist: const [
+          ChecklistItem(id: 'a', title: 'Passport'),
+          ChecklistItem(id: 'b', title: 'Charger', done: true),
+          ChecklistItem(id: 'c', title: 'Toothbrush'),
+        ]));
+      });
+      final id = (await dbTasks(t, env)).single.id;
+      await t.tap(find.byKey(Key('task-$id')));
+      await settleP(t);
+      await t.scrollUntilVisible(find.byKey(const Key('item-handle-a')), 200, scrollable: editorScroll());
+      await t.drag(editorScroll(), const Offset(0, -120));
+      await t.pump();
+      await t.enterText(find.byKey(const Key('item-title-c')), 'Toothbrush + paste');
+      // move "Passport" (first) below "Charger" and "Toothbrush": drag its handle down past two rows
+      final rowHeight = t.getSize(find.byKey(const Key('item-a'))).height;
+      final g = await t.startGesture(t.getCenter(find.byKey(const Key('item-handle-a'))));
+      await t.pump(const Duration(milliseconds: 100));
+      for (var k = 0; k < 8; k++) {
+        await g.moveBy(Offset(0, rowHeight * 2.2 / 8));
+        await t.pump(const Duration(milliseconds: 50));
+      }
+      await g.up();
+      await settleP(t);
+      final order = [for (final k in ['a', 'b', 'c']) t.getTopLeft(find.byKey(Key('item-$k'))).dy];
+      expect(order[1] < order[2] && order[2] < order[0], isTrue, reason: 'Passport is now last');
+      await t.tap(find.byKey(const Key('save')));
+      await settleP(t);
+      final items = decodeChecklist((await dbTasks(t, env)).single.checklist);
+      expect(items.map((c) => c.title).toList(), ['Charger', 'Toothbrush + paste', 'Passport']);
+      expect(items.map((c) => c.done).toList(), [true, false, false]);
+      await dispose(t);
+    });
   });
 }

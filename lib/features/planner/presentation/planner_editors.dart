@@ -481,34 +481,56 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
           ),
           const SizedBox(height: Space.s16),
           Text('Sub-tasks', style: t.bodySmall),
-          for (final i in _items)
-            Row(
-              key: Key('item-${i.id}'),
-              children: [
-                Checkbox(
-                  key: Key('item-done-${i.id}'),
-                  value: i.done,
-                  onChanged: (v) => setState(() => _items = [for (final x in _items) x.id == i.id ? x.copyWith(done: v ?? false) : x]),
-                ),
-                Expanded(
-                  child: TextField(
-                    key: Key('item-title-${i.id}'),
-                    controller: _controllerFor(i),
-                    decoration: const InputDecoration(isDense: true, border: InputBorder.none),
-                    style: i.done ? const TextStyle(decoration: TextDecoration.lineThrough) : null,
+          // Sub-tasks can be dragged into any order by their handle (screen readers get "move up / down" actions).
+          ReorderableListView.builder(
+            key: const Key('subtask-list'),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            buildDefaultDragHandles: false,
+            itemCount: _items.length,
+            onReorderItem: (from, to) => setState(() {
+              final list = [..._items];
+              list.insert(to, list.removeAt(from));
+              _items = list;
+            }),
+            itemBuilder: (context, index) {
+              final i = _items[index];
+              return Row(
+                key: Key('item-${i.id}'),
+                children: [
+                  ReorderableDragStartListener(
+                    index: index,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: Space.s8, vertical: Space.s8),
+                      child: Icon(Icons.drag_indicator, key: Key('item-handle-${i.id}'), size: 20, semanticLabel: 'Drag to reorder'),
+                    ),
                   ),
-                ),
-                IconButton(
-                  key: Key('item-delete-${i.id}'),
-                  tooltip: 'Remove sub-task',
-                  icon: const Icon(Icons.close, size: 18),
-                  onPressed: () => setState(() {
-                    _items = [for (final x in _items) if (x.id != i.id) x];
-                    _itemControllers.remove(i.id)?.dispose();
-                  }),
-                ),
-              ],
-            ),
+                  Checkbox(
+                    key: Key('item-done-${i.id}'),
+                    value: i.done,
+                    onChanged: (v) => setState(() => _items = [for (final x in _items) x.id == i.id ? x.copyWith(done: v ?? false) : x]),
+                  ),
+                  Expanded(
+                    child: TextField(
+                      key: Key('item-title-${i.id}'),
+                      controller: _controllerFor(i),
+                      decoration: const InputDecoration(isDense: true, border: InputBorder.none),
+                      style: i.done ? const TextStyle(decoration: TextDecoration.lineThrough) : null,
+                    ),
+                  ),
+                  IconButton(
+                    key: Key('item-delete-${i.id}'),
+                    tooltip: 'Remove sub-task',
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () => setState(() {
+                      _items = [for (final x in _items) if (x.id != i.id) x];
+                      _itemControllers.remove(i.id)?.dispose();
+                    }),
+                  ),
+                ],
+              );
+            },
+          ),
           TextField(
             key: const Key('new-subtask'),
             controller: _newItem,
