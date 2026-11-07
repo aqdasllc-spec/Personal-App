@@ -57,8 +57,8 @@ Future<void> main() async {
   }
 
   final libraryDir = await resolveLibraryDirectory();
-  // Books removed in an earlier session are deleted for good now (the Undo window is long over).
-  await LibraryRepository(db, directory: libraryDir, inspector: PdfrxInspector()).purge();
+  // Books stay in the bin (Settings -> Storage) for 30 days, then are deleted for good.
+  await LibraryRepository(db, directory: libraryDir, inspector: PdfrxInspector()).purge(keep: binRetention);
 
   runApp(ProviderScope(
     overrides: [

@@ -105,7 +105,7 @@ void main() {
       await t.pump(const Duration(milliseconds: 300));
     }
 
-    Future<(TestEnv, FakeCloudBooks?)> open(WidgetTester t, {bool cloud = true}) async {
+    Future<(TestEnv, FakeCloudBooks?)> open(WidgetTester t, {bool cloud = true, bool agedBin = false}) async {
       t.view.physicalSize = const Size(411, 890);
       t.view.devicePixelRatio = 1;
       addTearDown(t.view.reset);
@@ -128,6 +128,14 @@ void main() {
         }
         final removed = (await repo.importPdf(fakePdf(src, 'Old.pdf', 4096, pages: 9).path)).book!;
         await repo.remove(removed.id);
+        if (agedBin) {
+          // Old: removed 10 days ago; Small: removed 2 days ago (relative to the real clock the sheet uses)
+          final now = DateTime.now();
+          final all = await env.db.select(env.db.books).get();
+          Future<void> removedAgo(String title, int days) => (env.db.update(env.db.books)..where((b) => b.id.equals(all.firstWhere((x) => x.title == title).id))).write(BooksCompanion(deletedAt: Value(now.subtract(Duration(days: days)).millisecondsSinceEpoch)));
+          await removedAgo('Old', 10);
+          await removedAgo('Small', 2);
+        }
         Directory('${env.libraryDir.path}/covers').createSync(recursive: true);
         File('${env.libraryDir.path}/covers/x.png').writeAsBytesSync(List.filled(2048, 1));
       });
@@ -150,12 +158,12 @@ void main() {
       expect(find.textContaining('free plan'), findsOneWidget);
       expect(find.byKey(const Key('storage-cloud-meter')), findsOneWidget);
       expect(find.textContaining('2 KB · first pages'), findsOneWidget);
-      expect(find.textContaining('1 book · 4 KB'), findsOneWidget, reason: 'the removed book waiting for deletion');
+      expect(find.textContaining('1 book · 4 KB · kept 30 days'), findsOneWidget, reason: 'the removed book waiting in the bin');
       await t.pumpWidget(const SizedBox());
       await t.pump(const Duration(seconds: 1));
     });
 
-    testWidgets('Clear covers frees the cache; Delete now purges removed books', (t) async {
+    testWidgets('Clear covers frees the cache', (t) async {
       final (env, _) = await open(t);
       await t.tap(find.byKey(const Key('storage-clear-covers')));
       await io(t);
@@ -164,12 +172,61 @@ void main() {
       await io(t, rounds: 15); // the figures are read again
       expect(t.widget<TextButton>(find.byKey(const Key('storage-clear-covers'))).onPressed, isNull, reason: 'nothing left to clear');
 
-      await t.ensureVisible(find.byKey(const Key('storage-purge')));
+      expect(find.byKey(const Key('storage-removed')), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 1));
+    });
+
+    testWidgets('Recently removed: shows days left; Restore brings the book back; Delete for good asks first; Empty bin clears', (t) async {
+      final (env, _) = await open(t, agedBin: true);
+      await io(t, rounds: 15);
+      await t.ensureVisible(find.byKey(const Key('storage-review')));
       await t.pump();
-      await t.tap(find.byKey(const Key('storage-purge')));
-      await io(t);
+      await t.tap(find.byKey(const Key('storage-review')));
+      await io(t, rounds: 4);
+      expect(find.text('Recently removed'), findsWidgets);
+      expect(find.textContaining('Removed 10 days ago · 20 days left'), findsOneWidget);
+      expect(find.textContaining('Removed 2 days ago · 28 days left'), findsOneWidget);
+
+      final rows = (await t.runAsync(() => env.db.select(env.db.books).get()))!;
+      final small = rows.firstWhere((b) => b.title == 'Small');
+      final old = rows.firstWhere((b) => b.title == 'Old');
+      await t.tap(find.byKey(Key('bin-restore-${small.id}')));
+      await io(t, rounds: 4);
+      expect(find.text('Restored "Small".'), findsOneWidget);
+      expect((await t.runAsync(() => env.db.select(env.db.books).get()))!.firstWhere((b) => b.id == small.id).deletedAt, isNull);
+      expect(find.byKey(Key('bin-${small.id}')), findsNothing);
+
+      await t.tap(find.byKey(Key('bin-delete-${old.id}')));
+      await io(t, rounds: 3);
+      expect(find.text('Delete "Old" for good?'), findsOneWidget);
+      await t.tap(find.text('Cancel'));
+      await io(t, rounds: 3);
+      expect(find.byKey(Key('bin-${old.id}')), findsOneWidget);
+      await t.tap(find.byKey(Key('bin-delete-${old.id}')));
+      await io(t, rounds: 3);
+      await t.tap(find.byKey(const Key('bin-delete-confirm')));
+      await io(t, rounds: 6);
+      expect((await t.runAsync(() => env.db.select(env.db.books).get()))!.any((b) => b.id == old.id), isFalse);
+      expect(find.textContaining('Nothing here'), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+      await t.pump(const Duration(seconds: 1));
+    });
+
+    testWidgets('Empty bin deletes everything in it after a confirmation', (t) async {
+      final (env, _) = await open(t);
+      await io(t, rounds: 15);
+      await t.ensureVisible(find.byKey(const Key('storage-review')));
+      await t.pump();
+      await t.tap(find.byKey(const Key('storage-review')));
+      await io(t, rounds: 4);
+      await t.tap(find.byKey(const Key('bin-empty')));
+      await io(t, rounds: 3);
+      expect(find.text('Empty the bin?'), findsOneWidget);
+      await t.tap(find.byKey(const Key('bin-empty-confirm')));
+      await io(t, rounds: 8);
+      expect((await t.runAsync(() => env.db.select(env.db.books).get()))!.where((b) => b.deletedAt != null), isEmpty);
       expect(find.text('Deleted 1 book for good.'), findsOneWidget);
-      expect(find.byKey(const Key('storage-removed')), findsNothing);
       await t.pumpWidget(const SizedBox());
       await t.pump(const Duration(seconds: 1));
     });

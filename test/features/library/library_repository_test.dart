@@ -209,4 +209,66 @@ void main() {
       expect(((await repo.book(a.id))!.shelfId, (await repo.book(a.id))!.favorite), (null, 0));
     });
   });
+
+  group('recently removed (bin)', () {
+    test('binDaysLeft counts down from 30 and never goes below 0', () {
+      final t0 = DateTime(2026, 11, 7, 12);
+      final at = t0.millisecondsSinceEpoch;
+      expect(binDaysLeft(at, t0), 30);
+      expect(binDaysLeft(at, t0.add(const Duration(hours: 23))), 30);
+      expect(binDaysLeft(at, t0.add(const Duration(days: 1))), 29);
+      expect(binDaysLeft(at, t0.add(const Duration(days: 29, hours: 5))), 1);
+      expect(binDaysLeft(at, t0.add(const Duration(days: 30))), 0);
+      expect(binDaysLeft(at, t0.add(const Duration(days: 90))), 0);
+    });
+
+    test('purge(keep: 30 days) leaves recent removals alone and deletes only the old ones', () async {
+      final old = (await repo.importPdf(pdf('old.pdf', pages: 1))).book!;
+      final fresh = (await repo.importPdf(pdf('fresh.pdf', pages: 2))).book!;
+      await repo.remove(old.id); // removed at the current clock
+      clock = clock.add(const Duration(days: 20));
+      await repo.remove(fresh.id);
+      clock = clock.add(const Duration(days: 11)); // old: 31 days in the bin, fresh: 11
+      expect(await repo.purge(keep: binRetention), 1);
+      expect(await repo.book(old.id), isNull);
+      expect(repo.fileOf(old).existsSync(), isFalse);
+      expect(await repo.book(fresh.id), isNotNull, reason: 'still restorable');
+      expect(repo.fileOf(fresh).existsSync(), isTrue);
+      await repo.restore(fresh.id);
+      expect((await repo.watchBooks().first).map((b) => b.id), [fresh.id]);
+    });
+
+    test('the bin lists the most recently removed first; one book can be deleted for good', () async {
+      final a = (await repo.importPdf(pdf('a.pdf', pages: 1))).book!;
+      final b = (await repo.importPdf(pdf('b.pdf', pages: 2))).book!;
+      await repo.addHighlight(a.id, const HighlightDraft(page: 1, rects: [], text: 'x'));
+      await repo.remove(a.id);
+      clock = clock.add(const Duration(hours: 2));
+      await repo.remove(b.id);
+      expect((await repo.watchRemoved().first).map((x) => x.id), [b.id, a.id]);
+      await repo.deletePermanently(a.id);
+      expect((await repo.watchRemoved().first).map((x) => x.id), [b.id]);
+      expect(repo.fileOf(a).existsSync(), isFalse);
+      expect(await db.select(db.highlights).get(), isEmpty, reason: 'its highlights go with it');
+      await repo.deletePermanently('missing'); // harmless
+      final live = (await repo.importPdf(pdf('live.pdf', pages: 3))).book!;
+      await repo.deletePermanently(live.id);
+      expect(await repo.book(live.id), isNotNull, reason: 'a book that is not in the bin cannot be deleted this way');
+    });
+
+    test('adding the same PDF again brings the binned one back with its bookmarks and reading place', () async {
+      final first = (await repo.importPdf(pdf('same.pdf', pages: 50))).book!;
+      await repo.toggleBookmark(first.id, 7);
+      await repo.saveProgress(first.id, 22);
+      await repo.remove(first.id);
+      final shelf = await repo.createShelf('Work');
+      final again = await repo.importPdf(pdf('same-copy.pdf', pages: 50), shelfId: shelf.id);
+      expect(again.status, ImportStatus.added);
+      expect(again.book!.id, first.id, reason: 'the original, not a second copy');
+      expect((again.book!.lastPage, again.book!.deletedAt, again.book!.shelfId), (22, null, shelf.id));
+      expect((await repo.watchBookmarks(first.id).first).single.page, 7);
+      expect((await repo.watchBooks().first).length, 1);
+      expect(await repo.watchRemoved().first, isEmpty);
+    });
+  });
 }

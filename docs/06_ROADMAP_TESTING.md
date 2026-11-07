@@ -17,6 +17,9 @@ Sections: **Home, Library, Planner, Settings**. The tracker engine (old Phase 2)
 
 *Order note:* the Planner is small compared with the PDF reader; if you want something useful on your phone sooner, Planner first is reasonable — say so.
 
+## 1r. Recently removed (bin) (2026-11-07)
+Removed books now stay in a bin for **30 days** (was: until the next app start): Settings -> Storage -> Recently removed -> Review lists them with "Removed N days ago · N days left", **Restore** (bookmarks, highlights, reading place and shelf are kept), **Delete for good** (confirmed) and **Empty bin** (confirmed). Adding the same PDF again while its copy is in the bin brings the original back instead of creating a duplicate. Startup deletes only books older than 30 days. Tested headless.
+
 ## 1q. Settings -> Storage (2026-11-07)
 Shows what the library uses: books on this phone (count, size), cloud copies with a meter against the 1 GB free-plan figure (only in builds with cloud sync; your plan may differ), the first-page cover cache (**Clear**; rebuilt on demand), removed books waiting to be deleted (**Delete now**), and the 5 largest books. **Remove all cloud copies** (confirmed) frees cloud space and keeps every book on the phone; a partial failure reports how many succeeded. 262 headless tests. The meter uses the sizes recorded when books were added, not a live query of Supabase.
 

@@ -8,6 +8,7 @@ import '../library/application/covers.dart';
 import '../library/application/library_controller.dart';
 import '../library/data/library_repository.dart';
 import '../library/domain_format.dart';
+import 'removed_books_sheet.dart';
 
 /// Cloud storage of the free plan, used only to show a meter. Your plan may differ.
 const freeCloudBytes = 1024 * 1024 * 1024;
@@ -118,16 +119,17 @@ class StorageTiles extends ConsumerWidget {
             ListTile(
               key: const Key('storage-removed'),
               leading: const Icon(Icons.delete_sweep_outlined),
-              title: const Text('Removed books not yet deleted'),
-              subtitle: Text('${r.removedCount} ${r.removedCount == 1 ? 'book' : 'books'} · ${formatBytes(r.removedBytes)} · deleted for good the next time the app starts'),
+              title: const Text('Recently removed'),
+              subtitle: Text('${r.removedCount} ${r.removedCount == 1 ? 'book' : 'books'} · ${formatBytes(r.removedBytes)} · kept ${binRetention.inDays} days, then deleted for good'),
               trailing: TextButton(
-                key: const Key('storage-purge'),
-                onPressed: () async {
-                  final n = await ref.read(libraryRepositoryProvider).purge();
-                  ref.invalidate(storageReportProvider);
-                  if (context.mounted) _say(context, 'Deleted $n ${n == 1 ? 'book' : 'books'} for good.');
-                },
-                child: const Text('Delete now'),
+                key: const Key('storage-review'),
+                onPressed: () => showModalBottomSheet<void>(
+                  context: context,
+                  showDragHandle: true,
+                  isScrollControlled: true,
+                  builder: (_) => const RemovedBooksSheet(),
+                ).whenComplete(() => ref.invalidate(storageReportProvider)),
+                child: const Text('Review'),
               ),
             ),
           if (r.largest.isNotEmpty)

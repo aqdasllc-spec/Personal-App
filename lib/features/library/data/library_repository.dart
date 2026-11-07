@@ -24,6 +24,15 @@ abstract class PdfInspector {
 
 enum ImportStatus { added, duplicate, unreadable, missing }
 
+/// How long a removed book stays in the bin before it is deleted for good.
+const binRetention = Duration(days: 30);
+
+/// Whole days left before a book removed at [deletedAtMs] is deleted for good (0 = less than a day).
+int binDaysLeft(int deletedAtMs, DateTime now) {
+  final used = now.difference(DateTime.fromMillisecondsSinceEpoch(deletedAtMs)).inDays;
+  return (binRetention.inDays - used).clamp(0, binRetention.inDays);
+}
+
 class StorageReport {
   const StorageReport({
     required this.bookCount,
@@ -78,6 +87,17 @@ class LibraryRepository {
               ..where((b) => b.sha256.equals(hash) & b.deletedAt.isNull()))
             .getSingleOrNull();
     if (dup != null) return ImportResult(ImportStatus.duplicate, name, dup);
+    // the same PDF is sitting in the bin: bring that one back (with its bookmarks, highlights and reading place)
+    final binned =
+        await (_db.select(_db.books)
+              ..where((b) => b.sha256.equals(hash) & b.deletedAt.isNotNull())
+              ..limit(1))
+            .getSingleOrNull();
+    if (binned != null && await fileOf(binned).exists()) {
+      await restore(binned.id);
+      if (shelfId != null) await moveToShelf(binned.id, shelfId);
+      return ImportResult(ImportStatus.added, name, await book(binned.id));
+    }
     final info = await inspector.inspect(sourcePath);
     if (info == null) return ImportResult(ImportStatus.unreadable, name);
     final id = _newId();
@@ -293,26 +313,38 @@ class LibraryRepository {
     return freed;
   }
 
-  /// Permanently deletes removed books and their files. Returns how many were purged.
-  Future<int> purge() async {
+  /// Permanently deletes removed books (and their files, covers, bookmarks and highlights) that have been in the
+  /// bin for at least [keep]. The default deletes everything in the bin. Returns how many were purged.
+  Future<int> purge({Duration keep = Duration.zero}) async {
+    final cutoff = _now().millisecondsSinceEpoch - keep.inMilliseconds;
     final gone = await (_db.select(
       _db.books,
-    )..where((b) => b.deletedAt.isNotNull())).get();
+    )..where((b) => b.deletedAt.isNotNull() & b.deletedAt.isSmallerOrEqualValue(cutoff))).get();
     for (final b in gone) {
-      final f = fileOf(b);
-      if (await f.exists()) await f.delete();
-      final cover = File(p.join(directory.path, 'covers', '${b.id}.png'));
-      if (await cover.exists()) await cover.delete();
-      await (_db.delete(
-        _db.bookmarks,
-      )..where((x) => x.bookId.equals(b.id))).go();
-      await (_db.delete(
-        _db.highlights,
-      )..where((x) => x.bookId.equals(b.id))).go();
-      await (_db.delete(_db.books)..where((x) => x.id.equals(b.id))).go();
+      await _eraseBook(b);
     }
     return gone.length;
   }
+
+  /// Deletes one removed book for good (from the bin).
+  Future<void> deletePermanently(String id) async {
+    final b = await (_db.select(_db.books)..where((x) => x.id.equals(id) & x.deletedAt.isNotNull())).getSingleOrNull();
+    if (b != null) await _eraseBook(b);
+  }
+
+  Future<void> _eraseBook(BookRow b) async {
+    final f = fileOf(b);
+    if (await f.exists()) await f.delete();
+    final cover = File(p.join(directory.path, 'covers', '${b.id}.png'));
+    if (await cover.exists()) await cover.delete();
+    await (_db.delete(_db.bookmarks)..where((x) => x.bookId.equals(b.id))).go();
+    await (_db.delete(_db.highlights)..where((x) => x.bookId.equals(b.id))).go();
+    await (_db.delete(_db.books)..where((x) => x.id.equals(b.id))).go();
+  }
+
+  /// The bin: removed books, most recently removed first.
+  Stream<List<BookRow>> watchRemoved() =>
+      (_db.select(_db.books)..where((b) => b.deletedAt.isNotNull())..orderBy([(b) => OrderingTerm.desc(b.deletedAt)])).watch();
 
   // ---------------------------------------------------------------- highlights
   Stream<List<HighlightRow>> watchHighlights(String bookId) =>
