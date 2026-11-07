@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderMetaData;
@@ -13,6 +15,7 @@ import '../application/export_notes.dart';
 import '../application/library_controller.dart';
 import '../data/library_repository.dart';
 import '../domain_tags.dart';
+import 'book_edit.dart';
 import 'book_peek.dart';
 import 'book_visuals.dart';
 
@@ -25,12 +28,6 @@ class LibraryPage extends ConsumerStatefulWidget {
 class _LibraryPageState extends ConsumerState<LibraryPage> {
   final _search = TextEditingController();
   bool _importing = false;
-
-  @override
-  void dispose() {
-    _search.dispose();
-    super.dispose();
-  }
 
   void _say(String m) => ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
@@ -164,10 +161,14 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     final visible = ref.watch(visibleBooksProvider);
     final shelves = ref.watch(shelvesProvider).value ?? const <ShelfRow>[];
     final c = context.colors;
+    final editing = ref.watch(shelfEditProvider);
+    final canReorder = ui.query.trim().isEmpty && ui.activeFilters == 0;
     final selection = ref.watch(selectionProvider);
     final selCtl = ref.read(selectionProvider.notifier);
-    void openBook(BookRow b) => selection == null ? _open(b) : selCtl.toggle(b.id);
-    void bookMenu(BookRow b) => selection == null ? _details(b) : selCtl.toggle(b.id);
+    void openBook(BookRow b) =>
+        selection == null ? _open(b) : selCtl.toggle(b.id);
+    void bookMenu(BookRow b) =>
+        selection == null ? _details(b) : selCtl.toggle(b.id);
     final cloudOn = ref.watch(cloudBooksProvider) != null;
     final busyIds = ref.watch(bookSyncProvider).busy;
     // The cloud dot is shown only in builds that have cloud sync at all.
@@ -259,7 +260,14 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                     key: const Key('library-select'),
                     tooltip: 'Select several books',
                     icon: const Icon(Icons.checklist),
-                    onPressed: selection == null ? selCtl.start : selCtl.clear,
+                    onPressed: () {
+                      if (selection == null) {
+                        ref.read(shelfEditProvider.notifier).set(false);
+                        selCtl.start();
+                      } else {
+                        selCtl.clear();
+                      }
+                    },
                   ),
                   IconButton.outlined(
                     key: const Key('library-filter'),
@@ -291,43 +299,76 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                 ],
               ),
             ),
-            SizedBox(
-              height: 48,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: Space.s16,
-                      ),
-                      children: [
-                        _chip(
-                          'All books',
-                          ui.filter is AllBooks,
-                          () => ref
-                              .read(libraryUiProvider.notifier)
-                              .setFilter(const AllBooks()),
-                        ),
-                        _chip(
-                          'Favourites',
-                          ui.filter is Favorites,
-                          () => ref
-                              .read(libraryUiProvider.notifier)
-                              .setFilter(const Favorites()),
-                          icon: Icons.star_outline,
-                        ),
-                        for (final s in shelves)
-                          _chip(
-                            s.name,
-                            ui.filter == ShelfFilter(s.id),
-                            () => ref
-                                .read(libraryUiProvider.notifier)
-                                .setFilter(ShelfFilter(s.id)),
-                            onLong: () => _shelfMenu(s),
-                          ),
-                      ],
+            Builder(
+              builder: (context) {
+                final chipWidgets = <Widget>[
+                  _chip(
+                    'All books',
+                    ui.filter is AllBooks,
+                    () => ref
+                        .read(libraryUiProvider.notifier)
+                        .setFilter(const AllBooks()),
+                    chipKey: const Key('chip-all'),
+                    onDropBook: (id) => _dropOnShelf(id, null),
+                  ),
+                  _chip(
+                    'Favourites',
+                    ui.filter is Favorites,
+                    () => ref
+                        .read(libraryUiProvider.notifier)
+                        .setFilter(const Favorites()),
+                    icon: Icons.star_outline,
+                    chipKey: const Key('chip-favorites'),
+                    onDropBook: (id) async {
+                      await ref
+                          .read(libraryRepositoryProvider)
+                          .setFavorite(id, true);
+                      if (mounted) _say('Added to favourites.');
+                    },
+                  ),
+                  for (final s in shelves)
+                    _chip(
+                      s.name,
+                      ui.filter == ShelfFilter(s.id),
+                      () => ref
+                          .read(libraryUiProvider.notifier)
+                          .setFilter(ShelfFilter(s.id)),
+                      onLong: () => _shelfMenu(s),
+                      chipKey: Key('chip-shelf-${s.id}'),
+                      onDropBook: (id) => _dropOnShelf(id, s.id),
                     ),
+                ];
+                // While rearranging, every shelf is shown at once (wrapped) so each one is a drop target;
+                // otherwise a single scrolling row.
+                final chipArea = editing
+                    ? Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          Space.s16,
+                          0,
+                          Space.s8,
+                          Space.s8,
+                        ),
+                        child: Wrap(
+                          key: const Key('shelf-drop-zones'),
+                          runSpacing: Space.s8,
+                          children: chipWidgets,
+                        ),
+                      )
+                    : ListView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Space.s16,
+                        ),
+                        children: chipWidgets,
+                      );
+                final actions = <Widget>[
+                  IconButton(
+                    key: const Key('library-edit'),
+                    tooltip: editing ? 'Done rearranging' : 'Rearrange books',
+                    isSelected: editing,
+                    icon: const Icon(Icons.edit_outlined),
+                    selectedIcon: const Icon(Icons.check),
+                    onPressed: _toggleEdit,
                   ),
                   IconButton(
                     key: const Key('library-new-shelf'),
@@ -336,8 +377,25 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                     onPressed: _newShelf,
                   ),
                   const SizedBox(width: Space.s8),
-                ],
-              ),
+                ];
+                return editing
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: chipArea),
+                          ...actions,
+                        ],
+                      )
+                    : SizedBox(
+                        height: 48,
+                        child: Row(
+                          children: [
+                            Expanded(child: chipArea),
+                            ...actions,
+                          ],
+                        ),
+                      );
+              },
             ),
             if (selection != null)
               _SelectionBar(
@@ -348,6 +406,34 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                 onFavorite: _bulkFavorite,
                 onRemove: _bulkRemove,
               ),
+            if (editing)
+              Material(
+                key: const Key('edit-bar'),
+                color: context.colors.accentSoft,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Space.s16,
+                    vertical: Space.s8,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          canReorder
+                              ? 'Drag a book to a new place, or onto a shelf name to move it there.'
+                              : 'Clear the search and filters to change the order. You can still drop a book on a shelf name.',
+                          key: const Key('edit-hint'),
+                        ),
+                      ),
+                      FilledButton(
+                        key: const Key('edit-done'),
+                        onPressed: _toggleEdit,
+                        child: const Text('Done'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             if (ui.activeFilters > 0)
               SizedBox(
                 height: 44,
@@ -357,81 +443,120 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                       child: ListView(
                         key: const Key('active-filters'),
                         scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: Space.s16),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Space.s16,
+                        ),
                         children: [
                           if (ui.status != ReadStatus.all)
-                            _activeChip(ui.status.label, () => ref.read(libraryUiProvider.notifier).setStatus(ReadStatus.all), key: const Key('active-status')),
+                            _activeChip(
+                              ui.status.label,
+                              () => ref
+                                  .read(libraryUiProvider.notifier)
+                                  .setStatus(ReadStatus.all),
+                              key: const Key('active-status'),
+                            ),
                           for (final t in ui.tags)
-                            _activeChip('#$t', () => ref.read(libraryUiProvider.notifier).toggleTag(t), key: Key('active-tag-$t')),
+                            _activeChip(
+                              '#$t',
+                              () => ref
+                                  .read(libraryUiProvider.notifier)
+                                  .toggleTag(t),
+                              key: Key('active-tag-$t'),
+                            ),
                         ],
                       ),
                     ),
                     // always visible, however many chips there are
-                    TextButton(key: const Key('clear-filters'), onPressed: ref.read(libraryUiProvider.notifier).clearFilters, child: const Text('Clear filters')),
+                    TextButton(
+                      key: const Key('clear-filters'),
+                      onPressed: ref
+                          .read(libraryUiProvider.notifier)
+                          .clearFilters,
+                      child: const Text('Clear filters'),
+                    ),
                     const SizedBox(width: Space.s8),
                   ],
                 ),
               ),
             const _CloudBanner(),
             Expanded(
-              child: SelectDragScope(
-                onStart: _dragSelectStart,
-                onMove: _dragSelectMove,
-                child: books.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => EmptyState(
-                  icon: Icons.error_outline,
-                  title: 'Couldn\'t load your library',
-                  message: '$e',
-                ),
-                data: (all) {
-                  if (all.isEmpty) {
-                    return EmptyState(
-                      icon: Icons.auto_stories_outlined,
-                      title: 'Your library is empty',
-                      message: 'Add PDFs from your device. Folio keeps its own copy; your original files are never changed.',
-                      actionLabel: 'Add PDFs',
-                      onAction: _import,
-                    );
-                  }
-                  final list = visible.value ?? const <BookRow>[];
-                  if (list.isEmpty) {
-                    return EmptyState(
-                      icon: Icons.search_off,
-                      title: 'Nothing here',
-                      message: ui.query.isNotEmpty
-                          ? 'No book matches "${ui.query}".'
-                          : (ui.activeFilters > 0
-                              ? 'No book matches these filters. Remove one above to see more.'
-                          : (ui.filter is Favorites
-                                ? 'Star a book to find it here.'
-                                : 'This shelf is empty. Open a book\'s menu to move it here.')),
-                    );
-                  }
-                  return switch (ui.view) {
-                    LibraryView.shelf => _ShelfView(
-                      books: list,
-                      onOpen: openBook,
-                      onMenu: bookMenu,
-                      dotOf: dotOf,
-                      selection: selection,
+              child: EditScope(
+                editing: editing,
+                canReorder: canReorder,
+                onDrop: _dropOnBook,
+                onNudge: _nudgeBook,
+                onDragMove: _edgeScroll,
+                onDragEnd: _edgeScrollEnd,
+                child: PrimaryScrollController(
+                  controller: _scroll,
+                  child: KeyedSubtree(
+                    key: _areaKey,
+                    child: SelectDragScope(
+                      onStart: _dragSelectStart,
+                      onMove: _dragSelectMove,
+                      child: books.when(
+                        loading: () =>
+                            const Center(child: CircularProgressIndicator()),
+                        error: (e, _) => EmptyState(
+                          icon: Icons.error_outline,
+                          title: 'Couldn\'t load your library',
+                          message: '$e',
+                        ),
+                        data: (all) {
+                          if (all.isEmpty) {
+                            return PrimaryScrollController.none(
+                              child: EmptyState(
+                                icon: Icons.auto_stories_outlined,
+                                title: 'Your library is empty',
+                                message: 'Add PDFs from your device. Folio keeps its own copy; your original files are never changed.',
+                                actionLabel: 'Add PDFs',
+                                onAction: _import,
+                              ),
+                            );
+                          }
+                          final list = visible.value ?? const <BookRow>[];
+                          if (list.isEmpty) {
+                            return PrimaryScrollController.none(
+                              child: EmptyState(
+                              icon: Icons.search_off,
+                              title: 'Nothing here',
+                              message: ui.query.isNotEmpty
+                                  ? 'No book matches "${ui.query}".'
+                                  : (ui.activeFilters > 0
+                                        ? 'No book matches these filters. Remove one above to see more.'
+                                        : (ui.filter is Favorites
+                                              ? 'Star a book to find it here.'
+                                              : 'This shelf is empty. Open a book\'s menu to move it here.')),
+                              ),
+                            );
+                          }
+                          return switch (ui.view) {
+                            LibraryView.shelf => _ShelfView(
+                              books: list,
+                              onOpen: openBook,
+                              onMenu: bookMenu,
+                              dotOf: dotOf,
+                              selection: selection,
+                            ),
+                            LibraryView.grid => _GridView(
+                              books: list,
+                              onOpen: openBook,
+                              onMenu: bookMenu,
+                              dotOf: dotOf,
+                              selection: selection,
+                            ),
+                            LibraryView.list => _ListView(
+                              books: list,
+                              onOpen: openBook,
+                              onMenu: bookMenu,
+                              dotOf: dotOf,
+                              selection: selection,
+                            ),
+                          };
+                        },
+                      ),
                     ),
-                    LibraryView.grid => _GridView(
-                      books: list,
-                      onOpen: openBook,
-                      onMenu: bookMenu,
-                      dotOf: dotOf,
-                      selection: selection,
-                    ),
-                    LibraryView.list => _ListView(
-                      books: list,
-                      onOpen: openBook,
-                      onMenu: bookMenu,
-                      dotOf: dotOf,
-                      selection: selection,
-                    ),
-                  };
-                },
+                  ),
                 ),
               ),
             ),
@@ -441,45 +566,136 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     );
   }
 
+  // ----- rearrange mode (pen button): drag books to a new place or onto a shelf name
+  final _scroll = ScrollController();
+  final _areaKey = GlobalKey();
+  Timer? _edgeTimer;
+  double _edgeVelocity = 0;
+
+  @override
+  void dispose() {
+    _edgeTimer?.cancel();
+    _scroll.dispose();
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _edgeScroll(Offset global) {
+    final box = _areaKey.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.attached || !_scroll.hasClients) return;
+    final y = box.globalToLocal(global).dy;
+    final h = box.size.height;
+    const edge = 90.0, top = 18.0;
+    _edgeVelocity = y < edge
+        ? -(edge - y).clamp(0, edge) / edge * top
+        : (y > h - edge ? (y - (h - edge)).clamp(0, edge) / edge * top : 0);
+    if (_edgeVelocity != 0) {
+      _edgeTimer ??= Timer.periodic(const Duration(milliseconds: 16), (_) {
+        if (!_scroll.hasClients || _edgeVelocity == 0) return;
+        final p = _scroll.position;
+        _scroll.jumpTo(
+          (p.pixels + _edgeVelocity).clamp(
+            p.minScrollExtent,
+            p.maxScrollExtent,
+          ),
+        );
+      });
+    }
+  }
+
+  void _edgeScrollEnd() {
+    _edgeVelocity = 0;
+    _edgeTimer?.cancel();
+    _edgeTimer = null;
+  }
+
+  void _toggleEdit() {
+    final on = !ref.read(shelfEditProvider);
+    ref.read(shelfEditProvider.notifier).set(on);
+    if (on) ref.read(selectionProvider.notifier).clear();
+  }
+
+  List<String> _visibleIds() => [
+    for (final b in ref.read(visibleBooksProvider).value ?? const <BookRow>[])
+      b.id,
+  ];
+
+  Future<void> _saveOrder(List<String> ids) async {
+    await ref.read(libraryRepositoryProvider).setOrder(ids);
+    // the order the user just made is "My order" from now on
+    ref.read(libraryUiProvider.notifier).setSort(LibrarySort.manual);
+  }
+
+  void _dropOnBook(String dragged, String target) =>
+      _saveOrder(reorderIds(_visibleIds(), dragged, target));
+  void _nudgeBook(String id, int delta) =>
+      _saveOrder(nudgeId(_visibleIds(), id, delta));
+
+  Future<void> _dropOnShelf(String bookId, String? shelfId) async {
+    await ref.read(libraryRepositoryProvider).moveToShelf(bookId, shelfId);
+    if (mounted) {
+      _say(shelfId == null ? 'Taken off its shelf.' : 'Moved to the shelf.');
+    }
+  }
+
   // ----- drag-select: press and hold a book in selection mode, then slide over others
   bool _dragAdding = true;
 
   void _dragSelectStart(String id, Offset global) {
     final sel = ref.read(selectionProvider) ?? const <String>{};
-    _dragAdding = !sel.contains(id); // starting on an unselected book selects; on a selected one deselects
+    _dragAdding = !sel.contains(
+      id,
+    ); // starting on an unselected book selects; on a selected one deselects
     ref.read(selectionProvider.notifier).setSelected(id, _dragAdding);
   }
 
   void _dragSelectMove(Offset global) {
     final result = HitTestResult();
-    WidgetsBinding.instance.hitTestInView(result, global, View.of(context).viewId);
+    WidgetsBinding.instance.hitTestInView(
+      result,
+      global,
+      View.of(context).viewId,
+    );
     for (final entry in result.path) {
       final target = entry.target;
       if (target is RenderMetaData && target.metaData is BookTag) {
-        ref.read(selectionProvider.notifier).setSelected((target.metaData as BookTag).id, _dragAdding);
+        ref
+            .read(selectionProvider.notifier)
+            .setSelected((target.metaData as BookTag).id, _dragAdding);
         return;
       }
     }
   }
 
   Future<void> _bulkRemove(Set<String> ids) async {
-    final books = [for (final b in ref.read(booksProvider).value ?? const <BookRow>[]) if (ids.contains(b.id)) b];
+    final books = [
+      for (final b in ref.read(booksProvider).value ?? const <BookRow>[])
+        if (ids.contains(b.id)) b,
+    ];
     if (books.isEmpty) return;
     final synced = books.where((b) => b.cloudState == 'synced').length;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         key: const Key('bulk-remove-dialog'),
-        title: Text('Remove ${books.length} ${books.length == 1 ? 'book' : 'books'}?'),
+        title: Text(
+          'Remove ${books.length} ${books.length == 1 ? 'book' : 'books'}?',
+        ),
         content: Text(
           'They disappear from your library; you can undo right after.'
           '${synced > 0 ? ' $synced of them ${synced == 1 ? 'has' : 'have'} a cloud copy, which is deleted too.' : ''}',
         ),
         actions: [
-          TextButton(key: const Key('bulk-remove-cancel'), onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            key: const Key('bulk-remove-cancel'),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             key: const Key('bulk-remove-confirm'),
-            style: FilledButton.styleFrom(backgroundColor: context.colors.danger),
+            style: FilledButton.styleFrom(
+              backgroundColor: context.colors.danger,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Remove'),
           ),
@@ -495,12 +711,17 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     if (r.removed.isNotEmpty) {
       m.showSnackBar(
         SnackBar(
-          content: Text('Removed ${r.removed.length} ${r.removed.length == 1 ? 'book' : 'books'}'),
-          action: SnackBarAction(label: 'Undo', onPressed: () async {
-            for (final b in r.removed) {
-              await repo.restore(b.id);
-            }
-          }),
+          content: Text(
+            'Removed ${r.removed.length} ${r.removed.length == 1 ? 'book' : 'books'}',
+          ),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () async {
+              for (final b in r.removed) {
+                await repo.restore(b.id);
+              }
+            },
+          ),
         ),
       );
     }
@@ -510,8 +731,15 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
         builder: (ctx) => AlertDialog(
           key: const Key('bulk-remove-failed'),
           title: const Text('Some books were kept'),
-          content: Text('${r.failed.length} ${r.failed.length == 1 ? 'book' : 'books'} could not be removed because the cloud copy could not be deleted (are you offline?): ${r.failed.map((b) => '"${b.title}"').join(', ')}. Try again when you are connected.'),
-          actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+          content: Text(
+            '${r.failed.length} ${r.failed.length == 1 ? 'book' : 'books'} could not be removed because the cloud copy could not be deleted (are you offline?): ${r.failed.map((b) => '"${b.title}"').join(', ')}. Try again when you are connected.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
         ),
       );
     }
@@ -520,7 +748,11 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
   Future<void> _bulkTags(Set<String> ids) async {
     final text = await showDialog<String>(
       context: context,
-      builder: (_) => const _NameDialog(title: 'Add tags', label: 'Tags (comma separated)', action: 'Add'),
+      builder: (_) => const _NameDialog(
+        title: 'Add tags',
+        label: 'Tags (comma separated)',
+        action: 'Add',
+      ),
     );
     if (text == null || !mounted) return;
     final repo = ref.read(libraryRepositoryProvider);
@@ -528,7 +760,9 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     if (tags.isEmpty) return;
     await repo.addTagsToBooks(ids, text);
     ref.read(selectionProvider.notifier).clear();
-    _say('Added ${tags.map((t) => '#$t').join(' ')} to ${ids.length} ${ids.length == 1 ? 'book' : 'books'}.');
+    _say(
+      'Added ${tags.map((t) => '#$t').join(' ')} to ${ids.length} ${ids.length == 1 ? 'book' : 'books'}.',
+    );
   }
 
   Future<void> _bulkShelf(Set<String> ids) async {
@@ -538,8 +772,17 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
       builder: (ctx) => SimpleDialog(
         title: const Text('Move to shelf'),
         children: [
-          SimpleDialogOption(key: const Key('bulk-shelf-none'), onPressed: () => Navigator.pop(ctx, (null,)), child: const Text('No shelf')),
-          for (final s in shelves) SimpleDialogOption(key: Key('bulk-shelf-${s.id}'), onPressed: () => Navigator.pop(ctx, (s.id,)), child: Text(s.name)),
+          SimpleDialogOption(
+            key: const Key('bulk-shelf-none'),
+            onPressed: () => Navigator.pop(ctx, (null,)),
+            child: const Text('No shelf'),
+          ),
+          for (final s in shelves)
+            SimpleDialogOption(
+              key: Key('bulk-shelf-${s.id}'),
+              onPressed: () => Navigator.pop(ctx, (s.id,)),
+              child: Text(s.name),
+            ),
         ],
       ),
     );
@@ -552,12 +795,22 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
   Future<void> _bulkFavorite(Set<String> ids, bool fav) async {
     await ref.read(libraryRepositoryProvider).setFavorites(ids, fav);
     ref.read(selectionProvider.notifier).clear();
-    _say(fav ? 'Added ${ids.length} to favourites.' : 'Removed ${ids.length} from favourites.');
+    _say(
+      fav
+          ? 'Added ${ids.length} to favourites.'
+          : 'Removed ${ids.length} from favourites.',
+    );
   }
 
-  Widget _activeChip(String label, VoidCallback onRemove, {Key? key}) => Padding(
+  Widget _activeChip(String label, VoidCallback onRemove, {Key? key}) =>
+      Padding(
         padding: const EdgeInsets.only(right: Space.s8),
-        child: InputChip(key: key, label: Text(label), onDeleted: onRemove, deleteButtonTooltipMessage: 'Remove filter'),
+        child: InputChip(
+          key: key,
+          label: Text(label),
+          onDeleted: onRemove,
+          deleteButtonTooltipMessage: 'Remove filter',
+        ),
       );
 
   Widget _chip(
@@ -566,18 +819,43 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     VoidCallback onTap, {
     IconData? icon,
     VoidCallback? onLong,
-  }) => Padding(
-    padding: const EdgeInsets.only(right: Space.s8),
-    child: GestureDetector(
-      onLongPress: onLong,
-      child: ChoiceChip(
-        avatar: icon == null ? null : Icon(icon, size: 16),
-        label: Text(label),
-        selected: selected,
-        onSelected: (_) => onTap(),
+    Key? chipKey,
+    Future<void> Function(String bookId)? onDropBook,
+  }) {
+    final chip = ChoiceChip(
+      key: chipKey,
+      avatar: icon == null ? null : Icon(icon, size: 16),
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onTap(),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(right: Space.s8),
+      child: GestureDetector(
+        onLongPress: onLong,
+        // while rearranging, a book dropped on the chip is moved there
+        child: ref.watch(shelfEditProvider) && onDropBook != null
+            ? DragTarget<String>(
+                onWillAcceptWithDetails: (_) => true,
+                onAcceptWithDetails: (d) => onDropBook(d.data),
+                builder: (context, candidates, _) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 120),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(Radii.pill),
+                    border: Border.all(
+                      color: candidates.isEmpty
+                          ? Colors.transparent
+                          : context.colors.accent,
+                      width: 3,
+                    ),
+                  ),
+                  child: chip,
+                ),
+              )
+            : chip,
       ),
-    ),
-  );
+    );
+  }
 
   Future<void> _shelfMenu(ShelfRow s) async {
     final repo = ref.read(libraryRepositoryProvider);
@@ -932,7 +1210,8 @@ class _BookSheet extends ConsumerWidget {
                   key: const Key('book-export'),
                   icon: const Icon(Icons.ios_share),
                   label: const Text('Share notes'),
-                  onPressed: () async => onSay(await exportBookNotes(ref, b, copy: false)),
+                  onPressed: () async =>
+                      onSay(await exportBookNotes(ref, b, copy: false)),
                 ),
               ],
             ),
@@ -1057,7 +1336,11 @@ class _NameDialogState extends State<_NameDialog> {
 }
 
 class _DetailsDialog extends StatefulWidget {
-  const _DetailsDialog({required this.title, required this.author, required this.tags});
+  const _DetailsDialog({
+    required this.title,
+    required this.author,
+    required this.tags,
+  });
   final String title, author, tags;
   @override
   State<_DetailsDialog> createState() => _DetailsDialogState();
@@ -1094,7 +1377,10 @@ class _DetailsDialogState extends State<_DetailsDialog> {
         TextField(
           key: const Key('details-tags'),
           controller: _g,
-          decoration: const InputDecoration(labelText: 'Tags', hintText: 'work, to read, safety'),
+          decoration: const InputDecoration(
+            labelText: 'Tags',
+            hintText: 'work, to read, safety',
+          ),
         ),
       ],
     ),
@@ -1166,7 +1452,6 @@ class _CloudBanner extends ConsumerWidget {
   }
 }
 
-
 /// Sort order, reading status and tags.
 class _FilterSheet extends ConsumerWidget {
   const _FilterSheet();
@@ -1179,9 +1464,16 @@ class _FilterSheet extends ConsumerWidget {
     final t = Theme.of(context).textTheme;
     return SafeArea(
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.8),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.8,
+        ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(Space.s16, 0, Space.s16, Space.s16),
+          padding: const EdgeInsets.fromLTRB(
+            Space.s16,
+            0,
+            Space.s16,
+            Space.s16,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -1237,7 +1529,10 @@ class _FilterSheet extends ConsumerWidget {
               ),
               const SizedBox(height: Space.s8),
               if (tags.isEmpty)
-                Text('No tags yet. Open a book\'s menu → Edit details to add some (for example: work, to read, safety).', style: t.bodySmall)
+                Text(
+                  'No tags yet. Open a book\'s menu → Edit details to add some (for example: work, to read, safety).',
+                  style: t.bodySmall,
+                )
               else
                 Wrap(
                   spacing: Space.s8,
@@ -1247,7 +1542,9 @@ class _FilterSheet extends ConsumerWidget {
                       FilterChip(
                         key: Key('tag-filter-$tag'),
                         label: Text('$tag · $count'),
-                        selected: ui.tags.any((x) => x.toLowerCase() == tag.toLowerCase()),
+                        selected: ui.tags.any(
+                          (x) => x.toLowerCase() == tag.toLowerCase(),
+                        ),
                         onSelected: (_) => ctl.toggleTag(tag),
                       ),
                   ],
@@ -1255,7 +1552,11 @@ class _FilterSheet extends ConsumerWidget {
               if (ui.activeFilters > 0)
                 Align(
                   alignment: Alignment.centerRight,
-                  child: TextButton(key: const Key('sheet-clear'), onPressed: ctl.clearFilters, child: const Text('Clear filters')),
+                  child: TextButton(
+                    key: const Key('sheet-clear'),
+                    onPressed: ctl.clearFilters,
+                    child: const Text('Clear filters'),
+                  ),
                 ),
             ],
           ),
@@ -1265,10 +1566,16 @@ class _FilterSheet extends ConsumerWidget {
   }
 }
 
-
 /// Shown while selecting books: how many, Select all, and what to do with them.
 class _SelectionBar extends ConsumerWidget {
-  const _SelectionBar({required this.selection, required this.visible, required this.onTags, required this.onShelf, required this.onFavorite, required this.onRemove});
+  const _SelectionBar({
+    required this.selection,
+    required this.visible,
+    required this.onTags,
+    required this.onShelf,
+    required this.onFavorite,
+    required this.onRemove,
+  });
   final Set<String> selection;
   final List<BookRow> visible;
   final Future<void> Function(Set<String>) onTags, onShelf;
@@ -1279,7 +1586,10 @@ class _SelectionBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ctl = ref.read(selectionProvider.notifier);
     final all = ref.watch(booksProvider).value ?? const <BookRow>[];
-    final chosen = [for (final b in all) if (selection.contains(b.id)) b];
+    final chosen = [
+      for (final b in all)
+        if (selection.contains(b.id)) b,
+    ];
     final allFav = chosen.isNotEmpty && chosen.every((b) => b.favorite == 1);
     final n = selection.length;
     final none = n == 0;
@@ -1287,16 +1597,41 @@ class _SelectionBar extends ConsumerWidget {
       key: const Key('selection-bar'),
       color: context.colors.accentSoft,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Space.s8, vertical: Space.s4),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Space.s8,
+          vertical: Space.s4,
+        ),
         child: Wrap(
           crossAxisAlignment: WrapCrossAlignment.center,
           spacing: Space.s4,
           children: [
-            IconButton(key: const Key('selection-close'), tooltip: 'Done selecting', icon: const Icon(Icons.close), onPressed: ctl.clear),
-            Text(n == 0 ? 'Tap books to select' : '$n selected', key: const Key('selection-count')),
-            TextButton(key: const Key('selection-all'), onPressed: () => ctl.selectAll(visible.map((b) => b.id)), child: const Text('Select all')),
-            TextButton.icon(key: const Key('bulk-tags'), onPressed: none ? null : () => onTags(selection), icon: const Icon(Icons.sell_outlined, size: 18), label: const Text('Tag')),
-            TextButton.icon(key: const Key('bulk-shelf'), onPressed: none ? null : () => onShelf(selection), icon: const Icon(Icons.shelves, size: 18), label: const Text('Shelf')),
+            IconButton(
+              key: const Key('selection-close'),
+              tooltip: 'Done selecting',
+              icon: const Icon(Icons.close),
+              onPressed: ctl.clear,
+            ),
+            Text(
+              n == 0 ? 'Tap books to select' : '$n selected',
+              key: const Key('selection-count'),
+            ),
+            TextButton(
+              key: const Key('selection-all'),
+              onPressed: () => ctl.selectAll(visible.map((b) => b.id)),
+              child: const Text('Select all'),
+            ),
+            TextButton.icon(
+              key: const Key('bulk-tags'),
+              onPressed: none ? null : () => onTags(selection),
+              icon: const Icon(Icons.sell_outlined, size: 18),
+              label: const Text('Tag'),
+            ),
+            TextButton.icon(
+              key: const Key('bulk-shelf'),
+              onPressed: none ? null : () => onShelf(selection),
+              icon: const Icon(Icons.shelves, size: 18),
+              label: const Text('Shelf'),
+            ),
             TextButton.icon(
               key: const Key('bulk-favorite'),
               onPressed: none ? null : () => onFavorite(selection, !allFav),
@@ -1305,7 +1640,9 @@ class _SelectionBar extends ConsumerWidget {
             ),
             TextButton.icon(
               key: const Key('bulk-remove'),
-              style: TextButton.styleFrom(foregroundColor: context.colors.danger),
+              style: TextButton.styleFrom(
+                foregroundColor: context.colors.danger,
+              ),
               onPressed: none ? null : () => onRemove(selection),
               icon: const Icon(Icons.delete_outline, size: 18),
               label: const Text('Remove'),
@@ -1316,7 +1653,6 @@ class _SelectionBar extends ConsumerWidget {
     );
   }
 }
-
 
 /// Rename, merge or delete a tag on every book at once.
 class _TagManager extends ConsumerWidget {
@@ -1329,15 +1665,27 @@ class _TagManager extends ConsumerWidget {
     final ui = ref.read(libraryUiProvider.notifier);
     return SafeArea(
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.7),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.7,
+        ),
         child: tags.isEmpty
-            ? const Padding(padding: EdgeInsets.all(Space.s24), child: Text('No tags left.', textAlign: TextAlign.center))
+            ? const Padding(
+                padding: EdgeInsets.all(Space.s24),
+                child: Text('No tags left.', textAlign: TextAlign.center),
+              )
             : ListView(
                 shrinkWrap: true,
                 children: [
                   const Padding(
-                    padding: EdgeInsets.fromLTRB(Space.s16, 0, Space.s16, Space.s8),
-                    child: Text('Renaming to a tag that already exists merges the two. Changes apply to every book.'),
+                    padding: EdgeInsets.fromLTRB(
+                      Space.s16,
+                      0,
+                      Space.s16,
+                      Space.s8,
+                    ),
+                    child: Text(
+                      'Renaming to a tag that already exists merges the two. Changes apply to every book.',
+                    ),
                   ),
                   for (final (tag, count) in tags)
                     ListTile(
@@ -1354,7 +1702,12 @@ class _TagManager extends ConsumerWidget {
                             onPressed: () async {
                               final to = await showDialog<String>(
                                 context: context,
-                                builder: (_) => _NameDialog(title: 'Rename tag', label: 'New name', action: 'Rename', initial: tag),
+                                builder: (_) => _NameDialog(
+                                  title: 'Rename tag',
+                                  label: 'New name',
+                                  action: 'Rename',
+                                  initial: tag,
+                                ),
                               );
                               if (to == null) return;
                               final target = normalizeTags(to).firstOrNull;
@@ -1372,10 +1725,20 @@ class _TagManager extends ConsumerWidget {
                                 context: context,
                                 builder: (ctx) => AlertDialog(
                                   title: Text('Remove #$tag?'),
-                                  content: Text('It will be taken off $count ${count == 1 ? 'book' : 'books'}. The books themselves stay.'),
+                                  content: Text(
+                                    'It will be taken off $count ${count == 1 ? 'book' : 'books'}. The books themselves stay.',
+                                  ),
                                   actions: [
-                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                                    FilledButton(key: const Key('tag-delete-confirm'), onPressed: () => Navigator.pop(ctx, true), child: const Text('Remove')),
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(ctx, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    FilledButton(
+                                      key: const Key('tag-delete-confirm'),
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text('Remove'),
+                                    ),
                                   ],
                                 ),
                               );

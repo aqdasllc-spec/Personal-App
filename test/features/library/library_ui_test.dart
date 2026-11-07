@@ -95,6 +95,8 @@ void main() {
     await t.tap(find.byTooltip('Grid'));
     await t.pumpAndSettle();
     expect(find.text('Alpha'), findsOneWidget);
+    await t.ensureVisible(find.text('Favourites')); // the chip row is short on a phone: scroll the chip into view first
+    await t.pumpAndSettle();
     await t.tap(find.text('Favourites'));
     await t.pumpAndSettle();
     expect(find.text('Star a book to find it here.'), findsOneWidget);

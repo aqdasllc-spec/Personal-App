@@ -1618,6 +1618,18 @@ class $BooksTable extends Books with TableInfo<$BooksTable, BookRow> {
     requiredDuringInsert: false,
     defaultValue: const Constant('local'),
   );
+  static const VerificationMeta _sortPosMeta = const VerificationMeta(
+    'sortPos',
+  );
+  @override
+  late final GeneratedColumn<int> sortPos = GeneratedColumn<int>(
+    'sort_pos',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _tagsMeta = const VerificationMeta('tags');
   @override
   late final GeneratedColumn<String> tags = GeneratedColumn<String>(
@@ -1685,6 +1697,7 @@ class $BooksTable extends Books with TableInfo<$BooksTable, BookRow> {
     shelfId,
     favorite,
     cloudState,
+    sortPos,
     tags,
     lastPage,
     lastOpenedAt,
@@ -1760,6 +1773,12 @@ class $BooksTable extends Books with TableInfo<$BooksTable, BookRow> {
       context.handle(
         _cloudStateMeta,
         cloudState.isAcceptableOrUnknown(data['cloud_state']!, _cloudStateMeta),
+      );
+    }
+    if (data.containsKey('sort_pos')) {
+      context.handle(
+        _sortPosMeta,
+        sortPos.isAcceptableOrUnknown(data['sort_pos']!, _sortPosMeta),
       );
     }
     if (data.containsKey('tags')) {
@@ -1846,6 +1865,10 @@ class $BooksTable extends Books with TableInfo<$BooksTable, BookRow> {
         DriftSqlType.string,
         data['${effectivePrefix}cloud_state'],
       )!,
+      sortPos: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_pos'],
+      )!,
       tags: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}tags'],
@@ -1890,6 +1913,9 @@ class BookRow extends DataClass implements Insertable<BookRow> {
   /// progress is tracked in memory only, so a crash can never leave a book stuck "syncing".
   final String cloudState;
 
+  /// Position in the user's own order ("My order" sort); set when the user rearranges books.
+  final int sortPos;
+
   /// Free-form tags the user put on the book: JSON list of strings.
   final String tags;
 
@@ -1909,6 +1935,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
     this.shelfId,
     required this.favorite,
     required this.cloudState,
+    required this.sortPos,
     required this.tags,
     required this.lastPage,
     this.lastOpenedAt,
@@ -1930,6 +1957,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
     }
     map['favorite'] = Variable<int>(favorite);
     map['cloud_state'] = Variable<String>(cloudState);
+    map['sort_pos'] = Variable<int>(sortPos);
     map['tags'] = Variable<String>(tags);
     map['last_page'] = Variable<int>(lastPage);
     if (!nullToAbsent || lastOpenedAt != null) {
@@ -1956,6 +1984,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
           : Value(shelfId),
       favorite: Value(favorite),
       cloudState: Value(cloudState),
+      sortPos: Value(sortPos),
       tags: Value(tags),
       lastPage: Value(lastPage),
       lastOpenedAt: lastOpenedAt == null && nullToAbsent
@@ -1984,6 +2013,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
       shelfId: serializer.fromJson<String?>(json['shelfId']),
       favorite: serializer.fromJson<int>(json['favorite']),
       cloudState: serializer.fromJson<String>(json['cloudState']),
+      sortPos: serializer.fromJson<int>(json['sortPos']),
       tags: serializer.fromJson<String>(json['tags']),
       lastPage: serializer.fromJson<int>(json['lastPage']),
       lastOpenedAt: serializer.fromJson<int?>(json['lastOpenedAt']),
@@ -2005,6 +2035,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
       'shelfId': serializer.toJson<String?>(shelfId),
       'favorite': serializer.toJson<int>(favorite),
       'cloudState': serializer.toJson<String>(cloudState),
+      'sortPos': serializer.toJson<int>(sortPos),
       'tags': serializer.toJson<String>(tags),
       'lastPage': serializer.toJson<int>(lastPage),
       'lastOpenedAt': serializer.toJson<int?>(lastOpenedAt),
@@ -2024,6 +2055,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
     Value<String?> shelfId = const Value.absent(),
     int? favorite,
     String? cloudState,
+    int? sortPos,
     String? tags,
     int? lastPage,
     Value<int?> lastOpenedAt = const Value.absent(),
@@ -2040,6 +2072,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
     shelfId: shelfId.present ? shelfId.value : this.shelfId,
     favorite: favorite ?? this.favorite,
     cloudState: cloudState ?? this.cloudState,
+    sortPos: sortPos ?? this.sortPos,
     tags: tags ?? this.tags,
     lastPage: lastPage ?? this.lastPage,
     lastOpenedAt: lastOpenedAt.present ? lastOpenedAt.value : this.lastOpenedAt,
@@ -2060,6 +2093,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
       cloudState: data.cloudState.present
           ? data.cloudState.value
           : this.cloudState,
+      sortPos: data.sortPos.present ? data.sortPos.value : this.sortPos,
       tags: data.tags.present ? data.tags.value : this.tags,
       lastPage: data.lastPage.present ? data.lastPage.value : this.lastPage,
       lastOpenedAt: data.lastOpenedAt.present
@@ -2083,6 +2117,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
           ..write('shelfId: $shelfId, ')
           ..write('favorite: $favorite, ')
           ..write('cloudState: $cloudState, ')
+          ..write('sortPos: $sortPos, ')
           ..write('tags: $tags, ')
           ..write('lastPage: $lastPage, ')
           ..write('lastOpenedAt: $lastOpenedAt, ')
@@ -2104,6 +2139,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
     shelfId,
     favorite,
     cloudState,
+    sortPos,
     tags,
     lastPage,
     lastOpenedAt,
@@ -2124,6 +2160,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
           other.shelfId == this.shelfId &&
           other.favorite == this.favorite &&
           other.cloudState == this.cloudState &&
+          other.sortPos == this.sortPos &&
           other.tags == this.tags &&
           other.lastPage == this.lastPage &&
           other.lastOpenedAt == this.lastOpenedAt &&
@@ -2142,6 +2179,7 @@ class BooksCompanion extends UpdateCompanion<BookRow> {
   final Value<String?> shelfId;
   final Value<int> favorite;
   final Value<String> cloudState;
+  final Value<int> sortPos;
   final Value<String> tags;
   final Value<int> lastPage;
   final Value<int?> lastOpenedAt;
@@ -2159,6 +2197,7 @@ class BooksCompanion extends UpdateCompanion<BookRow> {
     this.shelfId = const Value.absent(),
     this.favorite = const Value.absent(),
     this.cloudState = const Value.absent(),
+    this.sortPos = const Value.absent(),
     this.tags = const Value.absent(),
     this.lastPage = const Value.absent(),
     this.lastOpenedAt = const Value.absent(),
@@ -2177,6 +2216,7 @@ class BooksCompanion extends UpdateCompanion<BookRow> {
     this.shelfId = const Value.absent(),
     this.favorite = const Value.absent(),
     this.cloudState = const Value.absent(),
+    this.sortPos = const Value.absent(),
     this.tags = const Value.absent(),
     this.lastPage = const Value.absent(),
     this.lastOpenedAt = const Value.absent(),
@@ -2196,6 +2236,7 @@ class BooksCompanion extends UpdateCompanion<BookRow> {
     Expression<String>? shelfId,
     Expression<int>? favorite,
     Expression<String>? cloudState,
+    Expression<int>? sortPos,
     Expression<String>? tags,
     Expression<int>? lastPage,
     Expression<int>? lastOpenedAt,
@@ -2214,6 +2255,7 @@ class BooksCompanion extends UpdateCompanion<BookRow> {
       if (shelfId != null) 'shelf_id': shelfId,
       if (favorite != null) 'favorite': favorite,
       if (cloudState != null) 'cloud_state': cloudState,
+      if (sortPos != null) 'sort_pos': sortPos,
       if (tags != null) 'tags': tags,
       if (lastPage != null) 'last_page': lastPage,
       if (lastOpenedAt != null) 'last_opened_at': lastOpenedAt,
@@ -2234,6 +2276,7 @@ class BooksCompanion extends UpdateCompanion<BookRow> {
     Value<String?>? shelfId,
     Value<int>? favorite,
     Value<String>? cloudState,
+    Value<int>? sortPos,
     Value<String>? tags,
     Value<int>? lastPage,
     Value<int?>? lastOpenedAt,
@@ -2252,6 +2295,7 @@ class BooksCompanion extends UpdateCompanion<BookRow> {
       shelfId: shelfId ?? this.shelfId,
       favorite: favorite ?? this.favorite,
       cloudState: cloudState ?? this.cloudState,
+      sortPos: sortPos ?? this.sortPos,
       tags: tags ?? this.tags,
       lastPage: lastPage ?? this.lastPage,
       lastOpenedAt: lastOpenedAt ?? this.lastOpenedAt,
@@ -2294,6 +2338,9 @@ class BooksCompanion extends UpdateCompanion<BookRow> {
     if (cloudState.present) {
       map['cloud_state'] = Variable<String>(cloudState.value);
     }
+    if (sortPos.present) {
+      map['sort_pos'] = Variable<int>(sortPos.value);
+    }
     if (tags.present) {
       map['tags'] = Variable<String>(tags.value);
     }
@@ -2328,6 +2375,7 @@ class BooksCompanion extends UpdateCompanion<BookRow> {
           ..write('shelfId: $shelfId, ')
           ..write('favorite: $favorite, ')
           ..write('cloudState: $cloudState, ')
+          ..write('sortPos: $sortPos, ')
           ..write('tags: $tags, ')
           ..write('lastPage: $lastPage, ')
           ..write('lastOpenedAt: $lastOpenedAt, ')
@@ -5981,6 +6029,7 @@ typedef $$BooksTableCreateCompanionBuilder = BooksCompanion Function({
   Value<String?> shelfId,
   Value<int> favorite,
   Value<String> cloudState,
+  Value<int> sortPos,
   Value<String> tags,
   Value<int> lastPage,
   Value<int?> lastOpenedAt,
@@ -5999,6 +6048,7 @@ typedef $$BooksTableUpdateCompanionBuilder = BooksCompanion Function({
   Value<String?> shelfId,
   Value<int> favorite,
   Value<String> cloudState,
+  Value<int> sortPos,
   Value<String> tags,
   Value<int> lastPage,
   Value<int?> lastOpenedAt,
@@ -6062,6 +6112,11 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
 
   ColumnFilters<String> get cloudState => $composableBuilder(
     column: $table.cloudState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortPos => $composableBuilder(
+    column: $table.sortPos,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6150,6 +6205,11 @@ class $$BooksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get sortPos => $composableBuilder(
+    column: $table.sortPos,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get tags => $composableBuilder(
     column: $table.tags,
     builder: (column) => ColumnOrderings(column),
@@ -6217,6 +6277,9 @@ class $$BooksTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get sortPos =>
+      $composableBuilder(column: $table.sortPos, builder: (column) => column);
+
   GeneratedColumn<String> get tags =>
       $composableBuilder(column: $table.tags, builder: (column) => column);
 
@@ -6273,6 +6336,7 @@ class $$BooksTableTableManager
                 Value<String?> shelfId = const Value.absent(),
                 Value<int> favorite = const Value.absent(),
                 Value<String> cloudState = const Value.absent(),
+                Value<int> sortPos = const Value.absent(),
                 Value<String> tags = const Value.absent(),
                 Value<int> lastPage = const Value.absent(),
                 Value<int?> lastOpenedAt = const Value.absent(),
@@ -6290,6 +6354,7 @@ class $$BooksTableTableManager
                 shelfId: shelfId,
                 favorite: favorite,
                 cloudState: cloudState,
+                sortPos: sortPos,
                 tags: tags,
                 lastPage: lastPage,
                 lastOpenedAt: lastOpenedAt,
@@ -6309,6 +6374,7 @@ class $$BooksTableTableManager
                 Value<String?> shelfId = const Value.absent(),
                 Value<int> favorite = const Value.absent(),
                 Value<String> cloudState = const Value.absent(),
+                Value<int> sortPos = const Value.absent(),
                 Value<String> tags = const Value.absent(),
                 Value<int> lastPage = const Value.absent(),
                 Value<int?> lastOpenedAt = const Value.absent(),
@@ -6326,6 +6392,7 @@ class $$BooksTableTableManager
                 shelfId: shelfId,
                 favorite: favorite,
                 cloudState: cloudState,
+                sortPos: sortPos,
                 tags: tags,
                 lastPage: lastPage,
                 lastOpenedAt: lastOpenedAt,

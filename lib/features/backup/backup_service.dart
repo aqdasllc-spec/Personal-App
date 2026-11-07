@@ -396,6 +396,7 @@ class BackupService {
       final b = BookRow.fromJson({
         'cloudState': 'local',
         'tags': '[]',
+        'sortPos': 0,
         ...j,
       }); // backups from before cloud sync lack the field
       if (haveBook.contains(b.id) ||

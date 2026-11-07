@@ -8,6 +8,7 @@ import '../../../design_system/tokens.dart';
 import '../application/covers.dart';
 import '../application/library_controller.dart';
 import '../domain_tags.dart';
+import 'book_edit.dart';
 import 'book_visuals.dart';
 
 /// Lets a finger drag across books to select (or deselect) them while in selection mode.
@@ -131,6 +132,11 @@ class _BookPeekTargetState extends State<BookPeekTarget> {
 
   @override
   Widget build(BuildContext context) {
+    // rearranging: no preview card (the book is for dragging)
+    if (EditScope.maybeOf(context)?.editing ?? false) {
+      _hide();
+      return EditableBook(book: widget.book, child: widget.child);
+    }
     final sel = widget.selected;
     if (sel != null) {
       _hide();

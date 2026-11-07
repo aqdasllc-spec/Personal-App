@@ -17,6 +17,9 @@ Sections: **Home, Library, Planner, Settings**. The tracker engine (old Phase 2)
 
 *Order note:* the Planner is small compared with the PDF reader; if you want something useful on your phone sooner, Planner first is reasonable — say so.
 
+## 1s. Rearrange mode (pen button) (2026-11-07)
+A pen button next to "New shelf" turns on **rearrange mode**: every book wiggles (not with the system's reduce-motion setting), tapping a book does nothing, and the preview card is off. **Drag a book onto another** to put it in that place (the others shift); the order is saved per book (DB v11 `sort_pos`) and the sort switches to the new **My order** option, which is remembered. While rearranging, all shelves are shown as drop targets: **drop a book on a shelf name** to move it there, on **All books** to take it off its shelf, on **Favourites** to star it. The list scrolls by itself when a dragged book is held near the top/bottom edge. With a search or filter active the order is locked (explained on screen) but shelf drops still work. Screen readers get "Move earlier / Move later" on each book. Works in shelf, grid and list views; 278 headless tests. Unverified on a device: the feel of the wiggle and drag. Side effect: the shelf-chip row is shorter on phones (one more button), so the last chips scroll.
+
 ## 1r. Recently removed (bin) (2026-11-07)
 Removed books now stay in a bin for **30 days** (was: until the next app start): Settings -> Storage -> Recently removed -> Review lists them with "Removed N days ago · N days left", **Restore** (bookmarks, highlights, reading place and shelf are kept), **Delete for good** (confirmed) and **Empty bin** (confirmed). Adding the same PDF again while its copy is in the bin brings the original back instead of creating a duplicate. Startup deletes only books older than 30 days. Tested headless.
 

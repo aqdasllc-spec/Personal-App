@@ -176,6 +176,13 @@ class LibraryRepository {
     );
   }
 
+  /// Saves the user's own order: [ids] get positions 0, 1, 2... (books not listed keep theirs).
+  Future<void> setOrder(List<String> ids) => _db.transaction(() async {
+        for (var i = 0; i < ids.length; i++) {
+          await (_db.update(_db.books)..where((b) => b.id.equals(ids[i]))).write(BooksCompanion(sortPos: Value(i)));
+        }
+      });
+
   /// Replaces the book's tags with the cleaned-up version of [input] (see [normalizeTags]).
   Future<List<String>> setTags(String id, String input) async {
     final tags = normalizeTags(input);

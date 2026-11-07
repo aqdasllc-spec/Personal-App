@@ -86,6 +86,9 @@ class Books extends Table {
   /// progress is tracked in memory only, so a crash can never leave a book stuck "syncing".
   TextColumn get cloudState => text().withDefault(const Constant('local'))();
 
+  /// Position in the user's own order ("My order" sort); set when the user rearranges books.
+  IntColumn get sortPos => integer().withDefault(const Constant(0))();
+
   /// Free-form tags the user put on the book: JSON list of strings.
   TextColumn get tags => text().withDefault(const Constant('[]'))();
 
@@ -199,7 +202,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -273,6 +276,10 @@ class AppDatabase extends _$AppDatabase {
           from9To10: (m, schema) async {
             // v10: tags on books.
             await m.addColumn(schema.books, schema.books.tags);
+          },
+          from10To11: (m, schema) async {
+            // v11: manual order of books.
+            await m.addColumn(schema.books, schema.books.sortPos);
           },
         ),
         beforeOpen: (details) async {

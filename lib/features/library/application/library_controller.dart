@@ -133,6 +133,7 @@ class ShelfFilter extends LibraryFilter {
 /// How the list is ordered.
 enum LibrarySort {
   added('Recently added'),
+  manual('My order'),
   read('Recently read'),
   title('Title A–Z'),
   author('Author A–Z'),
@@ -266,6 +267,35 @@ class LibraryUiController extends Notifier<LibraryUi> {
   }
 }
 
+/// Rearrange mode (the pen button): books wiggle and can be dragged to a new place or onto a shelf.
+class ShelfEditController extends Notifier<bool> {
+  @override
+  bool build() => false;
+  void set(bool on) => state = on;
+}
+
+final shelfEditProvider = NotifierProvider<ShelfEditController, bool>(ShelfEditController.new);
+
+/// Where [dragged] ends up when dropped on [target]: it takes the target's place (the others shift over).
+List<String> reorderIds(List<String> ids, String dragged, String target) {
+  final from = ids.indexOf(dragged), to = ids.indexOf(target);
+  if (from < 0 || to < 0 || from == to) return ids;
+  final out = [...ids]..removeAt(from);
+  out.insert(to, dragged);
+  return out;
+}
+
+/// Moves [id] one place earlier (-1) or later (+1).
+List<String> nudgeId(List<String> ids, String id, int delta) {
+  final i = ids.indexOf(id);
+  final j = i + delta;
+  if (i < 0 || j < 0 || j >= ids.length) return ids;
+  final out = [...ids];
+  out.removeAt(i);
+  out.insert(j, id);
+  return out;
+}
+
 /// Selection mode: null = off, otherwise the chosen book ids.
 class SelectionController extends Notifier<Set<String>?> {
   @override
@@ -317,6 +347,10 @@ List<BookRow> sortBooks(List<BookRow> books, LibrarySort sort) {
   final out = [...books];
   out.sort(switch (sort) {
     LibrarySort.added => byAdded,
+    LibrarySort.manual => (a, b) {
+        final c = a.sortPos.compareTo(b.sortPos);
+        return c != 0 ? c : byAdded(a, b);
+      },
     LibrarySort.read => (a, b) {
         final x = a.lastOpenedAt, y = b.lastOpenedAt;
         if (x == null && y == null) return byAdded(a, b);
