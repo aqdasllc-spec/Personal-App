@@ -7,6 +7,7 @@ import 'package:folio/features/planner/application/planner_controller.dart';
 import 'package:folio/features/planner/data/planner_repository.dart';
 import 'package:folio/features/planner/data/reminder_scheduler.dart';
 import 'package:folio/features/planner/domain/models.dart';
+import 'package:folio/features/planner/presentation/planner_widgets.dart';
 import 'package:folio/features/planner/domain/reminders.dart';
 
 import '../../helpers.dart';
@@ -629,6 +630,92 @@ void main() {
       final items = decodeChecklist((await dbTasks(t, env)).single.checklist);
       expect(items.map((c) => c.title).toList(), ['Charger', 'Toothbrush + paste', 'Passport']);
       expect(items.map((c) => c.done).toList(), [true, false, false]);
+      await dispose(t);
+    });
+  });
+
+  group('drag and drop scheduling', () {
+    Future<(TestEnv, String)> wide(WidgetTester t, {int? minutes, bool done = false}) async {
+      final (env, _) = await openPlanner(t, w: 1200, h: 800, seed: (repo) async {
+        await repo.saveTask(TaskInput(title: 'Write report', due: d(2026, 11, 6), planned: minutes == null ? null : d(2026, 11, 6, 14, 30), plannedMinutes: minutes));
+        if (done) await repo.saveTask(TaskInput(title: 'Finished chore', due: d(2026, 11, 6)));
+      });
+      final rows = await dbTasks(t, env);
+      return (env, rows.firstWhere((r) => r.title == 'Write report').id);
+    }
+
+    /// y of [hour:minute] on the visible timeline (it starts at 07:00 here; each hour is 56 px).
+    double yAt(WidgetTester t, int hour, int minute) => t.getTopLeft(find.byType(DayTimeline)).dy + ((hour * 60 + minute) - 7 * 60) / 60 * 56;
+
+    Future<void> dragTo(WidgetTester t, Finder from, Offset to) async {
+      final g = await t.startGesture(t.getCenter(from));
+      await t.pump(const Duration(milliseconds: 700)); // press and hold (touch)
+      for (var k = 1; k <= 6; k++) {
+        await g.moveTo(Offset.lerp(t.getCenter(from), to, k / 6)!);
+        await t.pump(const Duration(milliseconds: 40));
+      }
+      await g.up();
+      await settleP(t);
+    }
+
+    testWidgets('drop a task on the timeline: it gets a time block there (15-minute steps), with Undo', (t) async {
+      final (env, id) = await wide(t);
+      expect(find.byKey(const Key('schedule-hint')), findsOneWidget);
+      final x = t.getTopLeft(find.byType(DayTimeline)).dx + 200;
+      await dragTo(t, find.byKey(Key('task-$id')), Offset(x, yAt(t, 14, 33))); // 14:33 snaps to 14:30
+      final row = (await dbTasks(t, env)).single;
+      expect(DateTime.fromMillisecondsSinceEpoch(row.plannedAt!), d(2026, 11, 6, 14, 30));
+      expect(row.plannedMinutes, 60);
+      expect(find.byKey(Key('block-task-$id')), findsOneWidget);
+      expect(find.text('Scheduled for 14:30'), findsOneWidget);
+
+      await t.tap(find.text('Undo'));
+      await settleP(t);
+      expect((await dbTasks(t, env)).single.plannedAt, isNull);
+      expect(find.byKey(Key('block-task-$id')), findsNothing);
+      await dispose(t);
+    });
+
+    testWidgets('while dragging, a line with the drop time follows the pointer and disappears when you leave', (t) async {
+      final (_, id) = await wide(t);
+      final x = t.getTopLeft(find.byType(DayTimeline)).dx + 200;
+      final g = await t.startGesture(t.getCenter(find.byKey(Key('task-$id'))));
+      await t.pump(const Duration(milliseconds: 700));
+      await g.moveTo(Offset(x, yAt(t, 9, 0)));
+      await t.pump(const Duration(milliseconds: 50));
+      await g.moveTo(Offset(x, yAt(t, 9, 14)));
+      await t.pump(const Duration(milliseconds: 50));
+      expect(find.byKey(const Key('drop-line')), findsOneWidget);
+      expect(find.byKey(const Key('drop-time')), findsOneWidget);
+      expect((t.widget<Text>(find.byKey(const Key('drop-time')))).data, '09:15');
+      await g.moveTo(const Offset(30, 30));
+      await t.pump(const Duration(milliseconds: 50));
+      expect(find.byKey(const Key('drop-line')), findsNothing);
+      await g.up();
+      await settleP(t);
+      await dispose(t);
+    });
+
+    testWidgets('an existing task block can be dragged to another time and keeps its length', (t) async {
+      final (env, id) = await wide(t, minutes: 90);
+      final x = t.getTopLeft(find.byType(DayTimeline)).dx + 200;
+      await dragTo(t, find.byKey(Key('block-task-$id')), Offset(x, yAt(t, 10, 0)));
+      final row = (await dbTasks(t, env)).single;
+      expect(DateTime.fromMillisecondsSinceEpoch(row.plannedAt!), d(2026, 11, 6, 10, 0));
+      expect(row.plannedMinutes, 90);
+      await dispose(t);
+    });
+
+    testWidgets('finished tasks cannot be dragged; a short tap still opens the editor', (t) async {
+      final (env, id) = await wide(t, done: true);
+      final done = (await dbTasks(t, env)).firstWhere((r) => r.title == 'Finished chore');
+      await t.tap(find.byKey(Key('done-${done.id}')));
+      await settleP(t);
+      expect(find.byKey(Key('drag-${done.id}')), findsNothing);
+      expect(find.byKey(Key('drag-$id')), findsOneWidget);
+      await t.tap(find.byKey(Key('task-$id')));
+      await settleP(t);
+      expect(find.byKey(const Key('title')), findsOneWidget, reason: 'tap = open the editor, drag only starts after press-and-hold');
       await dispose(t);
     });
   });

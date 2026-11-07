@@ -39,6 +39,20 @@ class TaskInput {
   final String rrule;
   final int? remindMinutes;
 
+  /// The same task with a different time block.
+  TaskInput withBlock(DateTime start, int minutes) => TaskInput(
+    title: title,
+    notes: notes,
+    priority: priority,
+    due: due,
+    dueHasTime: dueHasTime,
+    planned: start,
+    plannedMinutes: minutes,
+    rrule: rrule,
+    remindMinutes: remindMinutes,
+    checklist: checklist,
+  );
+
   factory TaskInput.of(PlannerTask t) => TaskInput(
     title: t.title,
     notes: t.notes,

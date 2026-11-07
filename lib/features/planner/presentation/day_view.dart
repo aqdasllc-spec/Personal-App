@@ -87,7 +87,7 @@ class _DayViewState extends ConsumerState<DayView> {
       if (a.overdue.isNotEmpty) ...[
         _Section(title: 'Overdue', color: c.danger, count: a.overdue.length),
         for (final i in a.overdue)
-          TaskTile(item: i, showDate: true, onOpen: () => _open(i)),
+          DraggableTask(item: i, child: TaskTile(item: i, showDate: true, onOpen: () => _open(i))),
         const SizedBox(height: Space.s8),
       ],
       if (a.allDay.isNotEmpty) ...[
@@ -114,10 +114,18 @@ class _DayViewState extends ConsumerState<DayView> {
           child: Text('No tasks for this day.', style: t.bodySmall),
         )
       else
-        for (final i in a.tasks) TaskTile(item: i, onOpen: () => _open(i)),
+        for (final i in a.tasks) DraggableTask(item: i, child: TaskTile(item: i, onOpen: () => _open(i))),
     ];
 
-    final timeline = a.timed.isEmpty
+    final canSchedule = a.tasks.any((x) => !x.done) || a.overdue.isNotEmpty;
+    final timelineGrid = DayTimeline(
+      day: s.day,
+      agenda: a,
+      today: s.today,
+      onOpen: _open,
+      onSchedule: (id, start) => ref.read(plannerControllerProvider.notifier).scheduleTask(id, start),
+    );
+    final timeline = a.timed.isEmpty && !canSchedule
         ? Padding(
             padding: const EdgeInsets.symmetric(vertical: Space.s16),
             child: Text(
@@ -125,7 +133,18 @@ class _DayViewState extends ConsumerState<DayView> {
               style: t.bodySmall,
             ),
           )
-        : DayTimeline(day: s.day, agenda: a, today: s.today, onOpen: _open);
+        : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (a.timed.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: Space.s8),
+                child: Text(
+                  DraggableTask.isTouch ? 'Nothing scheduled yet. Press and hold a task, then drop it here to give it a time.' : 'Nothing scheduled yet. Drag a task here to give it a time.',
+                  key: const Key('schedule-hint'),
+                  style: t.bodySmall,
+                ),
+              ),
+            timelineGrid,
+          ]);
 
     if (a.isEmpty && s.tasks.isEmpty && s.events.isEmpty) {
       return ListView(

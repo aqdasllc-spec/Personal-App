@@ -207,6 +207,20 @@ class PlannerController extends AsyncNotifier<PlannerState> {
     }
   }
 
+  /// Gives a task a time block starting at [start] (keeps its length, default 1 hour). Used by drag and drop.
+  Future<void> scheduleTask(String id, DateTime start) async {
+    final t = _s.tasks.where((x) => x.id == id).firstOrNull;
+    if (t == null || t.done) return;
+    try {
+      final before = TaskInput.of(t);
+      await repo.saveTask(before.withBlock(start, t.plannedMinutes ?? 60), id: id);
+      _offerUndo('Scheduled for ${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}', () => repo.saveTask(before, id: id));
+      await refresh();
+    } catch (e) {
+      _fail(e);
+    }
+  }
+
   /// Ticks / unticks one sub-task of a task.
   Future<void> toggleChecklistItem(String taskId, String itemId) async {
     final t = _s.tasks.where((x) => x.id == taskId).firstOrNull;

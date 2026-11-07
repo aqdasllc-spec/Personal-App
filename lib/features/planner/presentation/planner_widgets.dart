@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -159,8 +160,60 @@ class _TaskTileState extends ConsumerState<TaskTile> {
   }
 }
 
+/// What is carried while a task is dragged to the timeline.
+class TaskDrag {
+  const TaskDrag(this.id, this.title);
+  final String id, title;
+}
+
+/// Makes an open task draggable: press-and-hold on touch screens (so scrolling still works), plain drag with a
+/// mouse. Drop it on the day timeline to give it a time block.
+class DraggableTask extends StatelessWidget {
+  const DraggableTask({super.key, required this.item, required this.child});
+  final AgendaItem item;
+  final Widget child;
+
+  static bool get isTouch => defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.fuchsia;
+
+  @override
+  Widget build(BuildContext context) {
+    if (item.done || item.kind != ItemKind.task) return child;
+    final c = context.colors;
+    final data = TaskDrag(item.id, item.title);
+    final feedback = Material(
+      elevation: 8,
+      borderRadius: BorderRadius.circular(Radii.input),
+      color: c.surface,
+      child: Container(
+        width: 220,
+        padding: const EdgeInsets.symmetric(horizontal: Space.s12, vertical: Space.s8),
+        decoration: BoxDecoration(border: Border(left: BorderSide(color: c.brass, width: 3)), borderRadius: BorderRadius.circular(Radii.input)),
+        child: Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodyMedium),
+      ),
+    );
+    final dim = Opacity(opacity: .35, child: child);
+    return isTouch
+        ? LongPressDraggable<TaskDrag>(
+            key: Key('drag-${item.id}'),
+            data: data,
+            dragAnchorStrategy: pointerDragAnchorStrategy,
+            feedback: feedback,
+            childWhenDragging: dim,
+            child: child,
+          )
+        : Draggable<TaskDrag>(
+            key: Key('drag-${item.id}'),
+            data: data,
+            dragAnchorStrategy: pointerDragAnchorStrategy,
+            feedback: feedback,
+            childWhenDragging: dim,
+            child: child,
+          );
+  }
+}
+
 /// 24-hour-style timeline with blocks laid out side by side when they overlap.
-class DayTimeline extends StatelessWidget {
+class DayTimeline extends StatefulWidget {
   const DayTimeline({
     super.key,
     required this.day,
@@ -168,6 +221,7 @@ class DayTimeline extends StatelessWidget {
     required this.today,
     required this.onOpen,
     this.hourHeight = 56,
+    this.onSchedule,
   });
   final DateTime day;
   final DayAgenda agenda;
@@ -175,13 +229,33 @@ class DayTimeline extends StatelessWidget {
   final ValueChanged<AgendaItem> onOpen;
   final double hourHeight;
 
+  /// Called when a task is dropped on the timeline: its id and the (15-minute snapped) start time.
+  final void Function(String taskId, DateTime start)? onSchedule;
+
+  @override
+  State<DayTimeline> createState() => _DayTimelineState();
+}
+
+class _DayTimelineState extends State<DayTimeline> {
+  final _areaKey = GlobalKey();
+  int _startH = 7;
+  int? _hoverMinute;
+
+  /// Minutes since midnight under [global] (the pointer), snapped to 15.
+  int? _minuteAt(Offset global) {
+    final box = _areaKey.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.attached) return null;
+    final local = box.globalToLocal(global);
+    final raw = _startH * 60 + local.dy / widget.hourHeight * 60;
+    return ((raw / 15).round() * 15).clamp(0, 24 * 60 - 15);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final day = widget.day, agenda = widget.agenda, today = widget.today, hourHeight = widget.hourHeight;
     final c = context.colors;
     final blocks = layoutBlocks(agenda.timed, day);
-    final nowMin = sameDay(day, today)
-        ? DateTime.now().difference(dateOnly(day)).inMinutes
-        : null;
+    final nowMin = sameDay(day, today) ? DateTime.now().difference(dateOnly(day)).inMinutes : null;
     // show from 7:00 (or earlier if something starts earlier) to 21:00 (or later if needed)
     var startH = 7, endH = 21;
     for (final b in blocks) {
@@ -193,10 +267,12 @@ class DayTimeline extends StatelessWidget {
       endH = endH > nowMin ~/ 60 + 1 ? endH : nowMin ~/ 60 + 1;
     }
     endH = endH.clamp(startH + 1, 24);
+    _startH = startH;
     const labelW = 48.0;
     final height = (endH - startH) * hourHeight;
 
-    return SizedBox(
+    final grid = SizedBox(
+      key: _areaKey,
       height: height,
       child: LayoutBuilder(
         builder: (context, box) {
@@ -210,13 +286,7 @@ class DayTimeline extends StatelessWidget {
                   right: 0,
                   child: Row(
                     children: [
-                      SizedBox(
-                        width: labelW,
-                        child: Text(
-                          '${two(h % 24)}:00',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
+                      SizedBox(width: labelW, child: Text('${two(h % 24)}:00', style: Theme.of(context).textTheme.bodySmall)),
                       Expanded(child: Divider(height: 1, color: c.border)),
                     ],
                   ),
@@ -226,27 +296,56 @@ class DayTimeline extends StatelessWidget {
                   top: (b.startMinute / 60 - startH) * hourHeight + 1,
                   left: labelW + b.column * (w / b.columns),
                   width: w / b.columns - 3,
-                  height: ((b.endMinute - b.startMinute) / 60 * hourHeight - 2)
-                      .clamp(22, double.infinity),
-                  child: _Block(item: b.item, onTap: () => onOpen(b.item)),
+                  height: ((b.endMinute - b.startMinute) / 60 * hourHeight - 2).clamp(22, double.infinity),
+                  child: DraggableTask(item: b.item, child: _Block(item: b.item, onTap: () => widget.onOpen(b.item))),
                 ),
-              if (nowMin != null &&
-                  nowMin >= startH * 60 &&
-                  nowMin <= endH * 60)
+              if (nowMin != null && nowMin >= startH * 60 && nowMin <= endH * 60)
                 Positioned(
                   top: (nowMin / 60 - startH) * hourHeight,
                   left: labelW - 4,
                   right: 0,
-                  child: Container(
-                    key: const Key('now-line'),
-                    height: 2,
-                    color: c.danger,
+                  child: Container(key: const Key('now-line'), height: 2, color: c.danger),
+                ),
+              if (_hoverMinute != null)
+                Positioned(
+                  top: (_hoverMinute! / 60 - startH) * hourHeight - 1,
+                  left: 0,
+                  right: 0,
+                  child: Row(
+                    key: const Key('drop-line'),
+                    children: [
+                      Container(
+                        width: labelW,
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        color: c.accent,
+                        child: Text(timeLabel(dateOnly(day).add(Duration(minutes: _hoverMinute!))), key: const Key('drop-time'), style: TextStyle(color: c.onAccent, fontSize: 11, fontWeight: FontWeight.w700)),
+                      ),
+                      Expanded(child: Container(height: 3, color: c.accent)),
+                    ],
                   ),
                 ),
             ],
           );
         },
       ),
+    );
+
+    if (widget.onSchedule == null) return grid;
+    return DragTarget<TaskDrag>(
+      onWillAcceptWithDetails: (_) => true,
+      onMove: (d) {
+        final m = _minuteAt(d.offset);
+        if (m != _hoverMinute) setState(() => _hoverMinute = m);
+      },
+      onLeave: (_) {
+        if (_hoverMinute != null) setState(() => _hoverMinute = null);
+      },
+      onAcceptWithDetails: (d) {
+        final m = _minuteAt(d.offset);
+        setState(() => _hoverMinute = null);
+        if (m != null) widget.onSchedule!(d.data.id, dateOnly(day).add(Duration(minutes: m)));
+      },
+      builder: (context, candidates, rejected) => grid,
     );
   }
 }
