@@ -30,9 +30,14 @@ class AgendaItem {
     this.repeats = false,
     this.color = '',
     this.hasTime = false,
+    this.checklist = const [],
   });
 
   final ItemKind kind;
+
+  /// Sub-tasks (tasks only).
+  final List<ChecklistItem> checklist;
+  int get checkDone => checklist.where((c) => c.done).length;
   final String id;
   final String title;
   final DateTime? start;
@@ -137,6 +142,7 @@ AgendaItem _taskItem(PlannerTask t, {bool block = false}) {
     priority: t.priority,
     repeats: t.repeats,
     hasTime: block || t.dueHasTime,
+    checklist: t.checklist,
   );
 }
 

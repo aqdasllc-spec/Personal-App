@@ -17,6 +17,9 @@ Sections: **Home, Library, Planner, Settings**. The tracker engine (old Phase 2)
 
 *Order note:* the Planner is small compared with the PDF reader; if you want something useful on your phone sooner, Planner first is reasonable — say so.
 
+## 1m. Planner sub-tasks (2026-11-07)
+Tasks can have a checklist of **sub-tasks**: add/rename/tick/remove them in the task editor (the field at the bottom of the list adds on Enter or the arrow; a typed-but-unadded one still counts on Save); the task row shows a counter ("2/5") that expands the sub-tasks in place so they can be ticked without opening the editor. Completing a **repeating** task starts the next occurrence with all sub-tasks unticked (undo restores the ticks). Ticking every sub-task does **not** close the task. Storage: one synced JSON field `checklist` on `tasks` (DB v9) — no new server table, so **no Supabase change is needed**; a conflicting edit of the same checklist on two devices is last-writer-wins on the whole list (the loser is kept in the conflict log). Limits: 100 sub-tasks, 200 characters each. Backups include them (older backups restore fine). 202 headless tests. Not built: reordering sub-tasks, sub-tasks of sub-tasks, per-sub-task due dates.
+
 ## 1l. Highlights and notes (2026-11-07)
 Select text in the reader -> the menu gains **Highlight**. Highlights are saved per line of text (page coordinates), painted over the page (multiply blend), and listed in the sheet behind the list icon (tabs Bookmarks | Highlights): tap = jump to the page, coloured dot = cycle yellow/green/blue/pink, note icon = add/edit a note, bin = remove. Included in backups; DB v8. Tested: line-merging, storage, list/note/colour/jump/delete, backup round trip (191 tests). **Unverified on a device:** selecting text with the real viewer, the menu item, and the painted overlay. Not built: tapping a highlight on the page to edit it, exporting annotated PDFs, drawing/pen annotations.
 

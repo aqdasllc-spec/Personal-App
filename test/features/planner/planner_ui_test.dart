@@ -236,6 +236,8 @@ void main() {
       await t.tap(find.byKey(const Key('has-block')));
       await settleP(t);
       await t.scrollUntilVisible(find.byKey(const Key('reminder')), 200, scrollable: editorScroll());
+      await t.drag(editorScroll(), const Offset(0, -150)); // bring it away from the bottom edge
+      await t.pump();
       await t.tap(find.byKey(const Key('reminder')));
       await settleP(t);
       await t.tap(find.text('15 minutes before').last);
@@ -335,6 +337,8 @@ void main() {
       await settleP(t);
       await t.enterText(find.byKey(const Key('title')), 'Call mum');
       await t.scrollUntilVisible(find.byKey(const Key('reminder')), 200, scrollable: editorScroll());
+      await t.drag(editorScroll(), const Offset(0, -150)); // bring it away from the bottom edge
+      await t.pump();
       await t.tap(find.byKey(const Key('reminder')));
       await settleP(t);
       await t.tap(find.text('At the time').last);
@@ -522,6 +526,74 @@ void main() {
       await t.tap(find.byKey(const Key('notif-test-later')), warnIfMissed: false);
       await settleP(t);
       expect(sch.testLater, 1);
+      await dispose(t);
+    });
+  });
+
+  group('sub-tasks', () {
+    testWidgets('add sub-tasks in the editor (button, Enter, and an unsubmitted one on Save); the task shows a counter', (t) async {
+      final (env, _) = await openPlanner(t);
+      await t.tap(find.byKey(const Key('planner-add-menu')));
+      await settleP(t);
+      await t.tap(find.text('New task'));
+      await settleP(t);
+      await t.enterText(find.byKey(const Key('title')), 'Pack for trip');
+      await t.scrollUntilVisible(find.byKey(const Key('new-subtask')), 200, scrollable: editorScroll());
+      await t.enterText(find.byKey(const Key('new-subtask')), 'Passport');
+      await t.drag(editorScroll(), const Offset(0, -120)); // the button must be well inside the viewport
+      await t.pump();
+      await t.tap(find.byKey(const Key('add-subtask')));
+      await settleP(t);
+      await t.enterText(find.byKey(const Key('new-subtask')), 'Charger');
+      await t.testTextInput.receiveAction(TextInputAction.done);
+      await settleP(t);
+      await t.enterText(find.byKey(const Key('new-subtask')), 'Toothbrush');
+      await t.tap(find.byKey(const Key('save')));
+      await settleP(t);
+      final row = (await dbTasks(t, env)).single;
+      expect(decodeChecklist(row.checklist).map((c) => c.title).toList(), ['Passport', 'Charger', 'Toothbrush']);
+      expect(find.text('0/3'), findsOneWidget);
+      await dispose(t);
+    });
+
+    testWidgets('the counter expands the sub-tasks in place; ticking updates the count and is saved', (t) async {
+      final (env, _) = await openPlanner(t, seed: (repo) async {
+        await repo.saveTask(TaskInput(title: 'Pack for trip', due: d(2026, 11, 6), checklist: const [ChecklistItem(id: 'a', title: 'Passport'), ChecklistItem(id: 'b', title: 'Charger')]));
+      });
+      final id = (await dbTasks(t, env)).single.id;
+      expect(find.text('Passport'), findsNothing, reason: 'collapsed by default');
+      await t.tap(find.byKey(Key('subtasks-$id')));
+      await settleP(t);
+      expect(find.text('Passport'), findsOneWidget);
+      await t.tap(find.byKey(const Key('sub-a')));
+      await settleP(t);
+      expect(find.text('1/2'), findsOneWidget);
+      expect(decodeChecklist((await dbTasks(t, env)).single.checklist).map((c) => c.done).toList(), [true, false]);
+      expect(find.text('Passport'), findsOneWidget, reason: 'stays expanded');
+      await t.tap(find.byKey(const Key('sub-b')));
+      await settleP(t);
+      expect(find.text('2/2'), findsOneWidget);
+      expect((await dbTasks(t, env)).single.doneAt, isNull, reason: 'ticking every sub-task does not silently close the task');
+      await dispose(t);
+    });
+
+    testWidgets('edit: rename, tick, remove a sub-task; only the checklist changes', (t) async {
+      final (env, _) = await openPlanner(t, seed: (repo) async {
+        await repo.saveTask(TaskInput(title: 'Pack for trip', due: d(2026, 11, 6), checklist: const [ChecklistItem(id: 'a', title: 'Passport'), ChecklistItem(id: 'b', title: 'Charger')]));
+      });
+      final id = (await dbTasks(t, env)).single.id;
+      await t.tap(find.byKey(Key('task-$id')));
+      await settleP(t);
+      await t.scrollUntilVisible(find.byKey(const Key('item-title-a')), 200, scrollable: editorScroll());
+      await t.enterText(find.byKey(const Key('item-title-a')), 'Passport + visa');
+      await t.tap(find.byKey(const Key('item-done-a')));
+      await t.tap(find.byKey(const Key('item-delete-b')));
+      await settleP(t);
+      await t.tap(find.byKey(const Key('save')));
+      await settleP(t);
+      final items = decodeChecklist((await dbTasks(t, env)).single.checklist);
+      expect(items, [const ChecklistItem(id: 'a', title: 'Passport + visa', done: true)]);
+      expect(find.text('1/1'), findsOneWidget);
       await dispose(t);
     });
   });

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../../data/local/app_database.dart';
 import 'recurrence.dart';
 
@@ -19,6 +21,45 @@ enum Priority {
   };
 }
 
+/// One sub-task of a task.
+class ChecklistItem {
+  const ChecklistItem({required this.id, required this.title, this.done = false});
+  final String id;
+  final String title;
+  final bool done;
+
+  ChecklistItem copyWith({String? title, bool? done}) => ChecklistItem(id: id, title: title ?? this.title, done: done ?? this.done);
+
+  Map<String, Object?> toJson() => {'id': id, 'title': title, 'done': done};
+
+  @override
+  bool operator ==(Object other) => other is ChecklistItem && other.id == id && other.title == title && other.done == done;
+  @override
+  int get hashCode => Object.hash(id, title, done);
+}
+
+const maxChecklistItems = 100;
+const maxChecklistTitle = 200;
+
+/// Canonical JSON (stable key order) so that equal lists compare equal as strings.
+String encodeChecklist(List<ChecklistItem> items) => jsonEncode([for (final i in items) i.toJson()]);
+
+/// Tolerant: anything unreadable becomes an empty list rather than breaking the task.
+List<ChecklistItem> decodeChecklist(String json) {
+  try {
+    final out = <ChecklistItem>[];
+    for (final e in jsonDecode(json) as List) {
+      if (e is! Map) continue;
+      final m = e;
+      final id = m['id'], title = m['title'];
+      if (id is String && title is String) out.add(ChecklistItem(id: id, title: title, done: m['done'] == true));
+    }
+    return out;
+  } catch (_) {
+    return const [];
+  }
+}
+
 DateTime? _local(int? ms) =>
     ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
 
@@ -35,6 +76,7 @@ class PlannerTask {
     this.doneAt,
     this.rrule = '',
     this.remindMinutes,
+    this.checklist = const [],
     this.createdAt,
   });
 
@@ -42,6 +84,9 @@ class PlannerTask {
   final String title;
   final String notes;
   final Priority priority;
+
+  /// Sub-tasks, in order.
+  final List<ChecklistItem> checklist;
 
   /// Due date (local midnight when [dueHasTime] is false).
   final DateTime? due;
@@ -71,6 +116,7 @@ class PlannerTask {
     doneAt: _local(r.doneAt),
     rrule: r.rrule,
     remindMinutes: r.remindMinutes,
+    checklist: decodeChecklist(r.checklist),
     createdAt: _local(r.createdAt),
   );
 }

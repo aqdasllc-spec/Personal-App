@@ -17,8 +17,9 @@ Color priorityColor(BuildContext context, Priority p) {
   };
 }
 
-/// One checklist row: checkbox, title, time, priority, repeat. Tap opens the editor.
-class TaskTile extends ConsumerWidget {
+/// One checklist row: checkbox, title, time, priority, repeat, and a sub-task counter that expands the
+/// sub-tasks in place. Tap opens the editor.
+class TaskTile extends ConsumerStatefulWidget {
   const TaskTile({
     super.key,
     required this.item,
@@ -32,75 +33,127 @@ class TaskTile extends ConsumerWidget {
   final bool dense;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TaskTile> createState() => _TaskTileState();
+}
+
+class _TaskTileState extends ConsumerState<TaskTile> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
     final c = context.colors;
     final t = Theme.of(context).textTheme;
     final ctrl = ref.read(plannerControllerProvider.notifier);
     final sub = <String>[
-      if (showDate && item.start != null)
+      if (widget.showDate && item.start != null)
         '${weekdayShort(item.start!.weekday)} ${item.start!.day} ${monthShort(item.start!.month)}',
       if (item.hasTime && item.start != null) timeLabel(item.start!),
     ].join(' · ');
+    final total = item.checklist.length;
+    final allDone = total > 0 && item.checkDone == total;
     return Semantics(
       label:
-          '${item.title}${item.done ? ', done' : ''}${sub.isEmpty ? '' : ', $sub'}',
-      child: InkWell(
-        key: Key('task-${item.id}'),
-        onTap: onOpen,
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: dense ? 0 : Space.s4),
-          child: Row(
-            children: [
-              Checkbox(
-                key: Key('done-${item.id}'),
-                value: item.done,
-                visualDensity: dense
-                    ? VisualDensity.compact
-                    : VisualDensity.standard,
-                onChanged: (_) => ctrl.toggleDone(item.id),
-              ),
-              if (item.priority != Priority.none)
-                Padding(
-                  padding: const EdgeInsets.only(right: Space.s8),
-                  child: Icon(
-                    Icons.flag,
-                    size: 14,
-                    color: priorityColor(context, item.priority),
-                    semanticLabel: '${item.priority.label} priority',
+          '${item.title}${item.done ? ', done' : ''}${sub.isEmpty ? '' : ', $sub'}${total == 0 ? '' : ', ${item.checkDone} of $total sub-tasks done'}',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            key: Key('task-${item.id}'),
+            onTap: widget.onOpen,
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: widget.dense ? 0 : Space.s4),
+              child: Row(
+                children: [
+                  Checkbox(
+                    key: Key('done-${item.id}'),
+                    value: item.done,
+                    visualDensity: widget.dense ? VisualDensity.compact : VisualDensity.standard,
+                    onChanged: (_) => ctrl.toggleDone(item.id),
                   ),
-                ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: t.bodyMedium?.copyWith(
-                        decoration: item.done
-                            ? TextDecoration.lineThrough
-                            : null,
-                        color: item.done ? c.textMuted : c.text,
+                  if (item.priority != Priority.none)
+                    Padding(
+                      padding: const EdgeInsets.only(right: Space.s8),
+                      child: Icon(
+                        Icons.flag,
+                        size: 14,
+                        color: priorityColor(context, item.priority),
+                        semanticLabel: '${item.priority.label} priority',
                       ),
                     ),
-                    if (sub.isNotEmpty) Text(sub, style: t.bodySmall),
-                  ],
-                ),
-              ),
-              if (item.repeats)
-                Padding(
-                  padding: const EdgeInsets.only(left: Space.s4),
-                  child: Icon(
-                    Icons.repeat,
-                    size: 16,
-                    color: c.textMuted,
-                    semanticLabel: 'Repeats',
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: t.bodyMedium?.copyWith(
+                            decoration: item.done ? TextDecoration.lineThrough : null,
+                            color: item.done ? c.textMuted : c.text,
+                          ),
+                        ),
+                        if (sub.isNotEmpty) Text(sub, style: t.bodySmall),
+                      ],
+                    ),
                   ),
-                ),
-            ],
+                  if (total > 0)
+                    // sub-task counter: tap to show / hide them right here
+                    InkWell(
+                      key: Key('subtasks-${item.id}'),
+                      borderRadius: BorderRadius.circular(Radii.pill),
+                      onTap: () => setState(() => _open = !_open),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: Space.s8, vertical: Space.s4),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(allDone ? Icons.checklist_rtl : Icons.checklist, size: 16, color: allDone ? c.ok : c.textMuted),
+                          const SizedBox(width: Space.s4),
+                          Text('${item.checkDone}/$total', style: t.bodySmall?.copyWith(color: allDone ? c.ok : c.textMuted)),
+                          Icon(_open ? Icons.expand_less : Icons.expand_more, size: 16, color: c.textMuted),
+                        ]),
+                      ),
+                    ),
+                  if (item.repeats)
+                    Padding(
+                      padding: const EdgeInsets.only(left: Space.s4),
+                      child: Icon(Icons.repeat, size: 16, color: c.textMuted, semanticLabel: 'Repeats'),
+                    ),
+                ],
+              ),
+            ),
           ),
-        ),
+          if (_open)
+            Padding(
+              padding: const EdgeInsets.only(left: Space.s32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final sc in item.checklist)
+                    InkWell(
+                      key: Key('sub-${sc.id}'),
+                      onTap: () => ctrl.toggleChecklistItem(item.id, sc.id),
+                      child: Row(children: [
+                        Checkbox(
+                          visualDensity: VisualDensity.compact,
+                          value: sc.done,
+                          onChanged: (_) => ctrl.toggleChecklistItem(item.id, sc.id),
+                        ),
+                        Expanded(
+                          child: Text(
+                            sc.title,
+                            style: t.bodyMedium?.copyWith(
+                              decoration: sc.done ? TextDecoration.lineThrough : null,
+                              color: sc.done ? c.textMuted : c.text,
+                            ),
+                          ),
+                        ),
+                      ]),
+                    ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

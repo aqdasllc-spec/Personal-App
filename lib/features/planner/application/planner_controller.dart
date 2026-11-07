@@ -207,6 +207,19 @@ class PlannerController extends AsyncNotifier<PlannerState> {
     }
   }
 
+  /// Ticks / unticks one sub-task of a task.
+  Future<void> toggleChecklistItem(String taskId, String itemId) async {
+    final t = _s.tasks.where((x) => x.id == taskId).firstOrNull;
+    final item = t?.checklist.where((c) => c.id == itemId).firstOrNull;
+    if (item == null) return;
+    try {
+      await repo.setChecklistItemDone(taskId, itemId, !item.done);
+      await refresh();
+    } catch (e) {
+      _fail(e);
+    }
+  }
+
   Future<bool> saveTask(TaskInput input, {String? id}) async {
     try {
       final before = id == null

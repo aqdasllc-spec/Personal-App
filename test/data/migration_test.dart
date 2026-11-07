@@ -49,7 +49,7 @@ void main() {
 
       final db = AppDatabase(schema.newConnection());
       addTearDown(db.close);
-      await verifier.migrateAndValidate(db, 4);
+      await verifier.migrateAndValidate(db, db.schemaVersion);
 
       final tables = (await db.customSelect("SELECT name FROM sqlite_master WHERE type = 'table'").get()).map((r) => r.read<String>('name')).toSet();
       for (final gone in ['trackers', 'properties', 'records', 'cells', 'record_links', 'views']) {
@@ -82,7 +82,7 @@ void main() {
 
     final db = AppDatabase(schema.newConnection());
     addTearDown(db.close);
-    await verifier.migrateAndValidate(db, 4);
+    await verifier.migrateAndValidate(db, db.schemaVersion);
 
     final tasks = {for (final t in await db.select(db.tasks).get()) t.id: t};
     expect(tasks.keys, {'t1', 't2'});
@@ -90,6 +90,7 @@ void main() {
     expect(tasks['t2']!.doneAt, 1700000001000);
     for (final t in tasks.values) {
       expect((t.dueHasTime, t.plannedAt, t.plannedMinutes, t.rrule, t.remindMinutes), (0, null, null, '', null), reason: 'new columns get safe defaults');
+      expect(t.checklist, '[]', reason: 'sub-tasks start empty');
     }
     expect(await db.select(db.syncOutbox).get(), hasLength(1), reason: 'an un-synced edit must survive the upgrade');
     expect(await db.select(db.fieldMeta).get(), hasLength(1));

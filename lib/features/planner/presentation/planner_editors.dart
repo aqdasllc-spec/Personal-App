@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../design_system/tokens.dart';
@@ -350,14 +351,34 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
   late int _blockMinutes = widget.task?.plannedMinutes ?? 60;
   late final RepeatSpec _repeat = RepeatSpec.fromRule(widget.task?.rrule ?? '');
   late int? _remind = widget.task?.remindMinutes;
+  late List<ChecklistItem> _items = [...?widget.task?.checklist];
+  final _newItem = TextEditingController();
+  // one controller per sub-task so each title can be edited in place
+  final _itemControllers = <String, TextEditingController>{};
   bool _busy = false;
 
   bool get _editing => widget.task != null;
+
+  TextEditingController _controllerFor(ChecklistItem i) => _itemControllers.putIfAbsent(i.id, () => TextEditingController(text: i.title));
+
+  void _addItem() {
+    final text = _newItem.text.trim();
+    if (text.isEmpty) return;
+    if (_items.length >= maxChecklistItems) return;
+    setState(() {
+      _items = [..._items, ChecklistItem(id: const Uuid().v4(), title: text)];
+      _newItem.clear();
+    });
+  }
 
   @override
   void dispose() {
     _title.dispose();
     _notes.dispose();
+    _newItem.dispose();
+    for (final c in _itemControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -371,6 +392,11 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
     plannedMinutes: _hasBlock ? _blockMinutes : null,
     rrule: _repeat.toRule(),
     remindMinutes: _remind,
+    checklist: [
+      // an item typed but not yet added with + still counts
+      for (final i in _items) i.copyWith(title: _controllerFor(i).text),
+      if (_newItem.text.trim().isNotEmpty) ChecklistItem(id: const Uuid().v4(), title: _newItem.text.trim()),
+    ],
   );
 
   Future<void> _save() async {
@@ -452,6 +478,48 @@ class _TaskEditorPageState extends ConsumerState<TaskEditorPage> {
                   onSelected: (_) => setState(() => _priority = p),
                 ),
             ],
+          ),
+          const SizedBox(height: Space.s16),
+          Text('Sub-tasks', style: t.bodySmall),
+          for (final i in _items)
+            Row(
+              key: Key('item-${i.id}'),
+              children: [
+                Checkbox(
+                  key: Key('item-done-${i.id}'),
+                  value: i.done,
+                  onChanged: (v) => setState(() => _items = [for (final x in _items) x.id == i.id ? x.copyWith(done: v ?? false) : x]),
+                ),
+                Expanded(
+                  child: TextField(
+                    key: Key('item-title-${i.id}'),
+                    controller: _controllerFor(i),
+                    decoration: const InputDecoration(isDense: true, border: InputBorder.none),
+                    style: i.done ? const TextStyle(decoration: TextDecoration.lineThrough) : null,
+                  ),
+                ),
+                IconButton(
+                  key: Key('item-delete-${i.id}'),
+                  tooltip: 'Remove sub-task',
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: () => setState(() {
+                    _items = [for (final x in _items) if (x.id != i.id) x];
+                    _itemControllers.remove(i.id)?.dispose();
+                  }),
+                ),
+              ],
+            ),
+          TextField(
+            key: const Key('new-subtask'),
+            controller: _newItem,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _addItem(),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: 'Add a sub-task',
+              prefixIcon: const Icon(Icons.add),
+              suffixIcon: IconButton(key: const Key('add-subtask'), tooltip: 'Add sub-task', icon: const Icon(Icons.keyboard_return), onPressed: _addItem),
+            ),
           ),
           const Divider(height: Space.s32),
           SwitchListTile(

@@ -237,4 +237,86 @@ void main() {
       expect(await a.repo.tasks(), hasLength(1));
     });
   });
+
+  group('sub-tasks (checklist)', () {
+    ChecklistItem item(String id, String title, {bool done = false}) => ChecklistItem(id: id, title: title, done: done);
+
+    test('a task with no sub-tasks writes nothing extra; sub-tasks round-trip with order, ticks and blanks dropped', () async {
+      final plain = await e.repo.saveTask(const TaskInput(title: 'Plain'));
+      expect((await get(plain)).checklist, isEmpty);
+      final fields = (await e.db.select(e.db.syncOutbox).get()).where((o) => o.rowId == plain).map((o) => o.field);
+      expect(fields, isNot(contains('checklist')), reason: 'the default [] is the column default');
+
+      final id = await e.repo.saveTask(TaskInput(title: 'Trip', checklist: [item('a', 'Passport'), item('b', '   '), item('c', ' Tickets ', done: true)]));
+      final t = await get(id);
+      expect(t.checklist, [item('a', 'Passport'), item('c', 'Tickets', done: true)]);
+    });
+
+    test('ticking one sub-task writes only the checklist field, and is a no-op when already in that state', () async {
+      final id = await e.repo.saveTask(TaskInput(title: 'Trip', checklist: [item('a', 'Passport'), item('c', 'Tickets')]));
+      final before = await outbox();
+      await e.repo.setChecklistItemDone(id, 'a', true);
+      expect((await get(id)).checklist.map((c) => c.done), [true, false]);
+      final fresh = (await e.db.select(e.db.syncOutbox).get()).skip(before).toList();
+      expect(fresh.map((o) => o.field), ['checklist']);
+      await e.repo.setChecklistItemDone(id, 'a', true);
+      await e.repo.setChecklistItemDone(id, 'missing', true);
+      expect(await outbox(), before + 1);
+    });
+
+    test('editing a task changes the checklist field only when the sub-tasks changed', () async {
+      final id = await e.repo.saveTask(TaskInput(title: 'Trip', checklist: [item('a', 'Passport')]));
+      final base = await outbox();
+      await e.repo.saveTask(TaskInput(title: 'Trip 2', checklist: [item('a', 'Passport')]), id: id);
+      expect((await e.db.select(e.db.syncOutbox).get()).skip(base).map((o) => o.field), ['title']);
+      await e.repo.saveTask(TaskInput(title: 'Trip 2', checklist: [item('a', 'Passport'), item('b', 'Visa')]), id: id);
+      expect((await get(id)).checklist.length, 2);
+    });
+
+    test('limits: at most 100 sub-tasks and 200 characters each', () async {
+      await expectLater(e.repo.saveTask(TaskInput(title: 'x', checklist: [for (var i = 0; i < 101; i++) item('$i', 'n$i')])), throwsA(isA<PlannerValidationException>()));
+      await expectLater(e.repo.saveTask(TaskInput(title: 'x', checklist: [item('a', 'y' * 201)])), throwsA(isA<PlannerValidationException>()));
+    });
+
+    test('completing a REPEATING task starts the next occurrence with every sub-task unticked; undo restores the ticks', () async {
+      final id = await e.repo.saveTask(TaskInput(title: 'Weekly review', due: d(2026, 11, 9), rrule: 'FREQ=WEEKLY', checklist: [item('a', 'Inbox', done: true), item('b', 'Plan', done: true)]));
+      final r = await e.repo.setTaskDone(id, true, now: d(2026, 11, 9, 10));
+      expect(r.advanced, isTrue);
+      final t = await get(id);
+      expect(t.due, d(2026, 11, 16));
+      expect(t.checklist.map((c) => c.done).toList(), [false, false]);
+      await e.repo.restoreTaskFields(id, r.before);
+      final back = await get(id);
+      expect(back.due, d(2026, 11, 9));
+      expect(back.checklist.map((c) => c.done).toList(), [true, true]);
+    });
+
+    test('two devices: sub-tasks sync, and ticks made offline on the other device arrive', () async {
+      final server = FakeServer();
+      final a = await PEnv.create(server: server, device: 'devA');
+      final b = await PEnv.create(server: server, device: 'devB');
+      addTearDown(a.close);
+      addTearDown(b.close);
+      final id = await a.repo.saveTask(TaskInput(title: 'Trip', checklist: [item('a', 'Passport'), item('b', 'Visa')]));
+      await a.sync.sync();
+      await b.sync.sync();
+      expect((await b.repo.tasks()).single.checklist.map((c) => c.title).toList(), ['Passport', 'Visa']);
+      await b.repo.setChecklistItemDone(id, 'b', true);
+      await b.sync.sync();
+      await a.sync.sync();
+      expect((await a.repo.tasks()).single.checklist.map((c) => c.done).toList(), [false, true]);
+    });
+
+    test('a one-off task keeps its ticks when completed', () async {
+      final id = await e.repo.saveTask(TaskInput(title: 'Once', checklist: [item('a', 'Step', done: true)]));
+      await e.repo.setTaskDone(id, true);
+      expect((await get(id)).checklist.single.done, isTrue);
+    });
+
+    test('decoding is forgiving: garbage or wrong shapes give an empty / partial list, never a crash', () {
+      expect(decodeChecklist('nope'), isEmpty);
+      expect(decodeChecklist('{"a":1}'), isEmpty);
+      expect(decodeChecklist('[{"id":"x","title":"ok","done":true},{"id":1,"title":"bad"},5]'), [item('x', 'ok', done: true)]);
+    });
+  });
 }

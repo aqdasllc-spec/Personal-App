@@ -31,6 +31,7 @@ final Map<String, SyncedTable> syncedTables = {
     'done_at': 'done_at',
     'rrule': 'rrule',
     'remind_minutes': 'remind_minutes',
+    'checklist': 'checklist',
     'sort_key': 'sort_key',
     'deleted_at': 'deleted_at',
   }),

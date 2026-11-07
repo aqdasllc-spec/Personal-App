@@ -47,7 +47,7 @@ void main() {
 
   Future<void> seed() async {
     await a.planner.saveTask(TaskInput(title: 'Weekly review', due: d(2026, 11, 9, 9), dueHasTime: true, rrule: 'FREQ=WEEKLY', remindMinutes: 0, priority: Priority.high));
-    await a.planner.saveTask(TaskInput(title: 'Plain', due: d(2026, 11, 10)));
+    await a.planner.saveTask(TaskInput(title: 'Plain', due: d(2026, 11, 10), checklist: const [ChecklistItem(id: 'c1', title: 'Step one', done: true), ChecklistItem(id: 'c2', title: 'Step two')]));
     final gone = await a.planner.saveTask(const TaskInput(title: 'Deleted one'));
     await a.planner.deleteTask(gone);
     await a.planner.saveEvent(EventInput(title: 'Dentist', start: d(2026, 11, 12, 10), end: d(2026, 11, 12, 11), remindMinutes: 30));
@@ -79,6 +79,8 @@ void main() {
     final weekly = tasks.firstWhere((t) => t.title == 'Weekly review');
     expect((weekly.due, weekly.dueHasTime, weekly.rrule, weekly.remindMinutes, weekly.priority), (d(2026, 11, 9, 9), true, 'FREQ=WEEKLY', 0, Priority.high));
     expect((await b.planner.events()).single.title, 'Dentist');
+    final plainRestored = tasks.firstWhere((t) => t.title == 'Plain');
+    expect(plainRestored.checklist.map((c) => (c.title, c.done)).toList(), [('Step one', true), ('Step two', false)], reason: 'sub-tasks come back with the task');
     final books = await b.lib.watchBooks().first;
     final spec = books.firstWhere((x) => x.title == 'Spec');
     expect((spec.favorite, spec.lastPage, spec.pageCount, b.lib.fileOf(spec).readAsStringSync()), (1, 12, 40, 'pages=40'));

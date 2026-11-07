@@ -334,7 +334,8 @@ class BackupService {
 
     final haveTask = {for (final t in await _db.select(_db.tasks).get()) t.id};
     for (final j in list('tasks')) {
-      final t = TaskRow.fromJson(j);
+      // backups from before sub-tasks lack the field
+      final t = TaskRow.fromJson({'checklist': '[]', ...j});
       if (haveTask.contains(t.id)) {
         skipped++;
         continue;
@@ -350,6 +351,7 @@ class BackupService {
         'done_at': t.doneAt,
         'rrule': t.rrule,
         'remind_minutes': t.remindMinutes,
+        if (t.checklist != '[]') 'checklist': t.checklist,
         'sort_key': t.sortKey,
       });
       await (_db.update(_db.tasks)..where((x) => x.id.equals(t.id))).write(

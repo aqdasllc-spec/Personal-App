@@ -27,9 +27,11 @@ class TaskInput {
     this.plannedMinutes,
     this.rrule = '',
     this.remindMinutes,
+    this.checklist = const [],
   });
   final String title, notes;
   final Priority priority;
+  final List<ChecklistItem> checklist;
   final DateTime? due;
   final bool dueHasTime;
   final DateTime? planned;
@@ -47,6 +49,7 @@ class TaskInput {
     plannedMinutes: t.plannedMinutes,
     rrule: t.rrule,
     remindMinutes: t.remindMinutes,
+    checklist: t.checklist,
   );
 
   Map<String, Object?> toFields() => {
@@ -59,6 +62,11 @@ class TaskInput {
     'planned_minutes': planned == null ? null : plannedMinutes,
     'rrule': rrule,
     'remind_minutes': remindMinutes,
+    // blank sub-tasks are dropped; titles trimmed
+    'checklist': encodeChecklist([
+      for (final c in checklist)
+        if (c.title.trim().isNotEmpty) c.copyWith(title: c.title.trim()),
+    ]),
   };
 }
 
@@ -157,6 +165,12 @@ class PlannerRepository {
 
   void _validateTask(TaskInput t) {
     _validateCommon(t.title, t.rrule, t.remindMinutes);
+    if (t.checklist.length > maxChecklistItems) {
+      throw PlannerValidationException('A task can have at most $maxChecklistItems sub-tasks.');
+    }
+    if (t.checklist.any((c) => c.title.trim().length > maxChecklistTitle)) {
+      throw PlannerValidationException('A sub-task title is too long (max $maxChecklistTitle characters).');
+    }
     if (t.notes.length > 20000) {
       throw PlannerValidationException('The notes are too long.');
     }
@@ -231,7 +245,20 @@ class PlannerRepository {
         'end_at',
       }.contains(field)
       ? v != null
-      : (v != null && v != '' && v != 0);
+      : (v != null && v != '' && v != 0 && v != '[]');
+
+  /// Ticks / unticks one sub-task (writes only the checklist field).
+  Future<void> setChecklistItemDone(String taskId, String itemId, bool done) async {
+    final row = await (db.select(db.tasks)..where((t) => t.id.equals(taskId))).getSingle();
+    final items = decodeChecklist(row.checklist);
+    final i = items.indexWhere((c) => c.id == itemId);
+    if (i < 0 || items[i].done == done) return;
+    items[i] = items[i].copyWith(done: done);
+    await store.setFields('tasks', taskId, {'checklist': encodeChecklist(items)});
+  }
+
+  /// A fresh id for a new sub-task.
+  String newChecklistId() => store.newId();
 
   /// Marks a task done / not done. A repeating task with a next occurrence ADVANCES instead of closing.
   Future<CompletionResult> setTaskDone(
@@ -247,6 +274,7 @@ class PlannerRepository {
       'done_at': row.doneAt,
       'due_at': row.dueAt,
       'planned_at': row.plannedAt,
+      'checklist': row.checklist,
     };
     if (!done) {
       await store.setFields('tasks', id, {'done_at': null});
@@ -259,7 +287,10 @@ class PlannerRepository {
       final next = r.nextAfter(anchor, at.isAfter(anchor) ? at : anchor);
       if (next != null) {
         final delta = next.difference(anchor);
+        // the next occurrence starts with every sub-task unticked again
+        final reset = [for (final c in t.checklist) c.copyWith(done: false)];
         await store.setFields('tasks', id, {
+          if (t.checklist.any((c) => c.done)) 'checklist': encodeChecklist(reset),
           if (t.due != null) 'due_at': next.millisecondsSinceEpoch,
           if (t.due == null && t.planned != null)
             'planned_at': next.millisecondsSinceEpoch,

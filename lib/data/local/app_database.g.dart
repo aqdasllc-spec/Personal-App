@@ -122,6 +122,18 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _checklistMeta = const VerificationMeta(
+    'checklist',
+  );
+  @override
+  late final GeneratedColumn<String> checklist = GeneratedColumn<String>(
+    'checklist',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
   static const VerificationMeta _sortKeyMeta = const VerificationMeta(
     'sortKey',
   );
@@ -169,6 +181,7 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
     doneAt,
     rrule,
     remindMinutes,
+    checklist,
     sortKey,
     deletedAt,
     createdAt,
@@ -259,6 +272,12 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
         ),
       );
     }
+    if (data.containsKey('checklist')) {
+      context.handle(
+        _checklistMeta,
+        checklist.isAcceptableOrUnknown(data['checklist']!, _checklistMeta),
+      );
+    }
     if (data.containsKey('sort_key')) {
       context.handle(
         _sortKeyMeta,
@@ -332,6 +351,10 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, TaskRow> {
         DriftSqlType.int,
         data['${effectivePrefix}remind_minutes'],
       ),
+      checklist: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}checklist'],
+      )!,
       sortKey: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}sort_key'],
@@ -375,6 +398,9 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
 
   /// Remind this many minutes before the due/planned time (null = no reminder).
   final int? remindMinutes;
+
+  /// Sub-tasks: JSON list of {id, title, done}. One synced field, so the whole checklist merges as a unit.
+  final String checklist;
   final String sortKey;
   final int? deletedAt;
   final int createdAt;
@@ -390,6 +416,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     this.doneAt,
     required this.rrule,
     this.remindMinutes,
+    required this.checklist,
     required this.sortKey,
     this.deletedAt,
     required this.createdAt,
@@ -418,6 +445,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     if (!nullToAbsent || remindMinutes != null) {
       map['remind_minutes'] = Variable<int>(remindMinutes);
     }
+    map['checklist'] = Variable<String>(checklist);
     map['sort_key'] = Variable<String>(sortKey);
     if (!nullToAbsent || deletedAt != null) {
       map['deleted_at'] = Variable<int>(deletedAt);
@@ -449,6 +477,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       remindMinutes: remindMinutes == null && nullToAbsent
           ? const Value.absent()
           : Value(remindMinutes),
+      checklist: Value(checklist),
       sortKey: Value(sortKey),
       deletedAt: deletedAt == null && nullToAbsent
           ? const Value.absent()
@@ -474,6 +503,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       doneAt: serializer.fromJson<int?>(json['doneAt']),
       rrule: serializer.fromJson<String>(json['rrule']),
       remindMinutes: serializer.fromJson<int?>(json['remindMinutes']),
+      checklist: serializer.fromJson<String>(json['checklist']),
       sortKey: serializer.fromJson<String>(json['sortKey']),
       deletedAt: serializer.fromJson<int?>(json['deletedAt']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
@@ -494,6 +524,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       'doneAt': serializer.toJson<int?>(doneAt),
       'rrule': serializer.toJson<String>(rrule),
       'remindMinutes': serializer.toJson<int?>(remindMinutes),
+      'checklist': serializer.toJson<String>(checklist),
       'sortKey': serializer.toJson<String>(sortKey),
       'deletedAt': serializer.toJson<int?>(deletedAt),
       'createdAt': serializer.toJson<int>(createdAt),
@@ -512,6 +543,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     Value<int?> doneAt = const Value.absent(),
     String? rrule,
     Value<int?> remindMinutes = const Value.absent(),
+    String? checklist,
     String? sortKey,
     Value<int?> deletedAt = const Value.absent(),
     int? createdAt,
@@ -531,6 +563,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     remindMinutes: remindMinutes.present
         ? remindMinutes.value
         : this.remindMinutes,
+    checklist: checklist ?? this.checklist,
     sortKey: sortKey ?? this.sortKey,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     createdAt: createdAt ?? this.createdAt,
@@ -554,6 +587,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
       remindMinutes: data.remindMinutes.present
           ? data.remindMinutes.value
           : this.remindMinutes,
+      checklist: data.checklist.present ? data.checklist.value : this.checklist,
       sortKey: data.sortKey.present ? data.sortKey.value : this.sortKey,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -574,6 +608,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
           ..write('doneAt: $doneAt, ')
           ..write('rrule: $rrule, ')
           ..write('remindMinutes: $remindMinutes, ')
+          ..write('checklist: $checklist, ')
           ..write('sortKey: $sortKey, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('createdAt: $createdAt')
@@ -594,6 +629,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
     doneAt,
     rrule,
     remindMinutes,
+    checklist,
     sortKey,
     deletedAt,
     createdAt,
@@ -613,6 +649,7 @@ class TaskRow extends DataClass implements Insertable<TaskRow> {
           other.doneAt == this.doneAt &&
           other.rrule == this.rrule &&
           other.remindMinutes == this.remindMinutes &&
+          other.checklist == this.checklist &&
           other.sortKey == this.sortKey &&
           other.deletedAt == this.deletedAt &&
           other.createdAt == this.createdAt);
@@ -630,6 +667,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
   final Value<int?> doneAt;
   final Value<String> rrule;
   final Value<int?> remindMinutes;
+  final Value<String> checklist;
   final Value<String> sortKey;
   final Value<int?> deletedAt;
   final Value<int> createdAt;
@@ -646,6 +684,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     this.doneAt = const Value.absent(),
     this.rrule = const Value.absent(),
     this.remindMinutes = const Value.absent(),
+    this.checklist = const Value.absent(),
     this.sortKey = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -663,6 +702,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     this.doneAt = const Value.absent(),
     this.rrule = const Value.absent(),
     this.remindMinutes = const Value.absent(),
+    this.checklist = const Value.absent(),
     this.sortKey = const Value.absent(),
     this.deletedAt = const Value.absent(),
     required int createdAt,
@@ -681,6 +721,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     Expression<int>? doneAt,
     Expression<String>? rrule,
     Expression<int>? remindMinutes,
+    Expression<String>? checklist,
     Expression<String>? sortKey,
     Expression<int>? deletedAt,
     Expression<int>? createdAt,
@@ -698,6 +739,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
       if (doneAt != null) 'done_at': doneAt,
       if (rrule != null) 'rrule': rrule,
       if (remindMinutes != null) 'remind_minutes': remindMinutes,
+      if (checklist != null) 'checklist': checklist,
       if (sortKey != null) 'sort_key': sortKey,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (createdAt != null) 'created_at': createdAt,
@@ -717,6 +759,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     Value<int?>? doneAt,
     Value<String>? rrule,
     Value<int?>? remindMinutes,
+    Value<String>? checklist,
     Value<String>? sortKey,
     Value<int?>? deletedAt,
     Value<int>? createdAt,
@@ -734,6 +777,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
       doneAt: doneAt ?? this.doneAt,
       rrule: rrule ?? this.rrule,
       remindMinutes: remindMinutes ?? this.remindMinutes,
+      checklist: checklist ?? this.checklist,
       sortKey: sortKey ?? this.sortKey,
       deletedAt: deletedAt ?? this.deletedAt,
       createdAt: createdAt ?? this.createdAt,
@@ -777,6 +821,9 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
     if (remindMinutes.present) {
       map['remind_minutes'] = Variable<int>(remindMinutes.value);
     }
+    if (checklist.present) {
+      map['checklist'] = Variable<String>(checklist.value);
+    }
     if (sortKey.present) {
       map['sort_key'] = Variable<String>(sortKey.value);
     }
@@ -806,6 +853,7 @@ class TasksCompanion extends UpdateCompanion<TaskRow> {
           ..write('doneAt: $doneAt, ')
           ..write('rrule: $rrule, ')
           ..write('remindMinutes: $remindMinutes, ')
+          ..write('checklist: $checklist, ')
           ..write('sortKey: $sortKey, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('createdAt: $createdAt, ')
@@ -5175,6 +5223,7 @@ typedef $$TasksTableCreateCompanionBuilder = TasksCompanion Function({
   Value<int?> doneAt,
   Value<String> rrule,
   Value<int?> remindMinutes,
+  Value<String> checklist,
   Value<String> sortKey,
   Value<int?> deletedAt,
   required int createdAt,
@@ -5192,6 +5241,7 @@ typedef $$TasksTableUpdateCompanionBuilder = TasksCompanion Function({
   Value<int?> doneAt,
   Value<String> rrule,
   Value<int?> remindMinutes,
+  Value<String> checklist,
   Value<String> sortKey,
   Value<int?> deletedAt,
   Value<int> createdAt,
@@ -5258,6 +5308,11 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
 
   ColumnFilters<int> get remindMinutes => $composableBuilder(
     column: $table.remindMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get checklist => $composableBuilder(
+    column: $table.checklist,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5341,6 +5396,11 @@ class $$TasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get checklist => $composableBuilder(
+    column: $table.checklist,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get sortKey => $composableBuilder(
     column: $table.sortKey,
     builder: (column) => ColumnOrderings(column),
@@ -5405,6 +5465,9 @@ class $$TasksTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get checklist =>
+      $composableBuilder(column: $table.checklist, builder: (column) => column);
+
   GeneratedColumn<String> get sortKey =>
       $composableBuilder(column: $table.sortKey, builder: (column) => column);
 
@@ -5454,6 +5517,7 @@ class $$TasksTableTableManager
                 Value<int?> doneAt = const Value.absent(),
                 Value<String> rrule = const Value.absent(),
                 Value<int?> remindMinutes = const Value.absent(),
+                Value<String> checklist = const Value.absent(),
                 Value<String> sortKey = const Value.absent(),
                 Value<int?> deletedAt = const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
@@ -5470,6 +5534,7 @@ class $$TasksTableTableManager
                 doneAt: doneAt,
                 rrule: rrule,
                 remindMinutes: remindMinutes,
+                checklist: checklist,
                 sortKey: sortKey,
                 deletedAt: deletedAt,
                 createdAt: createdAt,
@@ -5488,6 +5553,7 @@ class $$TasksTableTableManager
                 Value<int?> doneAt = const Value.absent(),
                 Value<String> rrule = const Value.absent(),
                 Value<int?> remindMinutes = const Value.absent(),
+                Value<String> checklist = const Value.absent(),
                 Value<String> sortKey = const Value.absent(),
                 Value<int?> deletedAt = const Value.absent(),
                 required int createdAt,
@@ -5504,6 +5570,7 @@ class $$TasksTableTableManager
                 doneAt: doneAt,
                 rrule: rrule,
                 remindMinutes: remindMinutes,
+                checklist: checklist,
                 sortKey: sortKey,
                 deletedAt: deletedAt,
                 createdAt: createdAt,

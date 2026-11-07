@@ -32,6 +32,9 @@ class Tasks extends Table {
 
   /// Remind this many minutes before the due/planned time (null = no reminder).
   IntColumn get remindMinutes => integer().nullable()();
+
+  /// Sub-tasks: JSON list of {id, title, done}. One synced field, so the whole checklist merges as a unit.
+  TextColumn get checklist => text().withDefault(const Constant('[]'))();
   TextColumn get sortKey => text().withDefault(const Constant(''))();
   IntColumn get deletedAt => integer().nullable()();
   IntColumn get createdAt => integer()();
@@ -193,7 +196,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -259,6 +262,10 @@ class AppDatabase extends _$AppDatabase {
             // v8: text highlights with notes.
             await m.createTable(schema.highlights);
             await m.createIndex(schema.highlightsBook);
+          },
+          from8To9: (m, schema) async {
+            // v9: sub-tasks (checklist) on tasks.
+            await m.addColumn(schema.tasks, schema.tasks.checklist);
           },
         ),
         beforeOpen: (details) async {
