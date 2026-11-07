@@ -239,7 +239,7 @@ class _TopBar extends ConsumerWidget {
           if (compact)
             Text('Folio', style: Theme.of(context).textTheme.titleLarge),
           const Spacer(),
-          SyncChip(phase: status.phase, pending: status.pending),
+          Flexible(child: SyncChip(phase: status.phase, pending: status.pending)),
         ],
       ),
     );

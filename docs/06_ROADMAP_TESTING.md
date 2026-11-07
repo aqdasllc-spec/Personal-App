@@ -162,3 +162,15 @@ Rows = features; columns = Win 11 / macOS (Intel+Apple Silicon) / Android 10–1
 
 ## 7. Release checklist
 Security review & MASVS walkthrough · RLS tests green · dependency/OSV scan clean · migrations tested from oldest supported · backup/restore drill · crash-free sessions ≥ 99.5 % in beta · performance budgets met · accessibility audit · privacy policy & data-safety forms (Play, App Store privacy labels) · Apple/Google/Microsoft signing & notarisation · licence audit (pdfrx MIT, PDFium BSD/Apache, fonts OFL) · store listings · rollback plan · support/contact flow.
+
+## 1v. Reader modes, scanned PDFs, app-icon shortcuts, accessibility audit (2026-11-07)
+
+**Reader (Kindle-style):** the **Aa** button opens reading settings: colour scheme (Original, Paper, Sepia, Night, Black), Dim, Warm light, scroll direction (up/down or sideways page by page), tap-the-edge-to-turn-pages, keep screen on, orientation lock (auto / portrait / landscape). Tap the middle of the page to hide the bars; a slider at the bottom jumps through the book. Remembered; the phone's own orientation and screen-on settings are restored when you leave. Tested headless with fakes (10 tests).
+
+**Scanned / handwritten PDFs:** on first open Folio checks whether the book has real text (PDFium on up to 5 pages). If it looks scanned, a banner offers **Make searchable**: pages are drawn and read on the phone with Google ML Kit (offline, Latin script), one at a time, saved as they go (DB v12 `page_texts`), with progress, **Stop** and resume. Search then uses that text (count, next/previous with wrap-around, jumps and marks the line on the page). Any book: more menu -> *Make searchable*, *Text of this page* (copy), *Read the pages again*. Page text is included in backups. 18 headless tests with a fake recogniser. **Unverified on a device:** the real ML Kit reading, speed and battery on long books, the yellow marks on the page, themes/filters looking right, tap zones, sideways layout, wakelock, orientation lock. **Limits:** printed Latin text only; handwriting is often not recognised; Windows/macOS have no recogniser yet.
+
+**App-icon shortcuts (Android/iOS):** Continue reading, Add a task (opens Home with the cursor in the quick-add box), Planner: today, Library. Tested with a fake shortcut port; the real long-press menu is unverified, and the shortcut icons use the plugin default.
+
+**Accessibility audit (automated only):** Home, Library, Planner in light and dark at 2x text: no overflow, tap targets big enough, tap targets labelled. It found and we fixed overflows (sync chip, Home card header). **Known leftover: Settings still overflows at 2x text** and is not yet in the audit. Not done: contrast checks, TalkBack on a real phone.
+
+**Guide:** `docs/APP_GUIDE.md` lists what is where.
