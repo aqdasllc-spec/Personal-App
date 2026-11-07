@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:drift/drift.dart' show Value, driftRuntimeOptions;
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +8,8 @@ import 'package:folio/data/local/database_opener.dart';
 import 'package:folio/data/sync/in_memory_transport.dart';
 import 'package:folio/data/sync/sync_service.dart';
 import 'package:folio/data/sync/synced_store.dart';
+import 'package:folio/features/library/data/library_repository.dart';
+import 'package:folio/features/library/domain_highlights.dart';
 import 'package:folio/features/library/domain_ink.dart';
 import 'package:folio/features/library/domain_smart_views.dart';
 import 'package:folio/features/library/domain_tag_colors.dart';
@@ -22,6 +25,13 @@ class Dev {
     final store = await SyncedStore.open(db, now: now, deviceId: id);
     return Dev(db, store, SyncService(store, InMemoryTransport(server)));
   }
+}
+
+LibraryRepository repoOf(Dev d) => LibraryRepository(d.db, directory: Directory.systemTemp.createTempSync('syncx'), inspector: _NoInspector(), store: d.store);
+
+class _NoInspector implements PdfInspector {
+  @override
+  Future<PdfInfo?> inspect(String path) async => PdfInfo(pageCount: 10);
 }
 
 void main() {
@@ -111,5 +121,66 @@ void main() {
     await a.sync.sync();
     expect(await a.sync.pendingCount(), 0);
     expect(jsonDecode(await a.store.state('tag_colors') ?? '{}'), {'work': 3});
+  });
+
+  test('highlights: created on A, then recoloured, noted and finally removed - each step reaches B', () async {
+    final a = await Dev.create(server, 'devA', now);
+    final b = await Dev.create(server, 'devB', now);
+    final ra = repoOf(a), rb = repoOf(b);
+    final id = await ra.addHighlight('book1', const HighlightDraft(page: 4, rects: [[1, 5, 2, 1]], text: 'a passage'), color: 'green');
+    await a.sync.sync();
+    await b.sync.sync();
+    var h = (await rb.watchHighlights('book1').first).single;
+    expect((h.id, h.page, h.snippet, h.color, h.note), (id, 4, 'a passage', 'green', ''));
+    expect(decodeRects(h.rects), [[1, 5, 2, 1]]);
+
+    await ra.setHighlightColor(id, 'pink');
+    await rb.setHighlightNote(id, 'my thought'); // a different field, on the other device, meanwhile
+    await a.sync.sync();
+    await b.sync.sync();
+    await a.sync.sync();
+    for (final r in [ra, rb]) {
+      h = (await r.watchHighlights('book1').first).single;
+      expect((h.color, h.note), ('pink', 'my thought'), reason: 'both edits kept: they are different fields');
+    }
+    await rb.removeHighlight(id);
+    await b.sync.sync();
+    await a.sync.sync();
+    expect(await ra.watchHighlights('book1').first, isEmpty);
+  });
+
+  test('bookmarks: marking and unmarking a page, and naming a mark, reach the other device', () async {
+    final a = await Dev.create(server, 'devA', now);
+    final b = await Dev.create(server, 'devB', now);
+    final ra = repoOf(a), rb = repoOf(b);
+    expect(await ra.toggleBookmark('book1', 3), isTrue);
+    await ra.toggleBookmark('book1', 7);
+    await a.sync.sync();
+    await b.sync.sync();
+    expect((await rb.watchBookmarks('book1').first).map((m) => m.page), [3, 7]);
+
+    final mark = (await ra.watchBookmarks('book1').first).first;
+    await ra.renameBookmark(mark.id, 'Chapter 2');
+    expect(await ra.toggleBookmark('book1', 7), isFalse, reason: 'second tap removes it');
+    await a.sync.sync();
+    await b.sync.sync();
+    final onB = await rb.watchBookmarks('book1').first;
+    expect(onB.map((m) => (m.page, m.label)).toList().toString(), '[(3, Chapter 2)]');
+  });
+
+  test('highlights and bookmarks made before they could sync are queued once at the first sync', () async {
+    final a = await Dev.create(server, 'devA', now);
+    final b = await Dev.create(server, 'devB', now);
+    final plain = LibraryRepository(a.db, directory: Directory.systemTemp.createTempSync('old'), inspector: _NoInspector()); // no store: the old way
+    await plain.addHighlight('bk', const HighlightDraft(page: 2, rects: [[0, 0, 1, 1]], text: 'old passage'));
+    await plain.toggleBookmark('bk', 5);
+    await a.sync.sync();
+    await b.sync.sync();
+    final rb = repoOf(b);
+    expect((await rb.watchHighlights('bk').first).single.snippet, 'old passage');
+    expect((await rb.watchBookmarks('bk').first).single.page, 5);
+    final pending = await a.sync.pendingCount();
+    await a.sync.sync();
+    expect(pending, 0);
   });
 }

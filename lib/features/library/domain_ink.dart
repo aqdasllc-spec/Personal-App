@@ -11,6 +11,9 @@ const penColors = <(String, int)>[
   ('Purple', 0xFF8E4EC6),
 ];
 
+/// A highlighter stroke is this many times wider than the pen line of the same thickness.
+const highlighterScale = 5.0;
+
 /// Pen widths as a fraction of the page width.
 const penWidths = <(String, double)>[
   ('Fine', 0.002),
@@ -20,12 +23,15 @@ const penWidths = <(String, double)>[
 
 /// One pen stroke: points are x, y pairs as fractions (0..1) of the page.
 class Stroke {
-  const Stroke(this.color, this.width, this.points);
+  const Stroke(this.color, this.width, this.points, {this.highlighter = false});
   final int color; // index into [penColors]
   final double width;
   final List<double> points;
 
-  Map<String, Object> toJson() => {'c': color, 'w': width, 'p': points};
+  /// A wide, see-through marker stroke instead of a pen line.
+  final bool highlighter;
+
+  Map<String, Object> toJson() => {'c': color, 'w': width, 'p': points, if (highlighter) 'h': 1};
 }
 
 String encodeStrokes(List<Stroke> s) => jsonEncode([for (final x in s) x.toJson()]);
@@ -40,7 +46,7 @@ List<Stroke> decodeStrokes(String json) {
       if (c is! int || c < 0 || c >= penColors.length) continue;
       if (w is! num || w <= 0 || w > 0.1) continue;
       if (p is! List || p.length < 2 || p.length.isOdd || !p.every((v) => v is num)) continue;
-      out.add(Stroke(c, w.toDouble(), [for (final v in p) (v as num).toDouble().clamp(0.0, 1.0)]));
+      out.add(Stroke(c, w.toDouble(), [for (final v in p) (v as num).toDouble().clamp(0.0, 1.0)], highlighter: e['h'] == 1));
     }
     return out;
   } catch (_) {

@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/providers.dart';
 import '../data/media_controls.dart';
 import '../data/speech.dart';
 import '../domain_speech.dart';
@@ -11,6 +14,29 @@ final speechEngineProvider = Provider<SpeechEngine>((ref) {
   ref.onDispose(e.dispose);
   return e;
 });
+
+/// The voice the user picked for Listen (null = the phone's default). Remembered on this device.
+class VoiceChoice extends AsyncNotifier<VoiceInfo?> {
+  static const key = 'tts_voice';
+  @override
+  Future<VoiceInfo?> build() async {
+    try {
+      final raw = await ref.read(syncedStoreProvider).state(key);
+      return raw == null ? null : VoiceInfo.fromJson(jsonDecode(raw));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> set(VoiceInfo? v) async {
+    state = AsyncData(v);
+    try {
+      await ref.read(syncedStoreProvider).setState(key, v == null ? '' : jsonEncode(v.toJson()));
+    } catch (_) {}
+  }
+}
+
+final voiceChoiceProvider = AsyncNotifierProvider<VoiceChoice, VoiceInfo?>(VoiceChoice.new);
 
 /// Lock-screen / notification controls for Listen. Overridden in tests.
 final mediaControlsProvider = Provider<MediaControls>((ref) => AudioServiceControls());
@@ -38,13 +64,17 @@ class AloudState {
 
 /// Reads a book aloud page after page, turning the page as it goes.
 class ReadAloud {
-  ReadAloud({required this.engine, required this.textOf, required this.goTo, required this.pageCount});
+  ReadAloud({required this.engine, required this.textOf, required this.goTo, required this.pageCount, this.voice});
   final SpeechEngine engine;
 
   /// The text of a page (1-based); null or blank = nothing to read there.
   final Future<String?> Function(int page) textOf;
   final void Function(int page) goTo;
   final int Function() pageCount;
+
+  /// The voice to use (asked once, when reading starts); null function or result = the phone's default.
+  final Future<VoiceInfo?> Function()? voice;
+  bool _voiceSet = false;
   final state = ValueNotifier<AloudState>(const AloudState());
   int _token = 0;
   bool _disposed = false;
@@ -58,6 +88,12 @@ class ReadAloud {
     final token = ++_token;
     await engine.stop();
     if (token != _token) return;
+    if (!_voiceSet) {
+      _voiceSet = true;
+      final v = await voice?.call();
+      if (v != null) await engine.setVoice(v);
+      if (token != _token) return;
+    }
     _set(state.value.copyWith(active: true, playing: true, page: page, clearMessage: true));
     var blanks = 0;
     var p = page;
@@ -89,6 +125,13 @@ class ReadAloud {
       p++;
     }
     if (token == _token) _set(state.value.copyWith(playing: false, message: 'Finished the book.'));
+  }
+
+  /// The user picked another voice: use it from now on (carrying on from this page if reading).
+  Future<void> changeVoice(VoiceInfo? v) async {
+    _voiceSet = true;
+    await engine.setVoice(v);
+    if (state.value.playing) await start(state.value.page);
   }
 
   Future<void> pause() async {

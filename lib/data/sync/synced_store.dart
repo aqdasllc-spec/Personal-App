@@ -79,6 +79,28 @@ class SyncedStore {
     await _setState(db, 'extras_backfilled', '1');
   }
 
+  /// Same idea for highlights and bookmarks (made before they could sync).
+  Future<void> backfillMarks() async {
+    if (await _getState(db, 'marks_backfilled') == '1') return;
+    try {
+      for (final h in await db.select(db.highlights).get()) {
+        await setFields('highlights', h.id, {
+          'body': {'b': h.bookId, 'p': h.page, 'r': h.rects, 's': h.snippet, 'at': h.createdAt},
+          'color': h.color,
+          'note': h.note,
+        });
+      }
+      for (final m in await db.select(db.bookmarks).get()) {
+        await setFields('bookmarks', '${m.bookId}:${m.page}', {
+          'mark': {'l': m.label, 'at': m.createdAt},
+        });
+      }
+    } catch (_) {
+      // unreadable old data is simply not synced
+    }
+    await _setState(db, 'marks_backfilled', '1');
+  }
+
   String newId() => _uuid.v7();
 
   int get nowMs => _now();

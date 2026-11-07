@@ -13,6 +13,7 @@ import '../application/export_ink.dart';
 import '../application/ocr_controller.dart';
 import '../application/read_aloud.dart';
 import '../data/media_controls.dart';
+import '../data/speech.dart' show SpeechEngine, VoiceInfo;
 import '../domain_speech.dart';
 import '../domain_ink.dart';
 import '../domain_ocr.dart';
@@ -52,6 +53,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     textOf: _textOfPage,
     goTo: (p) => _control.goTo?.call(p),
     pageCount: () => _pageCount,
+    voice: () => _container.read(voiceChoiceProvider.future),
   );
   int _pageCount = 0;
   BookRow? _book;
@@ -160,8 +162,19 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   }
 
   void _setPen(PenState p) {
+    final starting = p.on && !_control.pen.value.on;
     _control.pen.value = p;
     setState(() {});
+    if (starting) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Draw with one finger. Pinch with two fingers to zoom.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+    }
   }
 
   /// Colours, thickness, Undo and Clear page, shown while the pen is on.
@@ -173,77 +186,167 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       color: scheme.surfaceContainerHigh,
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          // wraps onto a second line on narrow screens so every button stays reachable
-          child: Wrap(
-            alignment: WrapAlignment.center,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              for (var i = 0; i < penColors.length; i++)
-                Semantics(
-                  button: true,
-                  selected: pen.color == i,
-                  label: '${penColors[i].$1} pen',
-                  child: InkResponse(
-                    key: Key('pen-color-$i'),
-                    onTap: () => _setPen(pen.copyWith(color: i)),
-                    child: Padding(
+        child: SizedBox(
+          // one slim row: the page needs the room
+          height: 52,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              children: [
+                // colour + thickness live in a small pop-up so they take no room while you draw
+                PopupMenuButton<void>(
+                  key: const Key('pen-style'),
+                  tooltip: 'Pen colour and thickness',
+                  position: PopupMenuPosition.over,
+                  itemBuilder: (menuContext) => [
+                    PopupMenuItem<void>(
+                      enabled: false,
                       padding: const EdgeInsets.all(8),
+                      child: _penStyleMenu(menuContext),
+                    ),
+                  ],
+                  child: SizedBox(
+                    width: 52,
+                    height: 52,
+                    child: Center(
                       child: Container(
-                        width: 32,
-                        height: 32,
+                        width: 28,
+                        height: 28,
                         decoration: BoxDecoration(
-                          color: Color(penColors[i].$2),
+                          color: Color(penColors[pen.color].$2),
                           shape: BoxShape.circle,
-                          border: pen.color == i
-                              ? Border.all(color: scheme.primary, width: 3)
-                              : null,
+                          border: Border.all(color: scheme.onSurface, width: 2),
                         ),
                       ),
                     ),
                   ),
                 ),
-              const SizedBox(width: 8),
-              SegmentedButton<int>(
-                key: const Key('pen-width'),
-                showSelectedIcon: false,
-                segments: [
-                  for (var i = 0; i < penWidths.length; i++)
-                    ButtonSegment(value: i, label: Text(penWidths[i].$1)),
-                ],
-                selected: {pen.width},
-                onSelectionChanged: (v) => _setPen(pen.copyWith(width: v.first)),
-              ),
-              IconButton(
-                key: const Key('pen-eraser'),
-                tooltip: pen.erase ? 'Back to the pen' : 'Eraser: touch a stroke to remove it',
-                isSelected: pen.erase,
-                icon: const Icon(Icons.cleaning_services_outlined),
-                selectedIcon: const Icon(Icons.cleaning_services),
-                onPressed: () => _setPen(pen.copyWith(erase: !pen.erase)),
-              ),
-              IconButton(
-                key: const Key('pen-undo'),
-                tooltip: 'Undo last stroke',
-                icon: const Icon(Icons.undo),
-                onPressed: _undoStroke,
-              ),
-              IconButton(
-                key: const Key('pen-clear'),
-                tooltip: 'Clear drawings on this page',
-                icon: const Icon(Icons.delete_sweep_outlined),
-                onPressed: () => _clearInkPage(page),
-              ),
-              TextButton(
-                key: const Key('pen-done'),
-                onPressed: () => _setPen(pen.copyWith(on: false)),
-                child: const Text('Done'),
-              ),
-            ],
+                IconButton(
+                  key: const Key('pen-eraser'),
+                  tooltip: pen.erase ? 'Back to the pen' : 'Eraser: touch a stroke to remove it',
+                  isSelected: pen.erase,
+                  icon: const Icon(Icons.cleaning_services_outlined),
+                  selectedIcon: const Icon(Icons.cleaning_services),
+                  onPressed: () => _setPen(pen.copyWith(erase: !pen.erase)),
+                ),
+                IconButton(
+                  key: const Key('pen-undo'),
+                  tooltip: 'Undo last stroke',
+                  icon: const Icon(Icons.undo),
+                  onPressed: _undoStroke,
+                ),
+                IconButton(
+                  key: const Key('pen-clear'),
+                  tooltip: 'Clear drawings on this page',
+                  icon: const Icon(Icons.delete_sweep_outlined),
+                  onPressed: () => _clearInkPage(page),
+                ),
+                const Spacer(),
+                FilledButton.tonal(
+                  key: const Key('pen-done'),
+                  onPressed: () => _setPen(pen.copyWith(on: false)),
+                  child: const Text('Done'),
+                ),
+                const SizedBox(width: 4),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  /// The pop-up with the six colours and three thicknesses.
+  Widget _penStyleMenu(BuildContext menuContext) {
+    final pen = _control.pen.value;
+    final scheme = Theme.of(context).colorScheme;
+    void pick(PenState next) {
+      _setPen(next.copyWith(erase: false));
+      Navigator.pop(menuContext);
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Wrap(
+          spacing: 8,
+          children: [
+            ChoiceChip(
+              key: const Key('pen-tool-pen'),
+              label: const Text('Pen'),
+              selected: !pen.highlighter,
+              onSelected: (_) => pick(pen.copyWith(highlighter: false)),
+            ),
+            ChoiceChip(
+              key: const Key('pen-tool-highlighter'),
+              label: const Text('Highlighter'),
+              selected: pen.highlighter,
+              onSelected: (_) => pick(pen.copyWith(highlighter: true)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Wrap(
+          children: [
+            for (var i = 0; i < penColors.length; i++)
+              Semantics(
+                button: true,
+                selected: pen.color == i,
+                label: '${penColors[i].$1} pen',
+                child: InkResponse(
+                  key: Key('pen-color-$i'),
+                  onTap: () => pick(pen.copyWith(color: i)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Color(penColors[i].$2),
+                        shape: BoxShape.circle,
+                        border: pen.color == i ? Border.all(color: scheme.primary, width: 3) : null,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < penWidths.length; i++)
+              Semantics(
+                button: true,
+                selected: pen.width == i,
+                label: '${penWidths[i].$1} line',
+                child: InkResponse(
+                  key: Key('pen-width-$i'),
+                  onTap: () => pick(pen.copyWith(width: i)),
+                  child: Container(
+                    width: 64,
+                    height: 44,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      color: pen.width == i ? scheme.primaryContainer : null,
+                    ),
+                    child: Container(
+                      width: 36,
+                      height: 2.0 + i * 3,
+                      decoration: BoxDecoration(
+                        color: scheme.onSurface,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -367,6 +470,24 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     }
   }
 
+  /// Pick a language and a voice from what the phone has installed.
+  Future<void> _chooseVoice() async {
+    final engine = ref.read(speechEngineProvider);
+    final voices = await engine.voices();
+    if (!mounted) return;
+    final current = await _container.read(voiceChoiceProvider.future);
+    if (!mounted) return;
+    final picked = await showModalBottomSheet<({VoiceInfo? voice})>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => _VoiceSheet(voices: voices, current: current, engine: engine),
+    );
+    if (picked == null) return;
+    await _container.read(voiceChoiceProvider.notifier).set(picked.voice);
+    await _aloud.changeVoice(picked.voice);
+  }
+
   /// Play / pause, speed and close, shown while the voice bar is open.
   Widget _listenBar() {
     final s = _aloud.state.value;
@@ -406,6 +527,12 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                 padding: const EdgeInsets.all(12),
                 child: Text(rateLabel(s.rate), style: const TextStyle(fontWeight: FontWeight.w600)),
               ),
+            ),
+            IconButton(
+              key: const Key('listen-voice'),
+              tooltip: 'Choose a voice',
+              icon: const Icon(Icons.record_voice_over_outlined),
+              onPressed: _chooseVoice,
             ),
             IconButton(
               key: const Key('listen-close'),
@@ -1025,13 +1152,17 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (_control.pen.value.on) _penBar(current),
                   if (_aloud.state.value.active) _listenBar(),
-                  // a short (landscape) screen drops the slider: the page matters more; edges and swipes still turn pages
-                  if (book.pageCount >= 2 &&
-                      MediaQuery.sizeOf(context).height >= 480)
-                    _pageBar(current, book.pageCount),
-                  _toolRow(book, current, marks, highlights, marked),
+                  if (_control.pen.value.on)
+                    // while drawing, the slider and tool row give way to one slim pen bar
+                    _penBar(current)
+                  else ...[
+                    // a short (landscape) screen drops the slider: the page matters more; edges and swipes still turn pages
+                    if (book.pageCount >= 2 &&
+                        MediaQuery.sizeOf(context).height >= 480)
+                      _pageBar(current, book.pageCount),
+                    _toolRow(book, current, marks, highlights, marked),
+                  ],
                 ],
               ),
             ),
@@ -1322,4 +1453,81 @@ class _NoteDialogState extends State<_NoteDialog> {
       ),
     ],
   );
+}
+
+/// Language drop-down and the voices of that language; "Phone default" clears the choice.
+class _VoiceSheet extends StatefulWidget {
+  const _VoiceSheet({required this.voices, required this.current, required this.engine});
+  final List<VoiceInfo> voices;
+  final VoiceInfo? current;
+  final SpeechEngine engine;
+  @override
+  State<_VoiceSheet> createState() => _VoiceSheetState();
+}
+
+class _VoiceSheetState extends State<_VoiceSheet> {
+  late String? _locale = widget.current?.locale ?? widget.voices.firstOrNull?.locale;
+
+  @override
+  Widget build(BuildContext context) {
+    final locales = {for (final v in widget.voices) v.locale}.toList()..sort();
+    final shown = [for (final v in widget.voices) if (v.locale == _locale) v];
+    final t = Theme.of(context).textTheme;
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.75),
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          children: [
+            Text('Voice for reading aloud', style: t.titleMedium),
+            const SizedBox(height: 8),
+            if (widget.voices.isEmpty)
+              const Text(
+                'This phone did not list any voices. You can add some in the phone\'s Settings, under Language and input, Text-to-speech.',
+                key: Key('voice-none'),
+              )
+            else ...[
+              Text('Pick the language of your book:', style: t.bodySmall),
+              DropdownButton<String>(
+                key: const Key('voice-language'),
+                isExpanded: true,
+                value: _locale,
+                items: [
+                  for (final l in locales) DropdownMenuItem(value: l, child: Text(localeLabel(l))),
+                ],
+                onChanged: (v) => setState(() => _locale = v),
+              ),
+            ],
+            RadioGroup<VoiceInfo?>(
+              groupValue: widget.current,
+              onChanged: (v) => Navigator.pop(context, (voice: v)),
+              child: Column(
+                children: [
+                  const RadioListTile<VoiceInfo?>(
+                    key: Key('voice-default'),
+                    value: null,
+                    title: Text('Phone default'),
+                  ),
+                  for (final v in shown)
+                    RadioListTile<VoiceInfo?>(
+                      key: Key('voice-${v.name}'),
+                      value: v,
+                      title: Text(v.name),
+                      subtitle: Text(localeLabel(v.locale)),
+                    ),
+                ],
+              ),
+            ),
+            TextButton.icon(
+              key: const Key('voice-sample'),
+              icon: const Icon(Icons.volume_up_outlined),
+              label: const Text('Hear a sample of the current voice'),
+              onPressed: () => widget.engine.speak('This is how I sound when I read your book.'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

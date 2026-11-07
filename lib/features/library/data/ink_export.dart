@@ -105,9 +105,11 @@ Future<Uint8List?> buildInkPdf({
 
 void _drawStroke(PdfGraphics g, PdfPoint area, Stroke s) {
   final c = penColors[s.color].$2;
+  g.saveContext();
+  if (s.highlighter) g.setGraphicState(PdfGraphicState(strokeOpacity: 0.4));
   g
     ..setStrokeColor(PdfColor.fromInt(c))
-    ..setLineCap(PdfLineCap.round)
+    ..setLineCap(s.highlighter ? PdfLineCap.square : PdfLineCap.round)
     ..setLineJoin(PdfLineJoin.round)
     ..setLineWidth((s.width * area.x).clamp(0.5, 20.0));
   final p = s.points;
@@ -118,12 +120,15 @@ void _drawStroke(PdfGraphics g, PdfPoint area, Stroke s) {
     g
       ..moveTo(x(0), y(0))
       ..lineTo(x(0) + 0.01, y(0))
-      ..strokePath();
+      ..strokePath()
+      ..restoreContext();
     return;
   }
   g.moveTo(x(0), y(0));
   for (var i = 2; i < p.length; i += 2) {
     g.lineTo(x(i), y(i));
   }
-  g.strokePath();
+  g
+    ..strokePath()
+    ..restoreContext();
 }

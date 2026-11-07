@@ -60,6 +60,7 @@ class SyncService {
 
   Future<SyncReport> _run() async {
     await store.backfillExtras();
+    await store.backfillMarks();
     final pushed = await _push();
     final pulled = await _pull();
     final conflicts = await _pullConflicts();

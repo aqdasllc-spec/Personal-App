@@ -6,6 +6,7 @@ import 'package:folio/data/local/app_database.dart';
 import 'package:folio/features/library/data/library_repository.dart';
 
 import 'package:folio/features/library/data/ocr.dart';
+import 'package:folio/features/library/data/speech.dart';
 
 import '../../helpers.dart';
 import 'reader_settings_test.dart' show io;
@@ -53,6 +54,29 @@ void main() {
     }
     final slider = t.getRect(find.byKey(const Key('reader-slider')));
     expect(slider.width, greaterThan(150));
+  });
+
+  layoutTest('pen on: one slim bar (about 52 px) replaces the slider and tool row, and leaves most of the screen to the page', (t) async {
+    await openIt(t);
+    final before = t.getSize(find.byKey(const Key('reader-filter'))).height;
+    await t.tap(find.byKey(const Key('reader-pen')));
+    await io(t, rounds: 3);
+    final bar = t.getSize(find.byKey(const Key('pen-bar')));
+    expect(bar.height, lessThanOrEqualTo(60));
+    expect(find.byKey(const Key('reader-slider')), findsNothing);
+    expect(find.byKey(const Key('reader-tools')), findsNothing);
+    final after = t.getSize(find.byKey(const Key('reader-filter'))).height;
+    expect(after, greaterThanOrEqualTo(before - 4), reason: 'the page does not get smaller than with the normal bars');
+    expect(after, greaterThan(890 * 0.7));
+    // the bar's own buttons all fit on the screen
+    for (final k in ['pen-style', 'pen-eraser', 'pen-undo', 'pen-clear', 'pen-done']) {
+      final r = t.getRect(find.byKey(Key(k)));
+      expect(r.right, lessThanOrEqualTo(411), reason: '$k is on screen');
+      expect(r.height, greaterThanOrEqualTo(40));
+    }
+    await t.tap(find.byKey(const Key('pen-done')));
+    await io(t, rounds: 3);
+    expect(find.byKey(const Key('reader-tools')), findsOneWidget, reason: 'the normal bars come back');
   });
 
   layoutTest('bookmark button from the tool row marks the page and says so', (t) async {
@@ -151,6 +175,42 @@ void main() {
       await io(t, rounds: 3);
       expect(env.media.log.last, 'hide');
       expect(find.byKey(const Key('listen-bar')), findsNothing);
+    });
+
+    layoutTest('choose a voice: language list, pick one, it is used and remembered; "Phone default" clears it', (t) async {
+      final (env, _) = await openIt(t, pages: 3);
+      await t.tap(find.byKey(const Key('reader-listen')));
+      await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await io(t, rounds: 3);
+      await t.tap(find.byKey(const Key('listen-voice')));
+      await io(t, rounds: 4);
+      expect(find.text('Voice for reading aloud'), findsOneWidget);
+      expect(find.text('English (United States)'), findsWidgets);
+      await t.tap(find.byKey(const Key('voice-language')));
+      await io(t, rounds: 2);
+      await t.tap(find.text('Hindi (India)').last);
+      await io(t, rounds: 2);
+      await t.tap(find.byKey(const Key('voice-hi-in-x-ccc-local')));
+      await io(t, rounds: 4);
+      expect(env.speech.chosen.last, const VoiceInfo('hi-in-x-ccc-local', 'hi-IN'));
+      expect(await t.runAsync(() => env.store.state('tts_voice')), contains('hi-in-x-ccc-local'));
+
+      await t.tap(find.byKey(const Key('listen-voice')));
+      await io(t, rounds: 4);
+      await t.tap(find.byKey(const Key('voice-default')));
+      await io(t, rounds: 4);
+      expect(env.speech.chosen.last, isNull);
+      expect(await t.runAsync(() => env.store.state('tts_voice')), '');
+    });
+
+    layoutTest('a phone with no voices says how to add some', (t) async {
+      final (env, _) = await openIt(t, pages: 3);
+      env.speech.installed = const [];
+      await t.tap(find.byKey(const Key('reader-listen')));
+      await io(t, rounds: 3);
+      await t.tap(find.byKey(const Key('listen-voice')));
+      await io(t, rounds: 4);
+      expect(find.byKey(const Key('voice-none')), findsOneWidget);
     });
 
     layoutTest('leaving the reader stops the voice', (t) async {

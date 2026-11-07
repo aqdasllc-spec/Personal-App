@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/data/local/app_database.dart';
@@ -57,6 +58,12 @@ void main() {
       expect(decodeStrokes('[{"c":99,"w":0.004,"p":[0,0]},{"c":1,"w":0.004,"p":[0,0,1]},{"c":1,"w":0.004,"p":[0.5,2]}]').map((x) => x.points), [
         [0.5, 1.0],
       ], reason: 'bad colour and odd point count dropped; coordinates clamped');
+    });
+
+    test('a highlighter stroke keeps its kind through storage; ordinary strokes do not carry the flag', () {
+      final back = decodeStrokes(encodeStrokes([const Stroke(3, 0.02, [0, 0, 1, 1], highlighter: true), const Stroke(1, 0.004, [0, 0, 1, 1])]));
+      expect(back.map((s) => s.highlighter), [true, false]);
+      expect(encodeStrokes([const Stroke(1, 0.004, [0, 0, 1, 1])]).contains('"h"'), isFalse);
     });
 
     test('erasing: touching a stroke removes it, far away leaves it; dots can be erased too', () {
@@ -122,6 +129,59 @@ void main() {
       expect(got[0].points.last, closeTo(0.4, 0.05)); // y: 160 / 400
     }, skip: false);
 
+    testWidgets('with the highlighter on, a drag becomes a wide highlighter stroke', (t) async {
+      final got = <Stroke>[];
+      await t.pumpWidget(MaterialApp(
+        home: Center(child: SizedBox(width: 200, height: 400, child: InkCapture(pen: const PenState(on: true, width: 1, highlighter: true), onStroke: got.add))),
+      ));
+      final g = await t.startGesture(t.getTopLeft(find.byKey(const Key('ink-capture'))) + const Offset(20, 20));
+      await g.moveBy(const Offset(80, 0));
+      await g.up();
+      await t.pump();
+      expect(got.single.highlighter, isTrue);
+      expect(got.single.width, penWidths[1].$2 * highlighterScale);
+    });
+
+    testWidgets('two fingers are a zoom, not a stroke: nothing is drawn, and the next single finger draws again', (t) async {
+      final got = <Stroke>[];
+      await t.pumpWidget(MaterialApp(
+        home: Center(child: SizedBox(width: 200, height: 400, child: InkCapture(pen: const PenState(on: true), onStroke: got.add))),
+      ));
+      final origin = t.getTopLeft(find.byKey(const Key('ink-capture')));
+      final a = await t.startGesture(origin + const Offset(40, 40), pointer: 1);
+      await a.moveBy(const Offset(10, 10)); // already drawing...
+      final b = await t.startGesture(origin + const Offset(120, 200), pointer: 2); // ...the second finger lands
+      await a.moveBy(const Offset(30, 30));
+      await b.moveBy(const Offset(-30, -30));
+      await a.up();
+      await b.up();
+      await t.pump();
+      expect(got, isEmpty);
+      final c = await t.startGesture(origin + const Offset(20, 20), pointer: 3);
+      await c.moveBy(const Offset(50, 50));
+      await c.up();
+      await t.pump();
+      expect(got.length, 1);
+    });
+
+    testWidgets('a stylus wins over a resting palm', (t) async {
+      final got = <Stroke>[];
+      await t.pumpWidget(MaterialApp(
+        home: Center(child: SizedBox(width: 200, height: 400, child: InkCapture(pen: const PenState(on: true), onStroke: got.add))),
+      ));
+      final origin = t.getTopLeft(find.byKey(const Key('ink-capture')));
+      final pen = await t.startGesture(origin + const Offset(40, 40), pointer: 1, kind: PointerDeviceKind.stylus);
+      final palm = await t.startGesture(origin + const Offset(150, 300), pointer: 2); // a finger touch while the pen is down
+      await palm.moveBy(const Offset(10, 10));
+      await pen.moveBy(const Offset(60, 60));
+      await pen.up();
+      await palm.up();
+      await t.pump();
+      expect(got.length, 1, reason: 'only the stylus drew');
+      expect(got.single.points.length, greaterThanOrEqualTo(4));
+      expect(got.single.points.last, lessThan(0.5), reason: 'the line is the stylus line (top left), not the palm (bottom right)');
+    });
+
     test('paintStroke draws without error for a dot and a line', () {
       final rec = PictureRecorder();
       final c = Canvas(rec);
@@ -139,11 +199,13 @@ void main() {
       expect(find.byKey(const Key('pen-bar')), findsOneWidget);
       expect(find.text('pen on'), findsOneWidget);
 
+      await t.tap(find.byKey(const Key('pen-style')));
+      await io(t, rounds: 2);
       await t.tap(find.byKey(const Key('pen-color-2')));
       await io(t, rounds: 2);
-      expect(t.widget<Semantics>(find.ancestor(of: find.byKey(const Key('pen-color-2')), matching: find.byType(Semantics)).first).properties.selected, isTrue, reason: 'colour 2 chosen');
-      await t.ensureVisible(find.text('Thick'));
-      await t.tap(find.text('Thick'));
+      await t.tap(find.byKey(const Key('pen-style')));
+      await io(t, rounds: 2);
+      await t.tap(find.byKey(const Key('pen-width-2')));
       await io(t, rounds: 2);
       await t.tap(find.text('draw stroke'));
       await io(t, rounds: 4);
@@ -186,6 +248,20 @@ void main() {
       await t.tap(find.byKey(const Key('pen-undo')));
       await io(t, rounds: 4);
       expect(decodeStrokes((await inkRows(t, env)).single.strokes).length, 2);
+    });
+
+    padTest('highlighter: chosen in the style pop-up, strokes it draws are marked as highlighter', (t) async {
+      final (env, _) = await openBook(t);
+      await startPen(t);
+      await t.tap(find.byKey(const Key('pen-style')));
+      await io(t, rounds: 2);
+      await t.tap(find.byKey(const Key('pen-tool-highlighter')));
+      await io(t, rounds: 2);
+      await t.tap(find.text('draw stroke'));
+      await io(t, rounds: 4);
+      final s = decodeStrokes((await inkRows(t, env)).single.strokes).single;
+      expect(s.highlighter, isTrue);
+      expect(s.width, greaterThan(0.015));
     });
 
     padTest('Clear removes the drawings of the page you are on', (t) async {

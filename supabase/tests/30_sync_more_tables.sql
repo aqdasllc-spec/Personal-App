@@ -32,3 +32,7 @@ do $$ begin
     if sqlerrm not like '%invalid table%' then raise; end if;
   end;
 end $$;
+
+-- highlights and bookmarks (migration 20261109000000)
+select t3.assert((apply_changes(jsonb_build_array(t3.chg('highlights','h1','body','{"b":"b1","p":3,"r":"[]","s":"text","at":1}','000000000005-0000-devA','devA','c5')))->>'accepted')::int = 1, 'highlight accepted');
+select t3.assert((apply_changes(jsonb_build_array(t3.chg('bookmarks','b1:3','mark','{"l":"","at":1}','000000000006-0000-devA','devA','c6')))->>'accepted')::int = 1, 'bookmark accepted');

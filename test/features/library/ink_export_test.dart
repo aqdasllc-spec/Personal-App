@@ -36,7 +36,7 @@ void main() {
         source: src.file,
         pages: [1, 3, 5],
         ink: {
-          3: [const Stroke(1, 0.004, [0.1, 0.1, 0.9, 0.9]), const Stroke(2, 0.002, [0.5, 0.5])],
+          3: [const Stroke(1, 0.004, [0.1, 0.1, 0.9, 0.9]), const Stroke(2, 0.002, [0.5, 0.5]), const Stroke(3, 0.02, [0.1, 0.5, 0.9, 0.5], highlighter: true)],
         },
         imager: FakePageImager(),
         onProgress: (d, t) => progress.add((d, t)),

@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart' show PointerDeviceKind, PointerDownEvent, PointerMoveEvent, PointerUpEvent, PointerCancelEvent;
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 
@@ -304,8 +305,9 @@ class _PdfViewState extends State<_PdfView> {
         _searcher.pageTextMatchPaintCallback,
       ],
       pageOverlaysBuilder: _inkOverlay,
+      // while drawing, one finger draws (no scrolling) but two fingers still pinch-zoom the page
       panEnabled: !widget.control.pen.value.on,
-      scaleEnabled: !widget.control.pen.value.on,
+      scaleEnabled: true,
       customizeContextMenuItems: _addHighlightItem,
       onPageChanged: (n) {
         if (n != null) widget.onPage(n);
@@ -317,9 +319,10 @@ class _PdfViewState extends State<_PdfView> {
 /// Draws one stroke inside [pageRect] (points are fractions of the page).
 void paintStroke(ui.Canvas canvas, Rect pageRect, Stroke s) {
   final paint = Paint()
-    ..color = Color(penColors[s.color].$2)
+    ..color = s.highlighter ? Color(penColors[s.color].$2).withValues(alpha: 0.4) : Color(penColors[s.color].$2)
+    ..blendMode = s.highlighter ? BlendMode.multiply : BlendMode.srcOver
     ..style = PaintingStyle.stroke
-    ..strokeCap = StrokeCap.round
+    ..strokeCap = s.highlighter ? StrokeCap.square : StrokeCap.round
     ..strokeJoin = StrokeJoin.round
     ..strokeWidth = (s.width * pageRect.width).clamp(1.0, 40.0);
   final p = s.points;
@@ -335,7 +338,10 @@ void paintStroke(ui.Canvas canvas, Rect pageRect, Stroke s) {
   canvas.drawPath(path, paint);
 }
 
-/// Catches a drag over a page and reports it as a stroke (also shows the line while it is being drawn).
+/// Catches a finger (or stylus) drawing over a page and reports it as a stroke; also shows the line while it is drawn.
+/// It only LISTENS to touches (it does not take part in the gesture contest), so the viewer underneath still sees
+/// them: a second finger turns the gesture into a pinch-zoom and the half-made stroke is dropped.
+/// A stylus wins over the palm: while a stylus touches the screen, finger touches are ignored.
 class InkCapture extends StatefulWidget {
   const InkCapture({super.key, required this.pen, required this.onStroke, this.onErase});
   final PenState pen;
@@ -347,43 +353,87 @@ class InkCapture extends StatefulWidget {
 
 class _InkCaptureState extends State<InkCapture> {
   final _pts = <double>[];
+  final _down = <int, PointerDeviceKind>{};
+  int? _drawing; // the pointer making the stroke
+  bool _zooming = false; // more than one finger: leave it to the viewer
   Size _size = Size.zero;
+
+  bool get _stylusDown => _down.values.contains(PointerDeviceKind.stylus);
 
   void _add(Offset o) {
     if (_size.isEmpty) return;
+    final x = (o.dx / _size.width).clamp(0.0, 1.0), y = (o.dy / _size.height).clamp(0.0, 1.0);
     if (widget.pen.erase) {
-      widget.onErase?.call((o.dx / _size.width).clamp(0.0, 1.0), (o.dy / _size.height).clamp(0.0, 1.0));
+      widget.onErase?.call(x, y);
       return;
     }
-    setState(() {
-      _pts
-        ..add((o.dx / _size.width).clamp(0.0, 1.0))
-        ..add((o.dy / _size.height).clamp(0.0, 1.0));
-    });
+    setState(() => _pts..add(x)..add(y));
   }
 
-  void _finish() {
-    if (_pts.length >= 2) {
-      widget.onStroke(Stroke(widget.pen.color, penWidths[widget.pen.width].$2, simplify(List.of(_pts))));
+  void _drop() {
+    if (_pts.isNotEmpty) setState(_pts.clear);
+    _drawing = null;
+  }
+
+  void _down_(PointerDownEvent e) {
+    final stylus = e.kind == PointerDeviceKind.stylus;
+    if (!stylus && _stylusDown) return; // a palm resting while writing
+    _down[e.pointer] = e.kind;
+    if (stylus) {
+      _drop(); // the pen takes over from any finger stroke
+      _zooming = false;
+    } else if (_down.length > 1 && !_stylusDown) {
+      _zooming = true;
+      _drop(); // two fingers: this is a zoom, not a stroke
+      return;
     }
-    setState(_pts.clear);
+    if (_zooming) return;
+    _drawing = e.pointer;
+    _add(e.localPosition);
+  }
+
+  void _move(PointerMoveEvent e) {
+    if (e.pointer != _drawing || _zooming) return;
+    _add(e.localPosition);
+  }
+
+  void _up(PointerUpEvent e) {
+    final was = _down.remove(e.pointer);
+    if (was == null) return;
+    if (e.pointer == _drawing) {
+      if (!_zooming && _pts.length >= 2) {
+        final hl = widget.pen.highlighter;
+        widget.onStroke(
+          Stroke(
+            widget.pen.color,
+            penWidths[widget.pen.width].$2 * (hl ? highlighterScale : 1),
+            simplify(List.of(_pts)),
+            highlighter: hl,
+          ),
+        );
+      }
+      _drop();
+    }
+    if (_down.isEmpty) _zooming = false;
+  }
+
+  void _cancel(PointerCancelEvent e) {
+    _down.remove(e.pointer);
+    if (e.pointer == _drawing) _drop();
+    if (_down.isEmpty) _zooming = false;
   }
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
       _size = box.biggest;
-      return GestureDetector(
+      return Listener(
         key: const Key('ink-capture'),
-        behavior: HitTestBehavior.opaque,
-        onPanStart: (d) => _add(d.localPosition),
-        onPanUpdate: (d) => _add(d.localPosition),
-        onPanEnd: (_) => _finish(),
-        onPanCancel: () => setState(_pts.clear),
-        onTapUp: (d) {
-          _add(d.localPosition);
-          _finish();
-        },
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: _down_,
+        onPointerMove: _move,
+        onPointerUp: _up,
+        onPointerCancel: _cancel,
         child: CustomPaint(
           painter: _LivePainter(List.of(_pts), widget.pen),
           size: Size.infinite,
@@ -400,7 +450,8 @@ class _LivePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (pts.length < 2) return;
-    paintStroke(canvas, Offset.zero & size, Stroke(pen.color, penWidths[pen.width].$2, pts));
+    final hl = pen.highlighter;
+    paintStroke(canvas, Offset.zero & size, Stroke(pen.color, penWidths[pen.width].$2 * (hl ? highlighterScale : 1), pts, highlighter: hl));
   }
 
   @override

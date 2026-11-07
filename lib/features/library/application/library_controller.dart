@@ -84,22 +84,28 @@ class ReaderControl {
 
 enum TapZone { left, center, right }
 
-/// The pen tool: on/off, colour (index in [penColors]), width (index in [penWidths]) and eraser mode.
+/// The pen tool: on/off, colour (index in [penColors]), width (index in [penWidths]), eraser mode and highlighter mode.
 class PenState {
-  const PenState({this.on = false, this.color = 0, this.width = 1, this.erase = false});
-  final bool on, erase;
+  const PenState({this.on = false, this.color = 0, this.width = 1, this.erase = false, this.highlighter = false});
+  final bool on, erase, highlighter;
   final int color, width;
-  PenState copyWith({bool? on, int? color, int? width, bool? erase}) => PenState(
+  PenState copyWith({bool? on, int? color, int? width, bool? erase, bool? highlighter}) => PenState(
     on: on ?? this.on,
     color: color ?? this.color,
     width: width ?? this.width,
     erase: erase ?? this.erase,
+    highlighter: highlighter ?? this.highlighter,
   );
   @override
   bool operator ==(Object other) =>
-      other is PenState && other.on == on && other.color == color && other.width == width && other.erase == erase;
+      other is PenState &&
+      other.on == on &&
+      other.color == color &&
+      other.width == width &&
+      other.erase == erase &&
+      other.highlighter == highlighter;
   @override
-  int get hashCode => Object.hash(on, color, width, erase);
+  int get hashCode => Object.hash(on, color, width, erase, highlighter);
 }
 
 /// One search hit on a scanned page: the page and the line's rectangle as fractions (0..1) of the page.

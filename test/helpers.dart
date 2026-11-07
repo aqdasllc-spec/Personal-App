@@ -214,6 +214,18 @@ class FakeSpeechEngine implements SpeechEngine {
   Future<void> setRate(double f) async => rates.add(f);
   @override
   Future<void> dispose() async {}
+
+  /// Voices the "phone" offers, and the ones chosen (null = default).
+  List<VoiceInfo> installed = const [
+    VoiceInfo('en-us-x-aaa-local', 'en-US'),
+    VoiceInfo('en-gb-x-bbb-local', 'en-GB'),
+    VoiceInfo('hi-in-x-ccc-local', 'hi-IN'),
+  ];
+  final chosen = <VoiceInfo?>[];
+  @override
+  Future<List<VoiceInfo>> voices() async => installed;
+  @override
+  Future<void> setVoice(VoiceInfo? voice) async => chosen.add(voice);
 }
 
 class FakeMediaControls implements MediaControls {
@@ -413,7 +425,7 @@ class TestEnv {
             ),
             // pen: draws a stroke on page 2 with the chosen colour/width; shows what the page would paint
             TextButton(
-              onPressed: () => control.onStroke?.call(2, Stroke(control.pen.value.color, penWidths[control.pen.value.width].$2, const [0.1, 0.1, 0.5, 0.5])),
+              onPressed: () => control.onStroke?.call(2, Stroke(control.pen.value.color, penWidths[control.pen.value.width].$2 * (control.pen.value.highlighter ? highlighterScale : 1), const [0.1, 0.1, 0.5, 0.5], highlighter: control.pen.value.highlighter)),
               child: const Text('draw stroke'),
             ),
             TextButton(onPressed: () => control.onErase?.call(2, 0.3, 0.3), child: const Text('rub on stroke')),

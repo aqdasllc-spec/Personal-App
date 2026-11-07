@@ -481,6 +481,15 @@ class LibraryRepository {
     String color = 'yellow',
   }) async {
     final id = _newId();
+    final store = _store;
+    if (store != null) {
+      await store.setFields('highlights', id, {
+        'body': {'b': bookId, 'p': d.page, 'r': encodeRects(d.rects), 's': d.text, 'at': _now().millisecondsSinceEpoch},
+        'color': color,
+        'note': '',
+      });
+      return id;
+    }
     await _db
         .into(_db.highlights)
         .insert(
@@ -497,17 +506,35 @@ class LibraryRepository {
     return id;
   }
 
-  Future<void> setHighlightNote(String id, String note) =>
+  Future<void> setHighlightNote(String id, String note) {
+    final store = _store;
+    if (store != null) return store.setFields('highlights', id, {'note': note.trim()});
+    return _setHighlightNoteLocal(id, note);
+  }
+
+  Future<void> _setHighlightNoteLocal(String id, String note) =>
       (_db.update(_db.highlights)..where((h) => h.id.equals(id))).write(
         HighlightsCompanion(note: Value(note.trim())),
       );
 
-  Future<void> setHighlightColor(String id, String color) =>
+  Future<void> setHighlightColor(String id, String color) {
+    final store = _store;
+    if (store != null) return store.setFields('highlights', id, {'color': color});
+    return _setHighlightColorLocal(id, color);
+  }
+
+  Future<void> _setHighlightColorLocal(String id, String color) =>
       (_db.update(_db.highlights)..where((h) => h.id.equals(id))).write(
         HighlightsCompanion(color: Value(color)),
       );
 
-  Future<void> removeHighlight(String id) =>
+  Future<void> removeHighlight(String id) {
+    final store = _store;
+    if (store != null) return store.setFields('highlights', id, {'gone': true});
+    return _removeHighlightLocal(id);
+  }
+
+  Future<void> _removeHighlightLocal(String id) =>
       (_db.delete(_db.highlights)..where((h) => h.id.equals(id))).go();
 
   // ----------------------------------------------------------------- bookmarks
@@ -522,6 +549,14 @@ class LibraryRepository {
     final existing = await (_db.select(
       _db.bookmarks,
     )..where((b) => b.bookId.equals(bookId) & b.page.equals(page))).get();
+    final store = _store;
+    if (store != null) {
+      // one synced row per marked page: a mark, or null to take it off
+      await store.setFields('bookmarks', '$bookId:$page', {
+        'mark': existing.isNotEmpty ? null : {'l': '', 'at': _now().millisecondsSinceEpoch},
+      });
+      return existing.isEmpty;
+    }
     if (existing.isNotEmpty) {
       await (_db.delete(
         _db.bookmarks,
@@ -541,13 +576,29 @@ class LibraryRepository {
     return true;
   }
 
-  Future<void> removeBookmark(String id) =>
-      (_db.delete(_db.bookmarks)..where((b) => b.id.equals(id))).go();
+  Future<void> removeBookmark(String id) async {
+    final store = _store;
+    final row = store == null ? null : await (_db.select(_db.bookmarks)..where((b) => b.id.equals(id))).getSingleOrNull();
+    if (store != null && row != null) {
+      await store.setFields('bookmarks', '${row.bookId}:${row.page}', {'mark': null});
+      return;
+    }
+    await (_db.delete(_db.bookmarks)..where((b) => b.id.equals(id))).go();
+  }
 
-  Future<void> renameBookmark(String id, String label) =>
-      (_db.update(_db.bookmarks)..where((b) => b.id.equals(id))).write(
-        BookmarksCompanion(label: Value(label.trim())),
-      );
+  Future<void> renameBookmark(String id, String label) async {
+    final store = _store;
+    final row = store == null ? null : await (_db.select(_db.bookmarks)..where((b) => b.id.equals(id))).getSingleOrNull();
+    if (store != null && row != null) {
+      await store.setFields('bookmarks', '${row.bookId}:${row.page}', {
+        'mark': {'l': label.trim(), 'at': row.createdAt},
+      });
+      return;
+    }
+    await (_db.update(_db.bookmarks)..where((b) => b.id.equals(id))).write(
+      BookmarksCompanion(label: Value(label.trim())),
+    );
+  }
 
   Future<ShelfRow> createShelf(String name) async {
     final n = name.trim();

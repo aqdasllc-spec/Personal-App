@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 
 import '../local/app_database.dart';
 
@@ -127,7 +128,65 @@ Future<void> _writeInk(AppDatabase db, String rowId, String field, Object? value
   }
 }
 
+/// Bookmarks: one synced row per marked page (row id = `<book id>:<page>`), field `mark` = {l: label, at: time} or null (removed).
+Future<void> _writeBookmark(AppDatabase db, String rowId, String field, Object? value, int wallMs) async {
+  final cut = rowId.lastIndexOf(':');
+  final page = cut < 0 ? null : int.tryParse(rowId.substring(cut + 1));
+  if (page == null) return;
+  final bookId = rowId.substring(0, cut);
+  final here = db.bookmarks.bookId.equals(bookId) & db.bookmarks.page.equals(page);
+  if (value is Map) {
+    final label = value['l'] is String ? value['l'] as String : '';
+    final existing = await (db.select(db.bookmarks)..where((b) => here)).get();
+    if (existing.isEmpty) {
+      await db.into(db.bookmarks).insert(BookmarksCompanion.insert(
+        id: const Uuid().v4(),
+        bookId: bookId,
+        page: page,
+        createdAt: value['at'] is int ? value['at'] as int : wallMs,
+        label: Value(label),
+      ));
+    } else {
+      await (db.update(db.bookmarks)..where((b) => here)).write(BookmarksCompanion(label: Value(label)));
+    }
+  } else {
+    await (db.delete(db.bookmarks)..where((b) => here)).go();
+  }
+}
+
+/// Highlights: one synced row per highlight (row id = its id). Fields: `body` {b: book, p: page, r: rects JSON,
+/// s: text, at: time} (written once), `color`, `note`, and `gone` = true when it was removed.
+Future<void> _writeHighlight(AppDatabase db, String id, String field, Object? value, int wallMs) async {
+  switch (field) {
+    case 'body':
+      if (value is! Map || value['b'] is! String || value['p'] is! int) return;
+      await db.into(db.highlights).insert(
+        HighlightsCompanion.insert(
+          id: id,
+          bookId: value['b'] as String,
+          page: value['p'] as int,
+          createdAt: value['at'] is int ? value['at'] as int : wallMs,
+          rects: Value(value['r'] is String ? value['r'] as String : '[]'),
+          snippet: Value(value['s'] is String ? value['s'] as String : ''),
+        ),
+        mode: InsertMode.insertOrIgnore,
+      );
+    case 'color':
+      if (value is String) {
+        await (db.update(db.highlights)..where((h) => h.id.equals(id))).write(HighlightsCompanion(color: Value(value)));
+      }
+    case 'note':
+      if (value is String) {
+        await (db.update(db.highlights)..where((h) => h.id.equals(id))).write(HighlightsCompanion(note: Value(value)));
+      }
+    case 'gone':
+      if (value == true) await (db.delete(db.highlights)..where((h) => h.id.equals(id))).go();
+  }
+}
+
 final Map<String, SyncedTable> _more = {
+  'highlights': const SyncedTable('highlights', {'body': 'body', 'color': 'color', 'note': 'note', 'gone': 'gone'}, custom: _writeHighlight),
+  'bookmarks': const SyncedTable('bookmarks', {'mark': 'mark'}, custom: _writeBookmark),
   'tag_colors': const SyncedTable('tag_colors', {'color': 'color'}, custom: _writeTagColor),
   'smart_views': const SyncedTable('smart_views', {'view': 'view'}, custom: _writeSmartView),
   'page_ink': const SyncedTable('page_ink', {'strokes': 'strokes'}, custom: _writeInk),

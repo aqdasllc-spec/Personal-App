@@ -32,9 +32,9 @@ Everything works offline. Signing in only adds syncing between your devices.
 | Change look | **Aa**: colour scheme (Original, Paper, Sepia, Night, Black), Dim, Warm light, sideways paging, orientation lock, keep screen on |
 | Search the text | **Search** (magnifier) |
 | Bookmark | **Bookmark** tool; highlights: select text → Highlight; **Contents** lists both, with notes and export |
-| Draw or write on a page | **Draw**: pick colour and thickness, draw with a finger or stylus; **Eraser** removes a stroke you touch; Undo; Clear page; Done. Zoom and scrolling are off while the pen is on |
+| Draw or write on a page | **Draw**: the bottom bars give way to one slim pen bar. One finger (or a stylus) draws; **two fingers pinch-zoom** the page. The round button opens colour, thickness and **Pen / Highlighter**; then Eraser (touch a stroke), Undo, Clear page and Done. A stylus wins over a resting palm. One finger does not scroll while the pen is on: use two fingers, or Done |
 | Share your drawings | ⋮ menu → **Export as PDF with my drawings**: this page, pages with drawings, or the whole book (up to 60 pages). The new PDF has the pages as pictures with your drawing on top; the original is not changed |
-| Have it read aloud | **Listen**: reads from this page and turns pages by itself. Pause/Play, speed (0.75x to 2x), close. Uses your phone's voice, and keeps reading with the screen off, with Play/Pause, Previous/Next page and Stop on the lock screen and in the notification shade. Scans are read from the recognised text; a scan that is not made searchable yet says so |
+| Have it read aloud | **Listen**: reads from this page and turns pages by itself. Pause/Play, speed (0.75x to 2x), close. Uses your phone's voice (the people icon in the voice bar lets you choose the language and voice from what is installed), and keeps reading with the screen off, with Play/Pause, Previous/Next page and Stop on the lock screen and in the notification shade. Scans are read from the recognised text; a scan that is not made searchable yet says so |
 | Scanned or handwritten PDF | See below |
 
 ### Scanned and handwritten PDFs
@@ -52,7 +52,7 @@ Everything works offline. Signing in only adds syncing between your devices.
 ## Settings
 - **Account & sync**, **App lock** (fingerprint / PIN), **Rotation**. Light and dark follow your phone.
 - **Storage**: space used, recently removed books.
-- **Sync**: with an account, tasks and events sync as before, and now also your **drawings, tag colours and saved views** (the PDFs themselves only when you press Sync on a book).
+- **Sync**: with an account, tasks and events sync as before, and now also your **highlights, bookmarks, drawings, tag colours and saved views** (the PDFs themselves only when you press Sync on a book).
 - **Backup**: save everything (books, notes, highlights, drawings, tag colours, scanned-page text) to a file; restore it later.
 - **Help**: replay the welcome tour, gesture cheat-sheet.
 
@@ -60,4 +60,4 @@ Everything works offline. Signing in only adds syncing between your devices.
 Press and hold the Folio icon: **Continue reading**, **Add a task**, **Planner: today**, **Library**.
 
 ---
-Not built yet: choosing a particular voice, a Windows/macOS text-recogniser.
+Not built yet: picking the voice automatically from the book's language, a Windows/macOS text-recogniser.

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/features/library/application/read_aloud.dart';
 import '../../helpers.dart';
+import 'package:folio/features/library/data/speech.dart';
 import 'package:folio/features/library/domain_speech.dart';
 
 void main() {
@@ -22,6 +23,39 @@ void main() {
     test('a very long word with no spaces is still cut', () {
       final parts = chunkText('x' * 450, max: 200);
       expect(parts.map((p) => p.length), [200, 200, 50]);
+    });
+  });
+
+  group('voices', () {
+    test('locale names are readable; unknown codes are shown as they are', () {
+      expect(localeLabel('en-US'), 'English (United States)');
+      expect(localeLabel('hi_IN'), 'Hindi (India)');
+      expect(localeLabel('ur'), 'Urdu');
+      expect(localeLabel('xx-YY'), 'xx (YY)');
+      expect(languageOf('en_GB'), 'en');
+    });
+
+    test('a voice survives its JSON form; broken data gives none', () {
+      const v = VoiceInfo('n', 'en-US');
+      expect(VoiceInfo.fromJson(v.toJson()), v);
+      expect(VoiceInfo.fromJson({'name': 1}), isNull);
+      expect(VoiceInfo.fromJson('x'), isNull);
+    });
+
+    test('the chosen voice is applied once when reading starts; changing it later applies at once', () async {
+      final engine = FakeSpeechEngine();
+      final r = ReadAloud(
+        engine: engine,
+        textOf: (p) async => 'Text $p.',
+        goTo: (_) {},
+        pageCount: () => 2,
+        voice: () async => const VoiceInfo('hi-in-x-ccc-local', 'hi-IN'),
+      );
+      await r.start(1);
+      await r.start(1);
+      expect(engine.chosen, [const VoiceInfo('hi-in-x-ccc-local', 'hi-IN')], reason: 'asked once per session');
+      await r.changeVoice(null);
+      expect(engine.chosen.last, isNull);
     });
   });
 
