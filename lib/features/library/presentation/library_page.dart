@@ -1598,6 +1598,55 @@ class _FilterSheet extends ConsumerWidget {
                       ),
                   ],
                 ),
+              const SizedBox(height: Space.s16),
+              Row(
+                children: [
+                  Expanded(child: Text('Saved views', style: t.titleSmall)),
+                  TextButton.icon(
+                    key: const Key('save-view'),
+                    icon: const Icon(Icons.bookmark_add_outlined, size: 18),
+                    label: const Text('Save this view'),
+                    onPressed: ui.activeFilters == 0
+                        ? null
+                        : () async {
+                            final name = await showDialog<String>(
+                              context: context,
+                              builder: (_) => const _NameDialog(
+                                title: 'Save this view',
+                                label: 'Name (for example: Work to read)',
+                                action: 'Save',
+                              ),
+                            );
+                            if (name == null || name.trim().isEmpty) return;
+                            ref
+                                .read(smartViewsProvider.notifier)
+                                .saveCurrent(name, ui);
+                          },
+                  ),
+                ],
+              ),
+              if (ref.watch(smartViewsProvider).isEmpty)
+                Text(
+                  'Choose a status and tags above, then save them as a view to come back to in one tap.',
+                  style: t.bodySmall,
+                )
+              else
+                Wrap(
+                  spacing: Space.s8,
+                  runSpacing: Space.s4,
+                  children: [
+                    for (final v in ref.watch(smartViewsProvider))
+                      InputChip(
+                        key: Key('view-${v.name}'),
+                        label: Text(v.name),
+                        onPressed: () => ctl.applyView(v),
+                        onDeleted: () => ref
+                            .read(smartViewsProvider.notifier)
+                            .remove(v.name),
+                        deleteButtonTooltipMessage: 'Delete view ${v.name}',
+                      ),
+                  ],
+                ),
               if (ui.activeFilters > 0)
                 Align(
                   alignment: Alignment.centerRight,
@@ -1776,6 +1825,7 @@ class _TagManager extends ConsumerWidget {
                               if (target == null) return;
                               await repo.renameTag(tag, target);
                               ref.read(tagColorsProvider.notifier).rename(tag, target);
+                              ref.read(smartViewsProvider.notifier).tagRenamed(tag, target);
                               ui.renameFilterTag(tag, target);
                             },
                           ),
@@ -1808,6 +1858,7 @@ class _TagManager extends ConsumerWidget {
                               if (ok != true) return;
                               await repo.deleteTag(tag);
                               ui.dropFilterTag(tag);
+                              ref.read(smartViewsProvider.notifier).tagDeleted(tag);
                             },
                           ),
                         ],

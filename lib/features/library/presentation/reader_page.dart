@@ -10,6 +10,8 @@ import '../../../data/local/app_database.dart';
 import '../application/export_notes.dart';
 import '../application/library_controller.dart';
 import '../application/ocr_controller.dart';
+import '../application/read_aloud.dart';
+import '../domain_speech.dart';
 import '../domain_ink.dart';
 import '../domain_ocr.dart';
 import '../application/reader_prefs.dart';
@@ -42,7 +44,14 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     ref.read(pageRecognizerProvider),
     ref.read(textProbeProvider),
   );
-  final _inkOrder = <int>[]; // pages in the order strokes were drawn (for Undo)
+  late final ReadAloud _aloud = ReadAloud(
+    engine: ref.read(speechEngineProvider),
+    textOf: _textOfPage,
+    goTo: (p) => _control.goTo?.call(p),
+    pageCount: () => _pageCount,
+  );
+  int _pageCount = 0;
+  BookRow? _book;
   String _textState = 'unknown';
   bool _probed = false;
   List<OcrMatch> _hits = const [];
@@ -56,7 +65,11 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     _control.prefs.value = ref.read(readerPrefsProvider);
     _control.onZoneTap = _onZone;
     _control.onStroke = _onStroke;
+    _control.onErase = _onErase;
     _ocr.progress.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _aloud.state.addListener(() {
       if (mounted) setState(() {});
     });
     _applySystem(_control.prefs.value);
@@ -109,29 +122,36 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     _control.goTo?.call(target);
   }
 
-  Future<void> _onStroke(int page, Stroke s) async {
-    final list = [...(_control.ink.value[page] ?? const <Stroke>[]), s];
+  /// Every change to a page's drawings, newest last: the page and its strokes before the change (for Undo).
+  final _inkHistory = <(int, List<Stroke>)>[];
+
+  Future<void> _setInk(int page, List<Stroke> list) async {
+    final before = _control.ink.value[page] ?? const <Stroke>[];
+    _inkHistory.add((page, before));
+    if (_inkHistory.length > 100) _inkHistory.removeAt(0);
     _control.ink.value = {..._control.ink.value, page: list};
-    _inkOrder.add(page);
     await _repo.saveInk(widget.bookId, page, list);
   }
 
+  Future<void> _onStroke(int page, Stroke s) =>
+      _setInk(page, [...(_control.ink.value[page] ?? const <Stroke>[]), s]);
+
+  Future<void> _onErase(int page, double x, double y) async {
+    final cur = _control.ink.value[page] ?? const <Stroke>[];
+    final left = eraseAt(cur, x, y);
+    if (left.length != cur.length) await _setInk(page, left);
+  }
+
   Future<void> _undoStroke() async {
-    while (_inkOrder.isNotEmpty) {
-      final page = _inkOrder.removeLast();
-      final list = [...(_control.ink.value[page] ?? const <Stroke>[])];
-      if (list.isEmpty) continue;
-      list.removeLast();
-      _control.ink.value = {..._control.ink.value, page: list};
-      await _repo.saveInk(widget.bookId, page, list);
-      return;
-    }
+    if (_inkHistory.isEmpty) return;
+    final (page, before) = _inkHistory.removeLast();
+    _control.ink.value = {..._control.ink.value, page: before};
+    await _repo.saveInk(widget.bookId, page, before);
   }
 
   Future<void> _clearInkPage(int page) async {
-    _inkOrder.removeWhere((p) => p == page);
-    _control.ink.value = {..._control.ink.value, page: const []};
-    await _repo.saveInk(widget.bookId, page, const []);
+    if ((_control.ink.value[page] ?? const <Stroke>[]).isEmpty) return;
+    await _setInk(page, const []);
   }
 
   void _setPen(PenState p) {
@@ -191,6 +211,14 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                 onSelectionChanged: (v) => _setPen(pen.copyWith(width: v.first)),
               ),
               IconButton(
+                key: const Key('pen-eraser'),
+                tooltip: pen.erase ? 'Back to the pen' : 'Eraser: touch a stroke to remove it',
+                isSelected: pen.erase,
+                icon: const Icon(Icons.cleaning_services_outlined),
+                selectedIcon: const Icon(Icons.cleaning_services),
+                onPressed: () => _setPen(pen.copyWith(erase: !pen.erase)),
+              ),
+              IconButton(
                 key: const Key('pen-undo'),
                 tooltip: 'Undo last stroke',
                 icon: const Icon(Icons.undo),
@@ -214,8 +242,182 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     );
   }
 
+  /// What the voice reads on [page]: the text we recognised on a scan, otherwise the PDF's own text.
+  Future<String?> _textOfPage(int page) async {
+    final book = _book;
+    if (book == null) return null;
+    if (_useOcr) {
+      final row = await _repo.pageText(book.id, page);
+      if (row != null && row.body.trim().isNotEmpty) return row.body;
+    }
+    return ref.read(pageTextReaderProvider).textOf(_repo.fileOf(book), page);
+  }
+
+  void _toggleListen(int current) {
+    final s = _aloud.state.value;
+    if (!s.active) {
+      _aloud.start(current);
+    } else {
+      _aloud.stop();
+    }
+  }
+
+  /// Play / pause, speed and close, shown while the voice bar is open.
+  Widget _listenBar() {
+    final s = _aloud.state.value;
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      key: const Key('listen-bar'),
+      color: scheme.surfaceContainerHigh,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            IconButton(
+              key: const Key('listen-play'),
+              tooltip: s.playing ? 'Pause reading' : 'Read aloud',
+              icon: Icon(s.playing ? Icons.pause_circle : Icons.play_circle, size: 36),
+              onPressed: s.playing ? _aloud.pause : _aloud.resume,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                s.message ?? (s.playing ? 'Reading page ${s.page}' : 'Paused on page ${s.page}'),
+                key: const Key('listen-status'),
+              ),
+            ),
+            PopupMenuButton<double>(
+              key: const Key('listen-speed'),
+              tooltip: 'Reading speed',
+              initialValue: s.rate,
+              onSelected: _aloud.setRate,
+              itemBuilder: (_) => [
+                for (final r in speechRates)
+                  PopupMenuItem(value: r, child: Text(rateLabel(r))),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(rateLabel(s.rate), style: const TextStyle(fontWeight: FontWeight.w600)),
+              ),
+            ),
+            IconButton(
+              key: const Key('listen-close'),
+              tooltip: 'Stop reading aloud',
+              icon: const Icon(Icons.close),
+              onPressed: _aloud.stop,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The row of tools under the page: contents, bookmark, pen, voice.
+  Widget _toolRow(BookRow book, int current, List<BookmarkRow> marks, List<HighlightRow> highlights, bool marked) {
+    final pen = _control.pen.value.on;
+    final aloud = _aloud.state.value.active;
+    return Material(
+      key: const Key('reader-tools'),
+      color: Theme.of(context).colorScheme.surface,
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            _tool(
+              const Key('reader-bookmarks'),
+              'Contents',
+              'Bookmarks and highlights',
+              Badge(
+                isLabelVisible: marks.isNotEmpty || highlights.isNotEmpty,
+                label: Text('${marks.length + highlights.length}'),
+                child: const Icon(Icons.list_alt),
+              ),
+              false,
+              () => showModalBottomSheet<void>(
+                context: context,
+                showDragHandle: true,
+                isScrollControlled: true,
+                builder: (_) => _MarksSheet(
+                  book: book,
+                  bookId: book.id,
+                  current: current,
+                  onJump: (p) => _control.goTo?.call(p),
+                ),
+              ),
+            ),
+            _tool(
+              const Key('reader-bookmark'),
+              marked ? 'Marked' : 'Bookmark',
+              marked ? 'Remove bookmark from this page' : 'Bookmark this page',
+              Icon(marked ? Icons.bookmark : Icons.bookmark_border),
+              marked,
+              () => _repo.toggleBookmark(book.id, current),
+            ),
+            _tool(
+              const Key('reader-pen'),
+              'Draw',
+              pen ? 'Stop drawing' : 'Draw with a pen',
+              const Icon(Icons.edit_outlined),
+              pen,
+              () => _setPen(_control.pen.value.copyWith(on: !pen)),
+            ),
+            _tool(
+              const Key('reader-listen'),
+              'Listen',
+              aloud ? 'Stop reading aloud' : 'Read aloud',
+              const Icon(Icons.headphones_outlined),
+              aloud,
+              () => _toggleListen(current),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tool(Key key, String label, String tip, Widget icon, bool on, VoidCallback onTap) {
+    final scheme = Theme.of(context).colorScheme;
+    return Expanded(
+      child: Tooltip(
+        message: tip,
+        child: InkWell(
+          key: key,
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: MediaQuery.sizeOf(context).height < 480 ? 48 : 56),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconTheme(
+                    data: IconThemeData(color: on ? scheme.primary : scheme.onSurfaceVariant),
+                    child: icon,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: on ? scheme.primary : scheme.onSurfaceVariant,
+                      fontWeight: on ? FontWeight.w700 : null,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _onPage(int page) {
     setState(() => _page = page);
+    _aloud.pageChanged(page);
     _debounce?.cancel();
     _debounce = Timer(
       const Duration(milliseconds: 600),
@@ -230,6 +432,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     _searchDebounce?.cancel();
     _searchCtl.dispose();
     _ocr.dispose();
+    _aloud.dispose();
     final p = _page;
     if (p != null) _repo.saveProgress(widget.bookId, p);
     // give the phone back to the app's own settings
@@ -598,6 +801,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       );
     }
     final file = repo.fileOf(book);
+    _book = book;
+    _pageCount = book.pageCount;
     _textState = book.textState;
     if (!_probed && _textState == 'unknown' && file.existsSync()) {
       _probed = true;
@@ -628,10 +833,22 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
           : AppBar(
               title: _searching
                   ? _searchTitle()
-                  : Text(
-                      book.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          book.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (book.pageCount > 0)
+                          Text(
+                            '$current / ${book.pageCount}',
+                            key: const Key('reader-page'),
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                      ],
                     ),
               actions: _searching
                   ? _searchActions()
@@ -664,24 +881,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                             });
                           }
                           if (v == 'text') _showPageText(book, current);
-                          if (v == 'pen') {
-                            _setPen(
-                              _control.pen.value.copyWith(
-                                on: !_control.pen.value.on,
-                              ),
-                            );
-                          }
                         },
                         itemBuilder: (_) => [
-                          PopupMenuItem(
-                            key: const Key('reader-pen'),
-                            value: 'pen',
-                            child: Text(
-                              _control.pen.value.on
-                                  ? 'Stop drawing'
-                                  : 'Draw with a pen',
-                            ),
-                          ),
                           if (_ocr.supported && _textState != 'ocr')
                             const PopupMenuItem(
                               value: 'ocr',
@@ -701,57 +902,25 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                             ),
                         ],
                       ),
-                      IconButton(
-                        key: const Key('reader-bookmark'),
-                        tooltip: marked
-                            ? 'Remove bookmark from this page'
-                            : 'Bookmark this page',
-                        icon: Icon(
-                          marked ? Icons.bookmark : Icons.bookmark_border,
-                        ),
-                        onPressed: () => _repo.toggleBookmark(book.id, current),
-                      ),
-                      IconButton(
-                        key: const Key('reader-bookmarks'),
-                        tooltip: 'Bookmarks',
-                        icon: Badge(
-                          isLabelVisible:
-                              marks.isNotEmpty || highlights.isNotEmpty,
-                          label: Text('${marks.length + highlights.length}'),
-                          child: const Icon(Icons.list_alt),
-                        ),
-                        onPressed: () => showModalBottomSheet<void>(
-                          context: context,
-                          showDragHandle: true,
-                          isScrollControlled: true,
-                          builder: (_) => _MarksSheet(
-                            book: book,
-                            bookId: book.id,
-                            current: current,
-                            onJump: (p) => _control.goTo?.call(p),
-                          ),
-                        ),
-                      ),
-                      if (book.pageCount > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 16),
-                          child: Center(
-                            child: Text(
-                              '${_page ?? (book.lastPage < 1 ? 1 : book.lastPage)} / ${book.pageCount}',
-                              key: const Key('reader-page'),
-                            ),
-                          ),
-                        ),
                     ],
             ),
       bottomNavigationBar: _immersive
           ? null
-          : Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_control.pen.value.on) _penBar(current),
-                if (book.pageCount >= 2) _pageBar(current, book.pageCount),
-              ],
+          // the bars keep a readable size even when the phone's text is huge: the page needs the room
+          : MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.3,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_control.pen.value.on) _penBar(current),
+                  if (_aloud.state.value.active) _listenBar(),
+                  // a short (landscape) screen drops the slider: the page matters more; edges and swipes still turn pages
+                  if (book.pageCount >= 2 &&
+                      MediaQuery.sizeOf(context).height >= 480)
+                    _pageBar(current, book.pageCount),
+                  _toolRow(book, current, marks, highlights, marked),
+                ],
+              ),
             ),
       body: file.existsSync()
           ? Column(

@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/features/backup/backup_service.dart';
 import 'package:folio/features/library/data/library_repository.dart';
 import 'package:folio/features/library/domain_highlights.dart';
+import 'package:folio/features/library/data/ocr.dart';
+import 'package:folio/features/library/domain_ink.dart';
 import 'package:folio/features/library/domain_tags.dart';
 import 'package:folio/features/planner/data/planner_repository.dart';
 import 'package:folio/features/planner/domain/models.dart';
@@ -97,6 +99,26 @@ void main() {
     final dstTask = (await b.env.db.select(b.env.db.tasks).get()).firstWhere((t) => t.title == 'Plain');
     expect((dstTask.id, dstTask.createdAt), (srcTask.id, srcTask.createdAt), reason: 'same identity and creation time');
     expect((await b.env.db.select(b.env.db.syncOutbox).get()), isNotEmpty, reason: 'restored tasks will sync like new edits');
+  });
+
+  test('tag colours, pen drawings and recognised page text travel with the backup; this device keeps its own colour choices', () async {
+    final book = (await a.lib.importPdf(pdf('Scan.pdf', 4))).book!;
+    await a.lib.savePageText(book.id, 2, const RecognizedPage([OcrLine('hello scan', 0.1, 0.1, 0.5, 0.2)]));
+    await a.lib.setTextState(book.id, 'ocr');
+    await a.lib.saveInk(book.id, 3, [const Stroke(1, 0.004, [0.1, 0.1, 0.4, 0.4])]);
+    await a.env.store.setState('tag_colors', '{"work":2,"safety":5}');
+    final file = await a.backup.create(work);
+
+    final b = await Device.create();
+    addTearDown(b.close);
+    await b.env.store.setState('tag_colors', '{"work":6}');
+    await b.backup.restore(file.path);
+    final restored = (await b.lib.watchBooks().first).single;
+    expect(restored.textState, 'ocr');
+    expect((await b.lib.pageText(restored.id, 2))!.body, 'hello scan');
+    final ink = await b.env.db.select(b.env.db.pageInk).get();
+    expect((ink.single.page, decodeStrokes(ink.single.strokes).length), (3, 1));
+    expect(await b.env.store.state('tag_colors'), '{"work":6,"safety":5}', reason: 'own colour for "work" kept, new one added');
   });
 
   test('restoring again, or onto a device that already has the data, adds nothing and changes nothing', () async {

@@ -35,8 +35,6 @@ Future<(TestEnv, BookRow)> openBook(WidgetTester t, {Future<void> Function(Libra
 Future<List<PageInkRow>> inkRows(WidgetTester t, TestEnv env) async => (await t.runAsync(() => env.db.select(env.db.pageInk).get()))!;
 
 Future<void> startPen(WidgetTester t) async {
-  await t.tap(find.byKey(const Key('reader-more')));
-  await io(t, rounds: 2);
   await t.tap(find.byKey(const Key('reader-pen')));
   await io(t, rounds: 2);
 }
@@ -59,6 +57,18 @@ void main() {
       expect(decodeStrokes('[{"c":99,"w":0.004,"p":[0,0]},{"c":1,"w":0.004,"p":[0,0,1]},{"c":1,"w":0.004,"p":[0.5,2]}]').map((x) => x.points), [
         [0.5, 1.0],
       ], reason: 'bad colour and odd point count dropped; coordinates clamped');
+    });
+
+    test('erasing: touching a stroke removes it, far away leaves it; dots can be erased too', () {
+      const line = Stroke(0, 0.004, [0.1, 0.1, 0.5, 0.5]);
+      const dot = Stroke(1, 0.004, [0.8, 0.8]);
+      expect(strokeTouches(line, 0.3, 0.3), isTrue);
+      expect(strokeTouches(line, 0.3, 0.32), isTrue, reason: 'close counts');
+      expect(strokeTouches(line, 0.9, 0.1), isFalse);
+      expect(strokeTouches(line, 0.6, 0.6), isFalse, reason: 'beyond the end of the line');
+      expect(eraseAt([line, dot], 0.3, 0.3), [dot]);
+      expect(eraseAt([line, dot], 0.8, 0.8), [line]);
+      expect(eraseAt([line, dot], 0.0, 0.9), [line, dot]);
     });
 
     test('simplify drops points that are too close but keeps the ends', () {
@@ -155,6 +165,27 @@ void main() {
       await io(t, rounds: 2);
       expect(find.byKey(const Key('pen-bar')), findsNothing);
       expect(find.text('pen off'), findsOneWidget);
+    });
+
+    padTest('eraser: rubbing on a stroke removes only that stroke, elsewhere does nothing, Undo brings it back', (t) async {
+      final (env, _) = await openBook(t);
+      await startPen(t);
+      await t.tap(find.text('draw stroke'));
+      await io(t, rounds: 3);
+      await t.tap(find.text('draw stroke'));
+      await io(t, rounds: 3);
+      expect(find.text('ink {2: 2}'), findsOneWidget);
+      await t.tap(find.byKey(const Key('pen-eraser')));
+      await io(t, rounds: 2);
+      await t.tap(find.text('rub elsewhere'));
+      await io(t, rounds: 3);
+      expect(find.text('ink {2: 2}'), findsOneWidget);
+      await t.tap(find.text('rub on stroke'));
+      await io(t, rounds: 4);
+      expect(await inkRows(t, env), isEmpty, reason: 'both strokes were on the same line');
+      await t.tap(find.byKey(const Key('pen-undo')));
+      await io(t, rounds: 4);
+      expect(decodeStrokes((await inkRows(t, env)).single.strokes).length, 2);
     });
 
     padTest('Clear removes the drawings of the page you are on', (t) async {

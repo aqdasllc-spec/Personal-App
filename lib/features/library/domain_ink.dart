@@ -63,3 +63,27 @@ List<double> simplify(List<double> pts, {double minStep = 0.0015}) {
 /// Colour name of a pen colour (kept next to the palette so labels stay in sync).
 String penColorName(int i) => penColors[i].$1;
 
+
+/// Does the point (x, y), as fractions of the page, touch the stroke? [tol] is the reach around the line.
+bool strokeTouches(Stroke s, double x, double y, {double tol = 0.025}) {
+  final p = s.points;
+  final r = tol + s.width / 2;
+  if (p.length == 2) return (p[0] - x) * (p[0] - x) + (p[1] - y) * (p[1] - y) <= r * r;
+  for (var i = 0; i + 3 < p.length; i += 2) {
+    if (_segDist2(x, y, p[i], p[i + 1], p[i + 2], p[i + 3]) <= r * r) return true;
+  }
+  return false;
+}
+
+double _segDist2(double px, double py, double ax, double ay, double bx, double by) {
+  final dx = bx - ax, dy = by - ay;
+  final len2 = dx * dx + dy * dy;
+  var t = len2 == 0 ? 0.0 : ((px - ax) * dx + (py - ay) * dy) / len2;
+  t = t.clamp(0.0, 1.0);
+  final cx = ax + t * dx - px, cy = ay + t * dy - py;
+  return cx * cx + cy * cy;
+}
+
+/// The strokes left after rubbing out at (x, y).
+List<Stroke> eraseAt(List<Stroke> strokes, double x, double y, {double tol = 0.025}) =>
+    [for (final s in strokes) if (!strokeTouches(s, x, y, tol: tol)) s];

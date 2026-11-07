@@ -212,6 +212,7 @@ class _PdfViewState extends State<_PdfView> {
         child: InkCapture(
           pen: widget.control.pen.value,
           onStroke: (s) => widget.control.onStroke?.call(page.pageNumber, s),
+          onErase: (x, y) => widget.control.onErase?.call(page.pageNumber, x, y),
         ),
       ),
     ];
@@ -336,9 +337,10 @@ void paintStroke(ui.Canvas canvas, Rect pageRect, Stroke s) {
 
 /// Catches a drag over a page and reports it as a stroke (also shows the line while it is being drawn).
 class InkCapture extends StatefulWidget {
-  const InkCapture({super.key, required this.pen, required this.onStroke});
+  const InkCapture({super.key, required this.pen, required this.onStroke, this.onErase});
   final PenState pen;
   final void Function(Stroke stroke) onStroke;
+  final void Function(double x, double y)? onErase;
   @override
   State<InkCapture> createState() => _InkCaptureState();
 }
@@ -349,6 +351,10 @@ class _InkCaptureState extends State<InkCapture> {
 
   void _add(Offset o) {
     if (_size.isEmpty) return;
+    if (widget.pen.erase) {
+      widget.onErase?.call((o.dx / _size.width).clamp(0.0, 1.0), (o.dy / _size.height).clamp(0.0, 1.0));
+      return;
+    }
     setState(() {
       _pts
         ..add((o.dx / _size.width).clamp(0.0, 1.0))

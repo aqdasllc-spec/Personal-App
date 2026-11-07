@@ -12,6 +12,8 @@ import 'package:folio/features/library/application/library_controller.dart';
 import 'package:folio/features/library/application/reader_prefs.dart';
 import 'package:folio/features/library/application/ocr_controller.dart';
 import 'package:folio/features/library/data/ocr.dart';
+import 'package:folio/features/library/data/speech.dart';
+import 'package:folio/features/library/application/read_aloud.dart';
 import 'package:folio/features/library/domain_highlights.dart';
 import 'package:folio/features/library/domain_ink.dart';
 import 'package:folio/features/library/data/cloud_books.dart';
@@ -191,6 +193,31 @@ class FakeRecognizer implements PageRecognizer {
   Future<void> close() async {}
 }
 
+class FakeSpeechEngine implements SpeechEngine {
+  final spoken = <String>[];
+  final rates = <double>[];
+  int stops = 0;
+  @override
+  Future<void> speak(String text) async {
+    spoken.add(text);
+    await Future<void>.delayed(Duration.zero);
+  }
+
+  @override
+  Future<void> stop() async => stops++;
+  @override
+  Future<void> setRate(double f) async => rates.add(f);
+  @override
+  Future<void> dispose() async {}
+}
+
+class FakePageTexts implements PageTextReader {
+  FakePageTexts(this.pages);
+  final Map<int, String> pages;
+  @override
+  Future<String?> textOf(File pdf, int page) async => pages[page];
+}
+
 class FakeQuickActions implements QuickActionsPort {
   List<QuickAction> items = const [];
   void Function(String)? tap;
@@ -243,6 +270,10 @@ class TestEnv {
   bool? probeResult = true;
   FakeRecognizer? recognizer;
   final quick = FakeQuickActions();
+  final speech = FakeSpeechEngine();
+
+  /// What the voice finds on each page of a book that has real text.
+  final pageTexts = <int, String>{1: 'First page text.', 2: 'Second page text.', 3: 'Third page text.'};
   final awake = <bool>[];
 
   /// Pages the reader was asked to jump to (bookmarks).
@@ -275,6 +306,8 @@ class TestEnv {
         coverRendererProvider.overrideWithValue(covers),
         readerSystemProvider.overrideWithValue(readerSystem),
         quickActionsProvider.overrideWithValue(quick),
+        speechEngineProvider.overrideWithValue(speech),
+        pageTextReaderProvider.overrideWithValue(FakePageTexts(pageTexts)),
         textProbeProvider.overrideWithValue(FakeProbe(probeResult)),
         pageRecognizerProvider.overrideWithValue(recognizer),
         screenAwakeProvider.overrideWithValue(awake.add),
@@ -310,7 +343,7 @@ class TestEnv {
             searches.add('<stop>');
             control.search.value = const ReaderSearch();
           };
-          return Column(children: [
+          return SingleChildScrollView(child: Column(children: [
             Text('PDF view page $initial'),
             TextButton(onPressed: () => onPage(7), child: const Text('go to page 7')),
             TextButton(onPressed: () => control.onZoneTap?.call(TapZone.left), child: const Text('tap left')),
@@ -326,13 +359,15 @@ class TestEnv {
               onPressed: () => control.onStroke?.call(2, Stroke(control.pen.value.color, penWidths[control.pen.value.width].$2, const [0.1, 0.1, 0.5, 0.5])),
               child: const Text('draw stroke'),
             ),
+            TextButton(onPressed: () => control.onErase?.call(2, 0.3, 0.3), child: const Text('rub on stroke')),
+            TextButton(onPressed: () => control.onErase?.call(2, 0.9, 0.1), child: const Text('rub elsewhere')),
             ValueListenableBuilder(
               valueListenable: control.ink,
               builder: (_, v, _) => Text('ink ${{for (final e in v.entries) if (e.value.isNotEmpty) e.key: e.value.length}}'),
             ),
             ValueListenableBuilder(valueListenable: control.pen, builder: (_, v, _) => Text('pen ${v.on ? 'on' : 'off'}')),
             ValueListenableBuilder(valueListenable: control.highlights, builder: (_, v, _) => Text('painting ${v.length} highlights')),
-          ]);
+          ]));
         }),
       ];
 

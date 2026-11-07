@@ -11,6 +11,7 @@ import '../data/library_repository.dart';
 import '../domain_highlights.dart';
 import 'reader_prefs.dart';
 import '../domain_ink.dart';
+import '../domain_smart_views.dart';
 import '../domain_tag_colors.dart';
 import '../domain_tags.dart';
 import '../data/pdf_inspector.dart';
@@ -69,6 +70,7 @@ class ReaderControl {
   final pen = ValueNotifier<PenState>(const PenState());
   final ink = ValueNotifier<Map<int, List<Stroke>>>(const {});
   Future<void> Function(int page, Stroke stroke)? onStroke;
+  Future<void> Function(int page, double x, double y)? onErase;
 
   // recognised text of scanned pages: boxes to highlight (search hits)
   final ocrBoxes = ValueNotifier<List<OcrHit>>(const []);
@@ -80,17 +82,22 @@ class ReaderControl {
 
 enum TapZone { left, center, right }
 
-/// The pen tool: on/off, colour (index in [penColors]) and width (index in [penWidths]).
+/// The pen tool: on/off, colour (index in [penColors]), width (index in [penWidths]) and eraser mode.
 class PenState {
-  const PenState({this.on = false, this.color = 0, this.width = 1});
-  final bool on;
+  const PenState({this.on = false, this.color = 0, this.width = 1, this.erase = false});
+  final bool on, erase;
   final int color, width;
-  PenState copyWith({bool? on, int? color, int? width}) =>
-      PenState(on: on ?? this.on, color: color ?? this.color, width: width ?? this.width);
+  PenState copyWith({bool? on, int? color, int? width, bool? erase}) => PenState(
+    on: on ?? this.on,
+    color: color ?? this.color,
+    width: width ?? this.width,
+    erase: erase ?? this.erase,
+  );
   @override
-  bool operator ==(Object other) => other is PenState && other.on == on && other.color == color && other.width == width;
+  bool operator ==(Object other) =>
+      other is PenState && other.on == on && other.color == color && other.width == width && other.erase == erase;
   @override
-  int get hashCode => Object.hash(on, color, width);
+  int get hashCode => Object.hash(on, color, width, erase);
 }
 
 /// One search hit on a scanned page: the page and the line's rectangle as fractions (0..1) of the page.
@@ -303,6 +310,14 @@ class LibraryUiController extends Notifier<LibraryUi> {
             }
           : {...state.tags, tag},
     );
+  }
+
+  /// Shows the books a saved view describes.
+  void applyView(SmartView v) {
+    final status = ReadStatus.values.where((x) => x.name == v.status).firstOrNull ?? ReadStatus.all;
+    final sort = LibrarySort.values.where((x) => x.name == v.sort).firstOrNull;
+    state = state.copyWith(status: status, tags: {...v.tags}, sort: sort);
+    if (sort != null) _save(_sortKey, sort.name);
   }
 
   void clearFilters() =>
@@ -582,3 +597,48 @@ class TagColors extends Notifier<Map<String, int>> {
 final tagColorsProvider = NotifierProvider<TagColors, Map<String, int>>(
   TagColors.new,
 );
+
+/// Saved Library views ("smart collections"). Remembered on this device.
+class SmartViews extends Notifier<List<SmartView>> {
+  static const key = 'smart_views';
+  @override
+  List<SmartView> build() {
+    Future.microtask(() async {
+      try {
+        final v = decodeViews(await ref.read(syncedStoreProvider).state(key));
+        if (v.isNotEmpty && state.isEmpty) state = v;
+      } catch (_) {}
+    });
+    return const [];
+  }
+
+  void _save() {
+    try {
+      ref.read(syncedStoreProvider).setState(key, encodeViews(state));
+    } catch (_) {}
+  }
+
+  /// Saves what the Library currently shows (status, tags, sort) under [name].
+  void saveCurrent(String name, LibraryUi ui) {
+    if (name.trim().isEmpty) return;
+    state = withView(state, SmartView(name: name, status: ui.status.name, tags: ui.tags.toList(), sort: ui.sort.name));
+    _save();
+  }
+
+  void remove(String name) {
+    state = [for (final v in state) if (v.name != name) v];
+    _save();
+  }
+
+  void tagRenamed(String from, String to) {
+    state = renameTagInViews(state, from, to);
+    _save();
+  }
+
+  void tagDeleted(String tag) {
+    state = dropTagFromViews(state, tag);
+    _save();
+  }
+}
+
+final smartViewsProvider = NotifierProvider<SmartViews, List<SmartView>>(SmartViews.new);

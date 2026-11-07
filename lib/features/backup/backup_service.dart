@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 
 import '../../data/local/app_database.dart';
 import '../../data/sync/synced_store.dart';
+import '../library/domain_tag_colors.dart';
 import 'backup_crypto.dart';
 
 class BackupException implements Exception {
@@ -133,7 +134,9 @@ class BackupService {
     final highlights = await _db.select(_db.highlights).get();
     final pageTexts = await _db.select(_db.pageTexts).get();
     final ink = await _db.select(_db.pageInk).get();
+    final tagColors = await _store.state('tag_colors');
     final data = jsonEncode({
+      'tagColors': tagColors ?? '{}',
       'pageInk': [for (final t in ink) t.toJson()],
       'pageTexts': [for (final t in pageTexts) t.toJson()],
       'highlights': [for (final h in highlights) h.toJson()],
@@ -446,6 +449,15 @@ class BackupService {
       final t = PageTextRow.fromJson(j);
       if (!restoredIds.contains(t.bookId)) continue;
       await _db.into(_db.pageTexts).insertOnConflictUpdate(t);
+    }
+    // tag colours: kept where this device already chose one
+    final restoredColors = decodeTagColors(data['tagColors'] as String?);
+    if (restoredColors.isNotEmpty) {
+      final mine = decodeTagColors(await _store.state('tag_colors'));
+      await _store.setState(
+        'tag_colors',
+        encodeTagColors({...restoredColors, ...mine}),
+      );
     }
     for (final j in list('pageInk')) {
       final t = PageInkRow.fromJson(j);

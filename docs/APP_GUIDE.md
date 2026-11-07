@@ -14,23 +14,26 @@ Everything works offline. Signing in only adds syncing between your devices.
 - **Add PDFs** (the + button). Same file twice is detected.
 - **Shelves**: group books; the pen next to a shelf = *edit shelf* (books wiggle; drag them left/right to reorder).
 - **Tag colours**: Sort and filter → Tags → Manage → tap the circle by a tag to give it one of 8 colours; a coloured dot then shows on the filter chips and the book preview.
-- **Search**, **Sort and filter** (recent, title, author, status, tags). **Select several books** (checklist icon) to tag, move, favourite or remove many at once.
+- **Sort and filter** (recent, title, author, status, tags) and **Saved views**: pick a status and tags, tap *Save this view*, give it a name; tap the view later to bring those filters back (long-lived, up to 20).
+- **Search**,  **Select several books** (checklist icon) to tag, move, favourite or remove many at once.
 - **Long-press / hover** a book for a preview (first page, progress, tags).
 - Cloud dot on a book: red = only on this device, green = also in your cloud (Sync / Unsync).
 - Removed books wait **30 days** in Settings → Storage → Recently removed.
 
 ## Reading (open a book)
+**Top bar:** title with the page number, **Search**, **Aa** (reading look), **⋮** (more).
+**Bottom:** the page slider, then four tools: **Contents** (bookmarks and highlights), **Bookmark**, **Draw**, **Listen**.
+
 | You want to… | Do this |
 |---|---|
 | Turn the page | Tap the left/right edge of the page, or swipe/scroll |
 | Hide the bars (immersive) | Tap the middle of the page |
-| Jump anywhere | Drag the page slider at the bottom |
-| Change look | **Aa** button: colour scheme (Original, Paper, Sepia, Night, Black), Dim, Warm light |
-| Page by page sideways | **Aa** → Scroll: Sideways |
-| Lock orientation / keep screen on | **Aa** → Orientation, Keep screen on |
-| Search the text | Magnifier at the top |
-| Bookmark / highlight | Bookmark icon / select text → Highlight; the list icon shows both, with notes and export |
-| Draw or write on a page | ⋮ menu → **Draw with a pen**: pick colour and thickness, draw with a finger or stylus, Undo, Clear page, Done. Zoom and scrolling are off while the pen is on |
+| Jump anywhere | Drag the page slider |
+| Change look | **Aa**: colour scheme (Original, Paper, Sepia, Night, Black), Dim, Warm light, sideways paging, orientation lock, keep screen on |
+| Search the text | **Search** (magnifier) |
+| Bookmark | **Bookmark** tool; highlights: select text → Highlight; **Contents** lists both, with notes and export |
+| Draw or write on a page | **Draw**: pick colour and thickness, draw with a finger or stylus; **Eraser** removes a stroke you touch; Undo; Clear page; Done. Zoom and scrolling are off while the pen is on |
+| Have it read aloud | **Listen**: reads from this page and turns pages by itself. Pause/Play, speed (0.75x to 2x), close. Uses your phone's voice. Scans are read from the recognised text; a scan that is not made searchable yet says so |
 | Scanned or handwritten PDF | See below |
 
 ### Scanned and handwritten PDFs
@@ -48,11 +51,11 @@ Everything works offline. Signing in only adds syncing between your devices.
 ## Settings
 - **Account & sync**, **App lock** (fingerprint / PIN), **Rotation**. Light and dark follow your phone.
 - **Storage**: space used, recently removed books.
-- **Backup**: save everything (books, notes, highlights, scanned-page text) to a file; restore it later.
+- **Backup**: save everything (books, notes, highlights, drawings, tag colours, scanned-page text) to a file; restore it later.
 - **Help**: replay the welcome tour, gesture cheat-sheet.
 
 ## App-icon shortcuts (Android)
 Press and hold the Folio icon: **Continue reading**, **Add a task**, **Planner: today**, **Library**.
 
 ---
-Not built yet: eraser for single strokes, exporting drawings into a PDF, smart collections, a Windows/macOS text-recogniser.
+Not built yet: exporting drawings into a PDF, choosing a particular voice, a Windows/macOS text-recogniser, syncing drawings / tag colours / saved views between devices.
