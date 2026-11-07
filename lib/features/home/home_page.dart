@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/quick_actions.dart';
 import '../../app/router.dart';
 import '../../data/local/app_database.dart';
 import '../../design_system/components.dart';
@@ -145,8 +146,10 @@ class _QuickAdd extends ConsumerStatefulWidget {
 
 class _QuickAddState extends ConsumerState<_QuickAdd> {
   final _c = TextEditingController();
+  final _focus = FocusNode();
   @override
   void dispose() {
+    _focus.dispose();
     _c.dispose();
     super.dispose();
   }
@@ -161,9 +164,21 @@ class _QuickAddState extends ConsumerState<_QuickAdd> {
   }
 
   @override
-  Widget build(BuildContext context) => TextField(
+  Widget build(BuildContext context) {
+    // "Add a task" from the app-icon shortcut: put the cursor here
+    ref.listen(focusQuickAddProvider, (_, _) {
+      // the Home tab may still be switching in: ask again a moment later
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (mounted) _focus.requestFocus();
+      });
+    });
+    return _field();
+  }
+
+  Widget _field() => TextField(
     key: const Key('home-quick-add'),
     controller: _c,
+    focusNode: _focus,
     textInputAction: TextInputAction.done,
     onSubmitted: (_) => _submit(),
     decoration: InputDecoration(
@@ -373,7 +388,10 @@ class _ReadingCard extends ConsumerWidget {
               initialValue: mine ? 'mine' : 'recent',
               onSelected: ref.read(homeReadingOrderProvider.notifier).set,
               itemBuilder: (_) => const [
-                PopupMenuItem(value: 'recent', child: Text('Recently read first')),
+                PopupMenuItem(
+                  value: 'recent',
+                  child: Text('Recently read first'),
+                ),
                 PopupMenuItem(value: 'mine', child: Text('My order')),
               ],
             ),

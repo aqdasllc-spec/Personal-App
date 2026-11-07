@@ -135,7 +135,7 @@ class SettingsPage extends ConsumerWidget {
         _Section('Backup', const [BackupTiles()]),
         _Section('Storage', const [StorageTiles()]),
         _Section('Help', const [HelpTiles()]),
-      _Section('Security', [
+        _Section('Security', [
           SwitchListTile(
             title: const Text('App lock'),
             subtitle: const Text(

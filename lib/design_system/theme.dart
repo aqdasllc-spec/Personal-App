@@ -26,10 +26,28 @@ ThemeData buildTheme(Brightness b) {
     outline: c.border,
     onSurfaceVariant: c.textMuted,
   );
-  TextStyle ui(double size, double h, {FontWeight w = FontWeight.w400, Color? color}) => TextStyle(
-      fontFamily: _sans, fontFamilyFallback: _sansFallback, fontSize: size, height: h / size, fontWeight: w, color: color ?? c.text);
+  TextStyle ui(
+    double size,
+    double h, {
+    FontWeight w = FontWeight.w400,
+    Color? color,
+  }) => TextStyle(
+    fontFamily: _sans,
+    fontFamilyFallback: _sansFallback,
+    fontSize: size,
+    height: h / size,
+    fontWeight: w,
+    color: color ?? c.text,
+  );
   TextStyle display(double size, double h) => TextStyle(
-      fontFamily: _serif, fontFamilyFallback: _serifFallback, fontSize: size, height: h / size, fontWeight: FontWeight.w600, letterSpacing: -.2, color: c.text);
+    fontFamily: _serif,
+    fontFamilyFallback: _serifFallback,
+    fontSize: size,
+    height: h / size,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -.2,
+    color: c.text,
+  );
 
   return ThemeData(
     useMaterial3: true,
@@ -52,14 +70,26 @@ ThemeData buildTheme(Brightness b) {
       color: c.surface,
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.card), side: BorderSide(color: c.border)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Radii.card),
+        side: BorderSide(color: c.border),
+      ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: c.bg,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.input), borderSide: BorderSide(color: c.border)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.input), borderSide: BorderSide(color: c.border)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.input), borderSide: BorderSide(color: c.accent, width: 2)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(Radii.input),
+        borderSide: BorderSide(color: c.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(Radii.input),
+        borderSide: BorderSide(color: c.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(Radii.input),
+        borderSide: BorderSide(color: c.accent, width: 2),
+      ),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
@@ -69,8 +99,14 @@ ThemeData buildTheme(Brightness b) {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     ),
-    navigationBarTheme: NavigationBarThemeData(backgroundColor: c.surface, indicatorColor: c.accentSoft),
-    navigationRailTheme: NavigationRailThemeData(backgroundColor: c.surface, indicatorColor: c.accentSoft),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: c.surface,
+      indicatorColor: c.accentSoft,
+    ),
+    navigationRailTheme: NavigationRailThemeData(
+      backgroundColor: c.surface,
+      indicatorColor: c.accentSoft,
+    ),
     dividerTheme: DividerThemeData(color: c.border, space: 1, thickness: 1),
   );
 }

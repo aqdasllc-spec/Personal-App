@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +9,11 @@ import '../../../design_system/components.dart';
 import '../../../data/local/app_database.dart';
 import '../application/export_notes.dart';
 import '../application/library_controller.dart';
+import '../application/ocr_controller.dart';
+import '../domain_ocr.dart';
+import '../application/reader_prefs.dart';
+import '../../settings/rotation.dart';
+import 'reader_settings_sheet.dart';
 import '../domain_highlights.dart';
 
 /// Full-screen PDF reader. Remembers the page you were on.
@@ -26,10 +32,31 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   final _searchCtl = TextEditingController();
   Timer? _searchDebounce;
   bool _searching = false;
+  bool _immersive = false;
+  late final ProviderContainer _container;
+  late final _system = ref.read(readerSystemProvider);
+  late final _awake = ref.read(screenAwakeProvider);
+  late final _ocr = OcrRunner(
+    _repo,
+    ref.read(pageRecognizerProvider),
+    ref.read(textProbeProvider),
+  );
+  String _textState = 'unknown';
+  bool _probed = false;
+  List<OcrMatch> _hits = const [];
+  int _hitIndex = -1;
+  String _hitQuery = '';
 
   @override
   void initState() {
     super.initState();
+    _container = ProviderScope.containerOf(context, listen: false);
+    _control.prefs.value = ref.read(readerPrefsProvider);
+    _control.onZoneTap = _onZone;
+    _ocr.progress.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _applySystem(_control.prefs.value);
     Future.microtask(() => _repo.markOpened(widget.bookId));
     _control.onHighlight = (d) async {
       await _repo.addHighlight(widget.bookId, d);
@@ -48,6 +75,37 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     };
   }
 
+  /// Orientation lock and screen-on follow the reading settings.
+  void _applySystem(ReaderPrefs p) {
+    _system.setOrientation(p.orientation);
+    _awake(p.keepAwake);
+  }
+
+  void _setImmersive(bool on) {
+    setState(() => _immersive = on);
+    _system.setImmersive(on);
+  }
+
+  void _onZone(TapZone zone) {
+    final prefs = _control.prefs.value;
+    if (zone == TapZone.center || !prefs.tapTurn) {
+      if (zone == TapZone.center) _setImmersive(!_immersive);
+      return;
+    }
+    final total =
+        ref
+            .read(booksProvider)
+            .value
+            ?.where((b) => b.id == widget.bookId)
+            .firstOrNull
+            ?.pageCount ??
+        0;
+    final cur = _page ?? 1;
+    final target = zone == TapZone.right ? cur + 1 : cur - 1;
+    if (target < 1 || (total > 0 && target > total)) return;
+    _control.goTo?.call(target);
+  }
+
   void _onPage(int page) {
     setState(() => _page = page);
     _debounce?.cancel();
@@ -63,17 +121,80 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     _debounce?.cancel();
     _searchDebounce?.cancel();
     _searchCtl.dispose();
+    _ocr.dispose();
     final p = _page;
     if (p != null) _repo.saveProgress(widget.bookId, p);
+    // give the phone back to the app's own settings
+    _awake(false);
+    _system.setImmersive(false);
+    _container
+        .read(orientationLockProvider)
+        .apply(_container.read(rotationProvider));
     super.dispose();
   }
 
   void _openSearch() => setState(() => _searching = true);
 
+  /// Scanned books are searched in the text we read off the pages; others in the PDF's own text.
+  bool get _useOcr => _textState == 'scanned' || _textState == 'ocr';
+
+  Future<void> _startSearch(String q) async {
+    if (!_useOcr) {
+      _control.startSearch?.call(q);
+      return;
+    }
+    final query = q.trim();
+    _hitQuery = query;
+    if (query.isEmpty) {
+      _clearOcrSearch();
+      return;
+    }
+    final pages = await _repo.pageTexts(widget.bookId);
+    if (!mounted || _hitQuery != query) return;
+    _hits = searchPages(pages, query);
+    _hitIndex = _hits.isEmpty ? -1 : 0;
+    _publishOcr();
+    if (_hits.isNotEmpty) _control.goTo?.call(_hits[0].page);
+  }
+
+  void _publishOcr() {
+    _control.search.value = ReaderSearch(
+      query: _hitQuery,
+      count: _hits.length,
+      index: _hitIndex < 0 ? null : _hitIndex,
+    );
+    final h = _hitIndex < 0 ? null : _hits[_hitIndex];
+    _control.ocrBoxes.value = [
+      if (h != null)
+        OcrHit(h.page, h.line.left, h.line.top, h.line.right, h.line.bottom),
+    ];
+  }
+
+  void _clearOcrSearch() {
+    _hits = const [];
+    _hitIndex = -1;
+    _hitQuery = '';
+    _control.ocrBoxes.value = const [];
+    _control.search.value = const ReaderSearch();
+  }
+
+  void _step(int d) {
+    if (!_useOcr) {
+      d > 0 ? _control.nextMatch?.call() : _control.prevMatch?.call();
+      return;
+    }
+    if (_hits.isEmpty) return;
+    _hitIndex = (_hitIndex + d) % _hits.length;
+    if (_hitIndex < 0) _hitIndex += _hits.length;
+    _publishOcr();
+    _control.goTo?.call(_hits[_hitIndex].page);
+  }
+
   void _closeSearch() {
     _searchDebounce?.cancel();
     _searchCtl.clear();
     _control.stopSearch?.call();
+    _clearOcrSearch();
     setState(() => _searching = false);
   }
 
@@ -81,7 +202,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(
       const Duration(milliseconds: 400),
-      () => _control.startSearch?.call(q),
+      () => _startSearch(q),
     );
   }
 
@@ -100,9 +221,9 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       _searchDebounce?.cancel();
       if (_control.search.value.query == q.trim() &&
           _control.search.value.count > 0) {
-        _control.nextMatch?.call();
+        _step(1);
       } else {
-        _control.startSearch?.call(q);
+        _startSearch(q);
       }
     },
   );
@@ -129,13 +250,13 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
               key: const Key('reader-search-prev'),
               tooltip: 'Previous match',
               icon: const Icon(Icons.keyboard_arrow_up),
-              onPressed: s.count == 0 ? null : () => _control.prevMatch?.call(),
+              onPressed: s.count == 0 ? null : () => _step(-1),
             ),
             IconButton(
               key: const Key('reader-search-next'),
               tooltip: 'Next match',
               icon: const Icon(Icons.keyboard_arrow_down),
-              onPressed: s.count == 0 ? null : () => _control.nextMatch?.call(),
+              onPressed: s.count == 0 ? null : () => _step(1),
             ),
           ],
         );
@@ -149,8 +270,202 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     ),
   ];
 
+  double? _scrub;
+
+  /// Drag to jump through the book (like an e-reader's progress bar).
+  Widget _pageBar(int current, int total) {
+    final shown = (_scrub ?? current.toDouble()).clamp(1.0, total.toDouble());
+    return Material(
+      key: const Key('reader-pagebar'),
+      color: Theme.of(context).colorScheme.surface,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 52,
+          child: Row(
+            children: [
+              const SizedBox(width: 16),
+              Text('${shown.round()}', key: const Key('reader-scrub-label')),
+              Expanded(
+                child: Slider(
+                  key: const Key('reader-slider'),
+                  min: 1,
+                  max: total.toDouble(),
+                  divisions: total - 1,
+                  value: shown,
+                  label: '${shown.round()}',
+                  semanticFormatterCallback: (v) =>
+                      'Page ${v.round()} of $total',
+                  onChanged: (v) => setState(() => _scrub = v),
+                  onChangeEnd: (v) {
+                    setState(() => _scrub = null);
+                    _control.goTo?.call(v.round());
+                  },
+                ),
+              ),
+              Text('$total'),
+              const SizedBox(width: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _startOcr(BookRow book) {
+    _ocr.run(book.id, _repo.fileOf(book), book.pageCount);
+  }
+
+  /// Offer to make a scan searchable, or show how far the reading has got.
+  Widget? _ocrBanner(BookRow book) {
+    if (_textState != 'scanned' && !_ocr.progress.value.running) return null;
+    final pr = _ocr.progress.value;
+    final scheme = Theme.of(context).colorScheme;
+    final Widget content;
+    if (pr.running) {
+      content = Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Reading page ${pr.done} of ${pr.total}…',
+                  key: const Key('ocr-progress'),
+                ),
+                const SizedBox(height: 6),
+                LinearProgressIndicator(
+                  value: pr.total == 0 ? null : pr.done / pr.total,
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            key: const Key('ocr-stop'),
+            onPressed: _ocr.stop,
+            child: const Text('Stop'),
+          ),
+        ],
+      );
+    } else if (!_ocr.supported) {
+      content = const Text(
+        'This looks like a scan. Making it searchable works on phones and tablets.',
+      );
+    } else {
+      content = Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'This looks like a scan, so search can\'t see its text yet.',
+            ),
+          ),
+          FilledButton(
+            key: const Key('ocr-start'),
+            onPressed: () => _startOcr(book),
+            child: const Text('Make searchable'),
+          ),
+        ],
+      );
+    }
+    return Material(
+      key: const Key('ocr-banner'),
+      color: scheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: content,
+      ),
+    );
+  }
+
+  Future<void> _showPageText(BookRow book, int page) async {
+    final row = await _repo.pageText(book.id, page);
+    if (!mounted) return;
+    final text = row?.body.trim() ?? '';
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Text of page $page',
+                style: Theme.of(ctx).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    text.isEmpty
+                        ? 'No text was found on this page. Handwriting and very faint scans are often not recognised.'
+                        : text,
+                    key: const Key('page-text'),
+                  ),
+                ),
+              ),
+              if (text.isNotEmpty)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    key: const Key('page-text-copy'),
+                    icon: const Icon(Icons.copy, size: 18),
+                    label: const Text('Copy'),
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: text));
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The page with the chosen colour scheme, dimming and warm tint on top.
+  Widget _pageArea(BuildContext context, Widget view) {
+    final p = ref.watch(readerPrefsProvider);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ColorFiltered(
+          key: const Key('reader-filter'),
+          colorFilter:
+              p.theme.filter ??
+              const ColorFilter.mode(Colors.transparent, BlendMode.dst),
+          child: view,
+        ),
+        if (p.warmth > 0)
+          IgnorePointer(
+            child: ColoredBox(
+              key: const Key('reader-warm-overlay'),
+              color: const Color(0xFFFFA33A).withValues(alpha: p.warmth * 0.30),
+            ),
+          ),
+        if (p.dim > 0)
+          IgnorePointer(
+            child: ColoredBox(
+              key: const Key('reader-dim-overlay'),
+              color: Colors.black.withValues(alpha: p.dim),
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // reading settings changed: tell the PDF view and the phone
+    ref.listen<ReaderPrefs>(readerPrefsProvider, (prev, next) {
+      _control.prefs.value = next;
+      _applySystem(next);
+    });
     final repo = ref.watch(libraryRepositoryProvider);
     final book = ref
         .watch(booksProvider)
@@ -168,6 +483,11 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       );
     }
     final file = repo.fileOf(book);
+    _textState = book.textState;
+    if (!_probed && _textState == 'unknown' && file.existsSync()) {
+      _probed = true;
+      _ocr.probeBook(book.id, book.textState, file);
+    }
     final current = _page ?? (book.lastPage < 1 ? 1 : book.lastPage);
     final marks =
         ref.watch(bookmarksProvider(book.id)).value ?? const <BookmarkRow>[];
@@ -181,66 +501,131 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       });
     }
     return Scaffold(
-      appBar: AppBar(
-        title: _searching
-            ? _searchTitle()
-            : Text(book.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        actions: _searching
-            ? _searchActions()
-            : [
-                IconButton(
-                  key: const Key('reader-search'),
-                  tooltip: 'Search in this PDF',
-                  icon: const Icon(Icons.search),
-                  onPressed: _openSearch,
-                ),
-                IconButton(
-                  key: const Key('reader-bookmark'),
-                  tooltip: marked
-                      ? 'Remove bookmark from this page'
-                      : 'Bookmark this page',
-                  icon: Icon(marked ? Icons.bookmark : Icons.bookmark_border),
-                  onPressed: () => _repo.toggleBookmark(book.id, current),
-                ),
-                IconButton(
-                  key: const Key('reader-bookmarks'),
-                  tooltip: 'Bookmarks',
-                  icon: Badge(
-                    isLabelVisible: marks.isNotEmpty || highlights.isNotEmpty,
-                    label: Text('${marks.length + highlights.length}'),
-                    child: const Icon(Icons.list_alt),
-                  ),
-                  onPressed: () => showModalBottomSheet<void>(
-                    context: context,
-                    showDragHandle: true,
-                    isScrollControlled: true,
-                    builder: (_) => _MarksSheet(
-                      book: book,
-                      bookId: book.id,
-                      current: current,
-                      onJump: (p) => _control.goTo?.call(p),
+      appBar: _immersive
+          ? null
+          : AppBar(
+              title: _searching
+                  ? _searchTitle()
+                  : Text(
+                      book.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ),
-                if (book.pageCount > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 16),
-                    child: Center(
-                      child: Text(
-                        '${_page ?? (book.lastPage < 1 ? 1 : book.lastPage)} / ${book.pageCount}',
-                        key: const Key('reader-page'),
+              actions: _searching
+                  ? _searchActions()
+                  : [
+                      IconButton(
+                        key: const Key('reader-search'),
+                        tooltip: 'Search in this PDF',
+                        icon: const Icon(Icons.search),
+                        onPressed: _openSearch,
                       ),
+                      IconButton(
+                        key: const Key('reader-settings'),
+                        tooltip: 'Reading settings',
+                        icon: const Icon(Icons.text_fields),
+                        onPressed: () => showModalBottomSheet<void>(
+                          context: context,
+                          showDragHandle: true,
+                          isScrollControlled: true,
+                          builder: (_) => const ReaderSettingsSheet(),
+                        ),
+                      ),
+                      PopupMenuButton<String>(
+                        key: const Key('reader-more'),
+                        tooltip: 'More',
+                        onSelected: (v) {
+                          if (v == 'ocr') _startOcr(book);
+                          if (v == 'redo') {
+                            _repo.clearPageTexts(book.id).then((_) {
+                              if (mounted) _startOcr(book);
+                            });
+                          }
+                          if (v == 'text') _showPageText(book, current);
+                        },
+                        itemBuilder: (_) => [
+                          if (_ocr.supported && _textState != 'ocr')
+                            const PopupMenuItem(
+                              value: 'ocr',
+                              child: Text(
+                                'Make searchable (scans, handwriting)',
+                              ),
+                            ),
+                          if (_ocr.supported && _textState == 'ocr')
+                            const PopupMenuItem(
+                              value: 'redo',
+                              child: Text('Read the pages again'),
+                            ),
+                          if (_useOcr)
+                            const PopupMenuItem(
+                              value: 'text',
+                              child: Text('Text of this page'),
+                            ),
+                        ],
+                      ),
+                      IconButton(
+                        key: const Key('reader-bookmark'),
+                        tooltip: marked
+                            ? 'Remove bookmark from this page'
+                            : 'Bookmark this page',
+                        icon: Icon(
+                          marked ? Icons.bookmark : Icons.bookmark_border,
+                        ),
+                        onPressed: () => _repo.toggleBookmark(book.id, current),
+                      ),
+                      IconButton(
+                        key: const Key('reader-bookmarks'),
+                        tooltip: 'Bookmarks',
+                        icon: Badge(
+                          isLabelVisible:
+                              marks.isNotEmpty || highlights.isNotEmpty,
+                          label: Text('${marks.length + highlights.length}'),
+                          child: const Icon(Icons.list_alt),
+                        ),
+                        onPressed: () => showModalBottomSheet<void>(
+                          context: context,
+                          showDragHandle: true,
+                          isScrollControlled: true,
+                          builder: (_) => _MarksSheet(
+                            book: book,
+                            bookId: book.id,
+                            current: current,
+                            onJump: (p) => _control.goTo?.call(p),
+                          ),
+                        ),
+                      ),
+                      if (book.pageCount > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 16),
+                          child: Center(
+                            child: Text(
+                              '${_page ?? (book.lastPage < 1 ? 1 : book.lastPage)} / ${book.pageCount}',
+                              key: const Key('reader-page'),
+                            ),
+                          ),
+                        ),
+                    ],
+            ),
+      bottomNavigationBar: _immersive || book.pageCount < 2
+          ? null
+          : _pageBar(current, book.pageCount),
+      body: file.existsSync()
+          ? Column(
+              children: [
+                ?_ocrBanner(book),
+                Expanded(
+                  child: _pageArea(
+                    context,
+                    ref.read(pdfViewBuilderProvider)(
+                      context,
+                      file,
+                      book.lastPage,
+                      _onPage,
+                      _control,
                     ),
                   ),
+                ),
               ],
-      ),
-      body: file.existsSync()
-          ? ref.read(pdfViewBuilderProvider)(
-              context,
-              file,
-              book.lastPage,
-              _onPage,
-              _control,
             )
           : const EmptyState(
               icon: Icons.broken_image_outlined,
@@ -296,14 +681,26 @@ class _MarksSheet extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   child: Row(
                     children: [
-                      const Expanded(child: Text('Export your notes', style: TextStyle(fontWeight: FontWeight.w600))),
+                      const Expanded(
+                        child: Text(
+                          'Export your notes',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
                       TextButton.icon(
                         key: const Key('export-copy'),
                         icon: const Icon(Icons.copy, size: 18),
                         label: const Text('Copy'),
                         onPressed: () async {
-                          final m = await exportBookNotes(ref, book, copy: true);
-                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+                          final m = await exportBookNotes(
+                            ref,
+                            book,
+                            copy: true,
+                          );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context)
+                                .showSnackBar(SnackBar(content: Text(m)));
+                          }
                         },
                       ),
                       TextButton.icon(
@@ -311,8 +708,15 @@ class _MarksSheet extends ConsumerWidget {
                         icon: const Icon(Icons.ios_share, size: 18),
                         label: const Text('Share'),
                         onPressed: () async {
-                          final m = await exportBookNotes(ref, book, copy: false);
-                          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+                          final m = await exportBookNotes(
+                            ref,
+                            book,
+                            copy: false,
+                          );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context)
+                                .showSnackBar(SnackBar(content: Text(m)));
+                          }
                         },
                       ),
                     ],

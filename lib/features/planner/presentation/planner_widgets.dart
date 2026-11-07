@@ -247,7 +247,12 @@ class DragScope extends InheritedWidget {
 /// Makes an open task draggable: press-and-hold on touch screens (so scrolling still works), plain drag with a
 /// mouse. Drop it on the day timeline to give it a time block.
 class DraggableTask extends StatelessWidget {
-  const DraggableTask({super.key, required this.item, required this.child, this.fromDay});
+  const DraggableTask({
+    super.key,
+    required this.item,
+    required this.child,
+    this.fromDay,
+  });
   final AgendaItem item;
   final Widget child;
 
@@ -540,7 +545,6 @@ class _Block extends StatelessWidget {
   }
 }
 
-
 /// Scrolls a list by itself while a dragged item is held near its top or bottom edge. Feed it the pointer
 /// position (global) on every move and tell it when the drag ends.
 class EdgeAutoScroller {
@@ -558,12 +562,16 @@ class EdgeAutoScroller {
     final y = box.globalToLocal(global).dy;
     final h = box.size.height;
     const edge = 90.0, top = 18.0;
-    _velocity = y < edge ? -(edge - y).clamp(0, edge) / edge * top : (y > h - edge ? (y - (h - edge)).clamp(0, edge) / edge * top : 0);
+    _velocity = y < edge
+        ? -(edge - y).clamp(0, edge) / edge * top
+        : (y > h - edge ? (y - (h - edge)).clamp(0, edge) / edge * top : 0);
     if (_velocity != 0) {
       _timer ??= Timer.periodic(const Duration(milliseconds: 16), (_) {
         if (!controller.hasClients || _velocity == 0) return;
         final p = controller.position;
-        controller.jumpTo((p.pixels + _velocity).clamp(p.minScrollExtent, p.maxScrollExtent));
+        controller.jumpTo(
+          (p.pixels + _velocity).clamp(p.minScrollExtent, p.maxScrollExtent),
+        );
       });
     }
   }

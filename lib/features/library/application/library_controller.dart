@@ -9,6 +9,7 @@ import '../../../app/providers.dart';
 import '../../../data/local/app_database.dart';
 import '../data/library_repository.dart';
 import '../domain_highlights.dart';
+import 'reader_prefs.dart';
 import '../domain_tags.dart';
 import '../data/pdf_inspector.dart';
 
@@ -56,9 +57,27 @@ class ReaderControl {
   void Function()? nextMatch, prevMatch, stopSearch;
   final search = ValueNotifier<ReaderSearch>(const ReaderSearch());
 
+  // reading preferences (page theme, scroll direction...) and taps on the page
+  final prefs = ValueNotifier<ReaderPrefs>(const ReaderPrefs());
+
+  /// A single tap on the page: which third of the width it landed in.
+  void Function(TapZone zone)? onZoneTap;
+
+  // recognised text of scanned pages: boxes to highlight (search hits)
+  final ocrBoxes = ValueNotifier<List<OcrHit>>(const []);
+
   // highlights: the reader page feeds the saved ones in; the PDF view reports new ones out
   final highlights = ValueNotifier<List<HighlightRow>>(const []);
   Future<void> Function(HighlightDraft draft)? onHighlight;
+}
+
+enum TapZone { left, center, right }
+
+/// One search hit on a scanned page: the page and the line's rectangle as fractions (0..1) of the page.
+class OcrHit {
+  const OcrHit(this.page, this.left, this.top, this.right, this.bottom);
+  final int page;
+  final double left, top, right, bottom;
 }
 
 class ReaderSearch {
@@ -214,9 +233,15 @@ class LibraryUiController extends Notifier<LibraryUi> {
       final store = ref.read(syncedStoreProvider);
       final savedSort = await store.state(_sortKey);
       final savedView = await store.state(_viewKey);
-      final sort = LibrarySort.values.where((v) => v.name == savedSort).firstOrNull;
-      final view = LibraryView.values.where((v) => v.name == savedView).firstOrNull;
-      if (sort != null || view != null) state = state.copyWith(sort: sort, view: view);
+      final sort = LibrarySort.values
+          .where((v) => v.name == savedSort)
+          .firstOrNull;
+      final view = LibraryView.values
+          .where((v) => v.name == savedView)
+          .firstOrNull;
+      if (sort != null || view != null) {
+        state = state.copyWith(sort: sort, view: view);
+      }
     } catch (_) {
       // preferences are a convenience only
     }
@@ -247,23 +272,36 @@ class LibraryUiController extends Notifier<LibraryUi> {
     final lower = tag.toLowerCase();
     final has = state.tags.any((t) => t.toLowerCase() == lower);
     state = state.copyWith(
-      tags: has ? {for (final t in state.tags) if (t.toLowerCase() != lower) t} : {...state.tags, tag},
+      tags: has
+          ? {
+              for (final t in state.tags)
+                if (t.toLowerCase() != lower) t,
+            }
+          : {...state.tags, tag},
     );
   }
 
-  void clearFilters() => state = state.copyWith(status: ReadStatus.all, tags: const {});
+  void clearFilters() =>
+      state = state.copyWith(status: ReadStatus.all, tags: const {});
 
   /// A tag was renamed / merged everywhere: keep a filter on it working.
   void renameFilterTag(String from, String to) {
     final f = from.toLowerCase();
     if (!state.tags.any((t) => t.toLowerCase() == f)) return;
-    state = state.copyWith(tags: {for (final t in state.tags) t.toLowerCase() == f ? to : t});
+    state = state.copyWith(
+      tags: {for (final t in state.tags) t.toLowerCase() == f ? to : t},
+    );
   }
 
   /// A tag was deleted everywhere: stop filtering by it.
   void dropFilterTag(String tag) {
     final f = tag.toLowerCase();
-    state = state.copyWith(tags: {for (final t in state.tags) if (t.toLowerCase() != f) t});
+    state = state.copyWith(
+      tags: {
+        for (final t in state.tags)
+          if (t.toLowerCase() != f) t,
+      },
+    );
   }
 }
 
@@ -274,7 +312,9 @@ class ShelfEditController extends Notifier<bool> {
   void set(bool on) => state = on;
 }
 
-final shelfEditProvider = NotifierProvider<ShelfEditController, bool>(ShelfEditController.new);
+final shelfEditProvider = NotifierProvider<ShelfEditController, bool>(
+  ShelfEditController.new,
+);
 
 /// The book picked in rearrange mode to be moved with the arrow buttons (null = none).
 class MoveSelectionController extends Notifier<String?> {
@@ -284,7 +324,10 @@ class MoveSelectionController extends Notifier<String?> {
   void clear() => state = null;
 }
 
-final moveSelectionProvider = NotifierProvider<MoveSelectionController, String?>(MoveSelectionController.new);
+final moveSelectionProvider =
+    NotifierProvider<MoveSelectionController, String?>(
+      MoveSelectionController.new,
+    );
 
 /// Where [dragged] ends up when dropped on [target]: it takes the target's place (the others shift over).
 List<String> reorderIds(List<String> ids, String dragged, String target) {
@@ -328,7 +371,9 @@ class SelectionController extends Notifier<Set<String>?> {
   void clear() => state = null;
 }
 
-final selectionProvider = NotifierProvider<SelectionController, Set<String>?>(SelectionController.new);
+final selectionProvider = NotifierProvider<SelectionController, Set<String>?>(
+  SelectionController.new,
+);
 
 final libraryUiProvider = NotifierProvider<LibraryUiController, LibraryUi>(
   LibraryUiController.new,
@@ -358,31 +403,33 @@ List<BookRow> sortBooks(List<BookRow> books, LibrarySort sort) {
   out.sort(switch (sort) {
     LibrarySort.added => byAdded,
     LibrarySort.manual => (a, b) {
-        final c = a.sortPos.compareTo(b.sortPos);
-        return c != 0 ? c : byAdded(a, b);
-      },
+      final c = a.sortPos.compareTo(b.sortPos);
+      return c != 0 ? c : byAdded(a, b);
+    },
     LibrarySort.read => (a, b) {
-        final x = a.lastOpenedAt, y = b.lastOpenedAt;
-        if (x == null && y == null) return byAdded(a, b);
-        if (x == null) return 1; // never opened: after everything that was
-        if (y == null) return -1;
-        return y.compareTo(x);
-      },
+      final x = a.lastOpenedAt, y = b.lastOpenedAt;
+      if (x == null && y == null) return byAdded(a, b);
+      if (x == null) return 1; // never opened: after everything that was
+      if (y == null) return -1;
+      return y.compareTo(x);
+    },
     LibrarySort.title => (a, b) {
-        final c = _cmpText(a.title, b.title);
-        return c != 0 ? c : byAdded(a, b);
-      },
+      final c = _cmpText(a.title, b.title);
+      return c != 0 ? c : byAdded(a, b);
+    },
     LibrarySort.author => (a, b) {
-        if (a.author.trim().isEmpty != b.author.trim().isEmpty) return a.author.trim().isEmpty ? 1 : -1; // unknown authors last
-        final c = _cmpText(a.author, b.author);
-        if (c != 0) return c;
-        final t = _cmpText(a.title, b.title);
-        return t != 0 ? t : byAdded(a, b);
-      },
+      if (a.author.trim().isEmpty != b.author.trim().isEmpty) {
+        return a.author.trim().isEmpty ? 1 : -1; // unknown authors last
+      }
+      final c = _cmpText(a.author, b.author);
+      if (c != 0) return c;
+      final t = _cmpText(a.title, b.title);
+      return t != 0 ? t : byAdded(a, b);
+    },
     LibrarySort.pages => (a, b) {
-        final c = b.pageCount.compareTo(a.pageCount);
-        return c != 0 ? c : byAdded(a, b);
-      },
+      final c = b.pageCount.compareTo(a.pageCount);
+      return c != 0 ? c : byAdded(a, b);
+    },
   });
   return out;
 }
@@ -424,8 +471,14 @@ List<BookRow> recentBooks(List<BookRow> all, {int limit = 8}) {
 
 /// Books you have started (opened or read into), for Home. [mine] puts them in the user's own order ("My order");
 /// otherwise the most recently opened come first.
-List<BookRow> readingBooks(List<BookRow> all, {required bool mine, int limit = 8}) {
-  final started = all.where((b) => b.lastOpenedAt != null || b.lastPage > 0).toList();
+List<BookRow> readingBooks(
+  List<BookRow> all, {
+  required bool mine,
+  int limit = 8,
+}) {
+  final started = all
+      .where((b) => b.lastOpenedAt != null || b.lastPage > 0)
+      .toList();
   if (!mine) return recentBooks(started, limit: limit);
   return sortBooks(started, LibrarySort.manual).take(limit).toList();
 }
@@ -452,7 +505,9 @@ class HomeReadingOrder extends Notifier<String> {
   }
 }
 
-final homeReadingOrderProvider = NotifierProvider<HomeReadingOrder, String>(HomeReadingOrder.new);
+final homeReadingOrderProvider = NotifierProvider<HomeReadingOrder, String>(
+  HomeReadingOrder.new,
+);
 
 double readingProgress(BookRow b) =>
     b.pageCount <= 0 ? 0 : (b.lastPage / b.pageCount).clamp(0.0, 1.0);

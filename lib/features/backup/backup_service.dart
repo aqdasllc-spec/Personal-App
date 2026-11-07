@@ -131,7 +131,9 @@ class BackupService {
     )..where((b) => b.deletedAt.isNull())).get();
     final bookmarks = await _db.select(_db.bookmarks).get();
     final highlights = await _db.select(_db.highlights).get();
+    final pageTexts = await _db.select(_db.pageTexts).get();
     final data = jsonEncode({
+      'pageTexts': [for (final t in pageTexts) t.toJson()],
       'highlights': [for (final h in highlights) h.toJson()],
       'bookmarks': [for (final m in bookmarks) m.toJson()],
       'tasks': [for (final t in tasks) t.toJson()],
@@ -392,11 +394,13 @@ class BackupService {
         if (b.deletedAt == null && b.sha256.isNotEmpty) b.sha256,
     };
     await libraryDir.create(recursive: true);
+    final restoredIds = <String>{};
     for (final j in list('books')) {
       final b = BookRow.fromJson({
         'cloudState': 'local',
         'tags': '[]',
         'sortPos': 0,
+        'textState': 'unknown',
         ...j,
       }); // backups from before cloud sync lack the field
       if (haveBook.contains(b.id) ||
@@ -433,6 +437,13 @@ class BackupService {
             ),
           );
       books++;
+      restoredIds.add(b.id);
+    }
+    // text read from scanned pages (only for the books restored just now)
+    for (final j in list('pageTexts')) {
+      final t = PageTextRow.fromJson(j);
+      if (!restoredIds.contains(t.bookId)) continue;
+      await _db.into(_db.pageTexts).insertOnConflictUpdate(t);
     }
     // bookmarks of books that are on this device now (restored or already there)
     final bookIds = {

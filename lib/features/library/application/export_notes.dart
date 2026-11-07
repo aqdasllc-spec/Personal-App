@@ -10,13 +10,23 @@ import '../data/highlights_export.dart';
 import 'library_controller.dart';
 
 /// Hands a file to the OS share sheet. True unless the user dismissed it. Overridden in tests.
-final shareFileProvider = Provider<Future<bool> Function(File file, String subject)>((ref) => (file, subject) async {
-      final r = await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], subject: subject));
-      return r.status != ShareResultStatus.dismissed;
-    });
+final shareFileProvider =
+    Provider<Future<bool> Function(File file, String subject)>(
+      (ref) => (file, subject) async {
+        final r = await SharePlus.instance.share(
+          ShareParams(files: [XFile(file.path)], subject: subject),
+        );
+        return r.status != ShareResultStatus.dismissed;
+      },
+    );
 
 /// Builds the notes for [book] and shares them as a .md file (or copies the text). Returns a message for the user.
-Future<String> exportBookNotes(WidgetRef ref, BookRow book, {required bool copy, DateTime? now}) async {
+Future<String> exportBookNotes(
+  WidgetRef ref,
+  BookRow book, {
+  required bool copy,
+  DateTime? now,
+}) async {
   final repo = ref.read(libraryRepositoryProvider);
   final highlights = await repo.watchHighlights(book.id).first;
   final marks = await repo.watchBookmarks(book.id).first;
@@ -38,6 +48,9 @@ Future<String> exportBookNotes(WidgetRef ref, BookRow book, {required bool copy,
   await dir.create(recursive: true);
   final file = File('${dir.path}/${safeFileName(book.title)}');
   await file.writeAsString(text);
-  final shared = await ref.read(shareFileProvider)(file, '${book.title} - notes');
+  final shared = await ref.read(shareFileProvider)(
+    file,
+    '${book.title} - notes',
+  );
   return shared ? 'Notes ready to share.' : 'Sharing cancelled.';
 }

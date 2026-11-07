@@ -86,6 +86,10 @@ class Books extends Table {
   /// progress is tracked in memory only, so a crash can never leave a book stuck "syncing".
   TextColumn get cloudState => text().withDefault(const Constant('local'))();
 
+  /// Does the PDF have real text? 'unknown' (not checked yet), 'text', 'scanned' (pages are pictures: nothing to search
+  /// or select) or 'ocr' (text recognition finished: see [PageTexts]).
+  TextColumn get textState => text().withDefault(const Constant('unknown'))();
+
   /// Position in the user's own order ("My order" sort); set when the user rearranges books.
   IntColumn get sortPos => integer().withDefault(const Constant(0))();
 
@@ -114,6 +118,20 @@ class Bookmarks extends Table {
 
   @override
   Set<Column> get primaryKey => {id};
+}
+
+/// Text recognised (OCR) on one page of a scanned PDF. [boxes] is JSON: a list of
+/// {"t": line text, "r": [left, top, right, bottom]} with the rectangle as fractions (0..1) of the page image.
+@DataClassName('PageTextRow')
+@TableIndex(name: 'page_texts_book', columns: {#bookId})
+class PageTexts extends Table {
+  TextColumn get bookId => text()();
+  IntColumn get page => integer()();
+  TextColumn get body => text().withDefault(const Constant(''))();
+  TextColumn get boxes => text().withDefault(const Constant('[]'))();
+
+  @override
+  Set<Column> get primaryKey => {bookId, page};
 }
 
 /// Text highlighted in a book, with an optional note (device-local, like the rest of the library).
@@ -197,93 +215,124 @@ class LocalConflicts extends Table {
   IntColumn get resolvedAt => integer().nullable()();
 }
 
-@DriftDatabase(tables: [Tasks, Events, Books, Shelves, Bookmarks, Highlights, FieldMeta, SyncOutbox, SyncState, LocalConflicts])
+@DriftDatabase(
+  tables: [
+    Tasks,
+    Events,
+    Books,
+    Shelves,
+    Bookmarks,
+    Highlights,
+    PageTexts,
+    FieldMeta,
+    SyncOutbox,
+    SyncState,
+    LocalConflicts,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) async {
-          await m.createAll();
-          await customStatement('CREATE INDEX outbox_order ON sync_outbox (id)');
-        },
-        // Step-by-step migrations use generated snapshots of each old schema (schema_versions.dart), so a
-        // later change to a table can never silently alter how an OLD upgrade runs.
-        onUpgrade: stepByStep(
-          from1To2: (m, schema) async {
-            // v2 added the custom-tracker tables (removed again in v3).
-            await m.createTable(schema.properties);
-            await m.createTable(schema.records);
-            await m.createTable(schema.cells);
-            await m.createTable(schema.recordLinks);
-            await m.createTable(schema.views);
-          },
-          from2To3: (m, schema) async {
-            // v3: the custom-tracker feature was removed from the product (user decision 2026-11-06).
-            // Drop its tables AND every piece of sync bookkeeping that refers to them, so no pending
-            // edit for a deleted table is ever pushed to the server.
-            const removed = ['trackers', 'properties', 'records', 'cells', 'record_links', 'views'];
-            for (final t in removed) {
-              await customStatement('DROP TABLE IF EXISTS $t');
-              await customStatement("DELETE FROM sync_outbox WHERE tbl = '$t'");
-              await customStatement("DELETE FROM field_meta WHERE tbl = '$t'");
-              await customStatement("DELETE FROM local_conflicts WHERE tbl = '$t'");
-            }
-            await m.createTable(schema.tasks);
-            await customStatement('CREATE INDEX tasks_due ON tasks (due_at) WHERE deleted_at IS NULL');
-          },
-          from3To4: (m, schema) async {
-            // v4: Planner - time blocks, repeat and reminders on tasks, plus events.
-            await customStatement('DROP INDEX IF EXISTS tasks_due'); // v3 made a partial index by hand; v4 declares it
-            await m.addColumn(schema.tasks, schema.tasks.dueHasTime);
-            await m.addColumn(schema.tasks, schema.tasks.plannedAt);
-            await m.addColumn(schema.tasks, schema.tasks.plannedMinutes);
-            await m.addColumn(schema.tasks, schema.tasks.rrule);
-            await m.addColumn(schema.tasks, schema.tasks.remindMinutes);
-            await m.createIndex(schema.tasksDue);
-            await m.createIndex(schema.tasksPlanned);
-            await m.createTable(schema.events);
-            await m.createIndex(schema.eventsStart);
-          },
-          from4To5: (m, schema) async {
-            // v5: Library - books and shelves (device-local).
-            await m.createTable(schema.books);
-            await m.createTable(schema.shelves);
-            await m.createIndex(schema.booksShelf);
-            await m.createIndex(schema.booksHash);
-          },
-          from5To6: (m, schema) async {
-            // v6: per-book cloud copy state.
-            await m.addColumn(schema.books, schema.books.cloudState);
-          },
-          from6To7: (m, schema) async {
-            // v7: reader bookmarks.
-            await m.createTable(schema.bookmarks);
-            await m.createIndex(schema.bookmarksBook);
-          },
-          from7To8: (m, schema) async {
-            // v8: text highlights with notes.
-            await m.createTable(schema.highlights);
-            await m.createIndex(schema.highlightsBook);
-          },
-          from8To9: (m, schema) async {
-            // v9: sub-tasks (checklist) on tasks.
-            await m.addColumn(schema.tasks, schema.tasks.checklist);
-          },
-          from9To10: (m, schema) async {
-            // v10: tags on books.
-            await m.addColumn(schema.books, schema.books.tags);
-          },
-          from10To11: (m, schema) async {
-            // v11: manual order of books.
-            await m.addColumn(schema.books, schema.books.sortPos);
-          },
-        ),
-        beforeOpen: (details) async {
-          await customStatement('PRAGMA foreign_keys = ON');
-        },
-      );
+    onCreate: (m) async {
+      await m.createAll();
+      await customStatement('CREATE INDEX outbox_order ON sync_outbox (id)');
+    },
+    // Step-by-step migrations use generated snapshots of each old schema (schema_versions.dart), so a
+    // later change to a table can never silently alter how an OLD upgrade runs.
+    onUpgrade: stepByStep(
+      from1To2: (m, schema) async {
+        // v2 added the custom-tracker tables (removed again in v3).
+        await m.createTable(schema.properties);
+        await m.createTable(schema.records);
+        await m.createTable(schema.cells);
+        await m.createTable(schema.recordLinks);
+        await m.createTable(schema.views);
+      },
+      from2To3: (m, schema) async {
+        // v3: the custom-tracker feature was removed from the product (user decision 2026-11-06).
+        // Drop its tables AND every piece of sync bookkeeping that refers to them, so no pending
+        // edit for a deleted table is ever pushed to the server.
+        const removed = [
+          'trackers',
+          'properties',
+          'records',
+          'cells',
+          'record_links',
+          'views',
+        ];
+        for (final t in removed) {
+          await customStatement('DROP TABLE IF EXISTS $t');
+          await customStatement("DELETE FROM sync_outbox WHERE tbl = '$t'");
+          await customStatement("DELETE FROM field_meta WHERE tbl = '$t'");
+          await customStatement("DELETE FROM local_conflicts WHERE tbl = '$t'");
+        }
+        await m.createTable(schema.tasks);
+        await customStatement(
+          'CREATE INDEX tasks_due ON tasks (due_at) WHERE deleted_at IS NULL',
+        );
+      },
+      from3To4: (m, schema) async {
+        // v4: Planner - time blocks, repeat and reminders on tasks, plus events.
+        await customStatement(
+          'DROP INDEX IF EXISTS tasks_due',
+        ); // v3 made a partial index by hand; v4 declares it
+        await m.addColumn(schema.tasks, schema.tasks.dueHasTime);
+        await m.addColumn(schema.tasks, schema.tasks.plannedAt);
+        await m.addColumn(schema.tasks, schema.tasks.plannedMinutes);
+        await m.addColumn(schema.tasks, schema.tasks.rrule);
+        await m.addColumn(schema.tasks, schema.tasks.remindMinutes);
+        await m.createIndex(schema.tasksDue);
+        await m.createIndex(schema.tasksPlanned);
+        await m.createTable(schema.events);
+        await m.createIndex(schema.eventsStart);
+      },
+      from4To5: (m, schema) async {
+        // v5: Library - books and shelves (device-local).
+        await m.createTable(schema.books);
+        await m.createTable(schema.shelves);
+        await m.createIndex(schema.booksShelf);
+        await m.createIndex(schema.booksHash);
+      },
+      from5To6: (m, schema) async {
+        // v6: per-book cloud copy state.
+        await m.addColumn(schema.books, schema.books.cloudState);
+      },
+      from6To7: (m, schema) async {
+        // v7: reader bookmarks.
+        await m.createTable(schema.bookmarks);
+        await m.createIndex(schema.bookmarksBook);
+      },
+      from7To8: (m, schema) async {
+        // v8: text highlights with notes.
+        await m.createTable(schema.highlights);
+        await m.createIndex(schema.highlightsBook);
+      },
+      from8To9: (m, schema) async {
+        // v9: sub-tasks (checklist) on tasks.
+        await m.addColumn(schema.tasks, schema.tasks.checklist);
+      },
+      from9To10: (m, schema) async {
+        // v10: tags on books.
+        await m.addColumn(schema.books, schema.books.tags);
+      },
+      from10To11: (m, schema) async {
+        // v11: manual order of books.
+        await m.addColumn(schema.books, schema.books.sortPos);
+      },
+      from11To12: (m, schema) async {
+        // v12: scanned-PDF text recognition.
+        await m.addColumn(schema.books, schema.books.textState);
+        await m.createTable(schema.pageTexts);
+        await m.createIndex(schema.pageTextsBook);
+      },
+    ),
+    beforeOpen: (details) async {
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
+  );
 }

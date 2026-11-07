@@ -125,7 +125,9 @@ class BookSyncController extends Notifier<BookSyncState> {
 
   /// Removes several books. Synced ones lose their cloud copy first; a book whose cloud copy cannot be deleted
   /// is kept (and reported in `failed`) so nothing is left behind in the cloud.
-  Future<({List<BookRow> removed, List<BookRow> failed})> removeBooks(List<BookRow> books) async {
+  Future<({List<BookRow> removed, List<BookRow> failed})> removeBooks(
+    List<BookRow> books,
+  ) async {
     final removed = <BookRow>[], failed = <BookRow>[];
     for (final b in books) {
       (await removeBook(b) ? removed : failed).add(b);

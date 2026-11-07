@@ -21,7 +21,20 @@ class FolioColors extends ThemeExtension<FolioColors> {
     required this.info,
   });
 
-  final Color bg, surface, surface2, border, text, textMuted, accent, accentSoft, onAccent, brass, danger, warn, ok, info;
+  final Color bg,
+      surface,
+      surface2,
+      border,
+      text,
+      textMuted,
+      accent,
+      accentSoft,
+      onAccent,
+      brass,
+      danger,
+      warn,
+      ok,
+      info;
 
   static const light = FolioColors(
     bg: Color(0xFFF6F2EA),
@@ -61,12 +74,21 @@ class FolioColors extends ThemeExtension<FolioColors> {
   FolioColors copyWith() => this;
 
   @override
-  FolioColors lerp(ThemeExtension<FolioColors>? other, double t) => t < .5 ? this : (other as FolioColors? ?? this);
+  FolioColors lerp(ThemeExtension<FolioColors>? other, double t) =>
+      t < .5 ? this : (other as FolioColors? ?? this);
 }
 
 /// Spacing scale (dp).
 abstract final class Space {
-  static const double s2 = 2, s4 = 4, s8 = 8, s12 = 12, s16 = 16, s24 = 24, s32 = 32, s48 = 48, s64 = 64;
+  static const double s2 = 2,
+      s4 = 4,
+      s8 = 8,
+      s12 = 12,
+      s16 = 16,
+      s24 = 24,
+      s32 = 32,
+      s48 = 48,
+      s64 = 64;
 }
 
 abstract final class Radii {
@@ -90,5 +112,6 @@ enum WindowClass {
   medium,
   expanded;
 
-  static WindowClass of(double width) => width < 600 ? compact : (width <= 1024 ? medium : expanded);
+  static WindowClass of(double width) =>
+      width < 600 ? compact : (width <= 1024 ? medium : expanded);
 }

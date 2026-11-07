@@ -37,10 +37,14 @@ class EditScope extends InheritedWidget {
   final void Function(Offset global) onDragMove;
   final VoidCallback onDragEnd;
 
-  static EditScope? maybeOf(BuildContext c) => c.dependOnInheritedWidgetOfExactType<EditScope>();
+  static EditScope? maybeOf(BuildContext c) =>
+      c.dependOnInheritedWidgetOfExactType<EditScope>();
 
   @override
-  bool updateShouldNotify(EditScope old) => old.editing != editing || old.canReorder != canReorder || old.selectedId != selectedId;
+  bool updateShouldNotify(EditScope old) =>
+      old.editing != editing ||
+      old.canReorder != canReorder ||
+      old.selectedId != selectedId;
 }
 
 /// A book in rearrange mode: it wiggles, can be dragged, and other books can be dropped on it.
@@ -61,16 +65,29 @@ class EditableBook extends StatelessWidget {
       color: color,
       child: Container(
         width: 150,
-        padding: const EdgeInsets.symmetric(horizontal: Space.s12, vertical: Space.s8),
-        child: Text(book.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: onBookColor(color), fontWeight: FontWeight.w600)),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Space.s12,
+          vertical: Space.s8,
+        ),
+        child: Text(
+          book.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: onBookColor(color),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
     return Semantics(
       container: true,
       label: '${book.title}. Rearranging.',
       customSemanticsActions: {
-        const CustomSemanticsAction(label: 'Move earlier'): () => scope.onNudge(book.id, -1),
-        const CustomSemanticsAction(label: 'Move later'): () => scope.onNudge(book.id, 1),
+        const CustomSemanticsAction(label: 'Move earlier'): () =>
+            scope.onNudge(book.id, -1),
+        const CustomSemanticsAction(label: 'Move later'): () =>
+            scope.onNudge(book.id, 1),
       },
       child: DragTarget<String>(
         onWillAcceptWithDetails: (d) => scope.canReorder && d.data != book.id,
@@ -88,17 +105,28 @@ class EditableBook extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             onTap: () => scope.onSelect(book.id),
             child: AbsorbPointer(
-            child: Wiggle(
-            seed: book.id.hashCode,
-            child: Container(
-              // an accent bar on the left shows where the dragged book will go
-              foregroundDecoration: candidates.isNotEmpty
-                  ? BoxDecoration(border: Border(left: BorderSide(color: c.accent, width: 4)))
-                  : (scope.selectedId == book.id ? BoxDecoration(border: Border.all(color: c.accent, width: 3), borderRadius: BorderRadius.circular(Radii.input)) : null),
-              child: child,
+              child: Wiggle(
+                seed: book.id.hashCode,
+                child: Container(
+                  // an accent bar on the left shows where the dragged book will go
+                  foregroundDecoration: candidates.isNotEmpty
+                      ? BoxDecoration(
+                          border: Border(
+                            left: BorderSide(color: c.accent, width: 4),
+                          ),
+                        )
+                      : (scope.selectedId == book.id
+                            ? BoxDecoration(
+                                border: Border.all(color: c.accent, width: 3),
+                                borderRadius: BorderRadius.circular(
+                                  Radii.input,
+                                ),
+                              )
+                            : null),
+                  child: child,
+                ),
+              ),
             ),
-          ),
-          ),
           ),
         ),
       ),
@@ -117,7 +145,10 @@ class Wiggle extends StatefulWidget {
 }
 
 class _WiggleState extends State<Wiggle> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: Duration(milliseconds: 130 + (widget.seed.abs() % 40)));
+  late final _c = AnimationController(
+    vsync: this,
+    duration: Duration(milliseconds: 130 + (widget.seed.abs() % 40)),
+  );
 
   @override
   void initState() {
@@ -134,10 +165,13 @@ class _WiggleState extends State<Wiggle> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) return widget.child;
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+      return widget.child;
+    }
     return AnimatedBuilder(
       animation: _c,
-      builder: (_, child) => Transform.rotate(angle: (_c.value * 2 - 1) * 0.03, child: child),
+      builder: (_, child) =>
+          Transform.rotate(angle: (_c.value * 2 - 1) * 0.03, child: child),
       child: widget.child,
     );
   }

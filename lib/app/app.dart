@@ -5,6 +5,7 @@ import '../design_system/theme.dart';
 import '../features/auth/auth_repository.dart';
 import '../features/library/application/book_sync.dart';
 import 'providers.dart';
+import 'quick_actions.dart';
 import 'router.dart';
 
 class FolioApp extends ConsumerStatefulWidget {
@@ -13,13 +14,21 @@ class FolioApp extends ConsumerStatefulWidget {
   ConsumerState<FolioApp> createState() => _FolioAppState();
 }
 
-class _FolioAppState extends ConsumerState<FolioApp> with WidgetsBindingObserver {
+class _FolioAppState extends ConsumerState<FolioApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     // Kick off sync once the first frame is up (no-op in local-only mode).
-    WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(syncControllerProvider.notifier).start());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) {
+        ref.read(syncControllerProvider.notifier).start();
+        ref
+            .read(quickActionsProvider)
+            .start(QuickAction.values, (t) => handleQuickAction(ref, t));
+      },
+    );
   }
 
   @override
@@ -38,7 +47,9 @@ class _FolioAppState extends ConsumerState<FolioApp> with WidgetsBindingObserver
       case AppLifecycleState.resumed:
         lock.onResumed();
         ref.read(syncControllerProvider.notifier).syncNow();
-        ref.invalidate(cloudOnlyCountProvider); // books may have been added to the cloud from another device
+        ref.invalidate(
+          cloudOnlyCountProvider,
+        ); // books may have been added to the cloud from another device
       default:
     }
   }

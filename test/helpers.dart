@@ -9,6 +9,9 @@ import 'package:folio/features/backup/backup_service.dart';
 import 'package:flutter/material.dart';
 import 'package:folio/features/library/application/book_sync.dart';
 import 'package:folio/features/library/application/library_controller.dart';
+import 'package:folio/features/library/application/reader_prefs.dart';
+import 'package:folio/features/library/application/ocr_controller.dart';
+import 'package:folio/features/library/data/ocr.dart';
 import 'package:folio/features/library/domain_highlights.dart';
 import 'package:folio/features/library/data/cloud_books.dart';
 import 'package:folio/features/library/data/library_repository.dart';
@@ -16,6 +19,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:folio/app/app.dart';
+import 'package:folio/app/quick_actions.dart';
 import 'package:folio/app/providers.dart';
 import 'package:folio/app/sync_controller.dart';
 import 'package:folio/data/local/app_database.dart';
@@ -94,6 +98,19 @@ class FakeCoverRenderer implements CoverRenderer {
   }
 }
 
+/// Records what the reader asked of the phone (orientation lock, full screen, screen-on).
+class FakeReaderSystem implements ReaderSystem {
+  final orientations = <ReaderOrientation>[];
+  final immersive = <bool>[];
+  int restores = 0;
+  @override
+  void setOrientation(ReaderOrientation o) => orientations.add(o);
+  @override
+  void setImmersive(bool on) => immersive.add(on);
+  @override
+  void restore() => restores++;
+}
+
 class FakeAuthenticator implements Authenticator {
   bool available = true;
   bool succeed = true;
@@ -155,6 +172,41 @@ class FakeAuthRepository implements AuthRepository {
 /// Tests intentionally create several in-memory databases.
 void quietDrift() => driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
 
+/// Reads "pages" from a table instead of a picture.
+class FakeRecognizer implements PageRecognizer {
+  FakeRecognizer(this.pages);
+  final Map<int, List<OcrLine>> pages;
+  final asked = <int>[];
+  Completer<void>? gate; // set to hold recognition until completed
+  @override
+  Future<RecognizedPage?> recognize(File pdf, int page) async {
+    asked.add(page);
+    if (gate != null) await gate!.future;
+    final l = pages[page];
+    return l == null ? null : RecognizedPage(l);
+  }
+
+  @override
+  Future<void> close() async {}
+}
+
+class FakeQuickActions implements QuickActionsPort {
+  List<QuickAction> items = const [];
+  void Function(String)? tap;
+  @override
+  void start(List<QuickAction> items, void Function(String type) onAction) {
+    this.items = items;
+    tap = onAction;
+  }
+}
+
+class FakeProbe implements TextProbe {
+  FakeProbe(this.result);
+  bool? result;
+  @override
+  Future<bool?> hasText(File pdf) async => result;
+}
+
 class TestEnv {
   TestEnv._(this.db, this.store, this.authenticator, this.auth, this.sync, this.transport, this.server);
   final AppDatabase db;
@@ -184,6 +236,13 @@ class TestEnv {
 
   /// Set to a [FakeCloudBooks] to give the build a cloud shelf (null = build without cloud sync).
   FakeCloudBooks? cloud;
+  final readerSystem = FakeReaderSystem();
+
+  /// Scanned-PDF doubles: what the probe says (true = real text) and what the recogniser "reads" (null = none on this device).
+  bool? probeResult = true;
+  FakeRecognizer? recognizer;
+  final quick = FakeQuickActions();
+  final awake = <bool>[];
 
   /// Pages the reader was asked to jump to (bookmarks).
   final jumps = <int>[];
@@ -213,6 +272,11 @@ class TestEnv {
         libraryDirectoryProvider.overrideWithValue(libraryDir),
         cloudBooksProvider.overrideWithValue(cloud),
         coverRendererProvider.overrideWithValue(covers),
+        readerSystemProvider.overrideWithValue(readerSystem),
+        quickActionsProvider.overrideWithValue(quick),
+        textProbeProvider.overrideWithValue(FakeProbe(probeResult)),
+        pageRecognizerProvider.overrideWithValue(recognizer),
+        screenAwakeProvider.overrideWithValue(awake.add),
         pdfInspectorProvider.overrideWithValue(FakePdfInspector()),
         pdfPickerProvider.overrideWithValue(() async => picked),
         pdfViewBuilderProvider.overrideWithValue((context, file, initial, onPage, control) {
@@ -248,6 +312,10 @@ class TestEnv {
           return Column(children: [
             Text('PDF view page $initial'),
             TextButton(onPressed: () => onPage(7), child: const Text('go to page 7')),
+            TextButton(onPressed: () => control.onZoneTap?.call(TapZone.left), child: const Text('tap left')),
+            TextButton(onPressed: () => control.onZoneTap?.call(TapZone.center), child: const Text('tap center')),
+            TextButton(onPressed: () => control.onZoneTap?.call(TapZone.right), child: const Text('tap right')),
+            ValueListenableBuilder(valueListenable: control.prefs, builder: (_, v, _) => Text('prefs ${v.theme.name} ${v.scroll.name}')),
             TextButton(
               onPressed: () => control.onHighlight?.call(const HighlightDraft(page: 3, rects: [[10, 100, 80, 90]], text: 'an important passage')),
               child: const Text('select and highlight'),

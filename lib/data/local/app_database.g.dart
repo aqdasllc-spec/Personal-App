@@ -1618,6 +1618,18 @@ class $BooksTable extends Books with TableInfo<$BooksTable, BookRow> {
     requiredDuringInsert: false,
     defaultValue: const Constant('local'),
   );
+  static const VerificationMeta _textStateMeta = const VerificationMeta(
+    'textState',
+  );
+  @override
+  late final GeneratedColumn<String> textState = GeneratedColumn<String>(
+    'text_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('unknown'),
+  );
   static const VerificationMeta _sortPosMeta = const VerificationMeta(
     'sortPos',
   );
@@ -1697,6 +1709,7 @@ class $BooksTable extends Books with TableInfo<$BooksTable, BookRow> {
     shelfId,
     favorite,
     cloudState,
+    textState,
     sortPos,
     tags,
     lastPage,
@@ -1773,6 +1786,12 @@ class $BooksTable extends Books with TableInfo<$BooksTable, BookRow> {
       context.handle(
         _cloudStateMeta,
         cloudState.isAcceptableOrUnknown(data['cloud_state']!, _cloudStateMeta),
+      );
+    }
+    if (data.containsKey('text_state')) {
+      context.handle(
+        _textStateMeta,
+        textState.isAcceptableOrUnknown(data['text_state']!, _textStateMeta),
       );
     }
     if (data.containsKey('sort_pos')) {
@@ -1865,6 +1884,10 @@ class $BooksTable extends Books with TableInfo<$BooksTable, BookRow> {
         DriftSqlType.string,
         data['${effectivePrefix}cloud_state'],
       )!,
+      textState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}text_state'],
+      )!,
       sortPos: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}sort_pos'],
@@ -1913,6 +1936,10 @@ class BookRow extends DataClass implements Insertable<BookRow> {
   /// progress is tracked in memory only, so a crash can never leave a book stuck "syncing".
   final String cloudState;
 
+  /// Does the PDF have real text? 'unknown' (not checked yet), 'text', 'scanned' (pages are pictures: nothing to search
+  /// or select) or 'ocr' (text recognition finished: see [PageTexts]).
+  final String textState;
+
   /// Position in the user's own order ("My order" sort); set when the user rearranges books.
   final int sortPos;
 
@@ -1935,6 +1962,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
     this.shelfId,
     required this.favorite,
     required this.cloudState,
+    required this.textState,
     required this.sortPos,
     required this.tags,
     required this.lastPage,
@@ -1957,6 +1985,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
     }
     map['favorite'] = Variable<int>(favorite);
     map['cloud_state'] = Variable<String>(cloudState);
+    map['text_state'] = Variable<String>(textState);
     map['sort_pos'] = Variable<int>(sortPos);
     map['tags'] = Variable<String>(tags);
     map['last_page'] = Variable<int>(lastPage);
@@ -1984,6 +2013,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
           : Value(shelfId),
       favorite: Value(favorite),
       cloudState: Value(cloudState),
+      textState: Value(textState),
       sortPos: Value(sortPos),
       tags: Value(tags),
       lastPage: Value(lastPage),
@@ -2013,6 +2043,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
       shelfId: serializer.fromJson<String?>(json['shelfId']),
       favorite: serializer.fromJson<int>(json['favorite']),
       cloudState: serializer.fromJson<String>(json['cloudState']),
+      textState: serializer.fromJson<String>(json['textState']),
       sortPos: serializer.fromJson<int>(json['sortPos']),
       tags: serializer.fromJson<String>(json['tags']),
       lastPage: serializer.fromJson<int>(json['lastPage']),
@@ -2035,6 +2066,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
       'shelfId': serializer.toJson<String?>(shelfId),
       'favorite': serializer.toJson<int>(favorite),
       'cloudState': serializer.toJson<String>(cloudState),
+      'textState': serializer.toJson<String>(textState),
       'sortPos': serializer.toJson<int>(sortPos),
       'tags': serializer.toJson<String>(tags),
       'lastPage': serializer.toJson<int>(lastPage),
@@ -2055,6 +2087,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
     Value<String?> shelfId = const Value.absent(),
     int? favorite,
     String? cloudState,
+    String? textState,
     int? sortPos,
     String? tags,
     int? lastPage,
@@ -2072,6 +2105,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
     shelfId: shelfId.present ? shelfId.value : this.shelfId,
     favorite: favorite ?? this.favorite,
     cloudState: cloudState ?? this.cloudState,
+    textState: textState ?? this.textState,
     sortPos: sortPos ?? this.sortPos,
     tags: tags ?? this.tags,
     lastPage: lastPage ?? this.lastPage,
@@ -2093,6 +2127,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
       cloudState: data.cloudState.present
           ? data.cloudState.value
           : this.cloudState,
+      textState: data.textState.present ? data.textState.value : this.textState,
       sortPos: data.sortPos.present ? data.sortPos.value : this.sortPos,
       tags: data.tags.present ? data.tags.value : this.tags,
       lastPage: data.lastPage.present ? data.lastPage.value : this.lastPage,
@@ -2117,6 +2152,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
           ..write('shelfId: $shelfId, ')
           ..write('favorite: $favorite, ')
           ..write('cloudState: $cloudState, ')
+          ..write('textState: $textState, ')
           ..write('sortPos: $sortPos, ')
           ..write('tags: $tags, ')
           ..write('lastPage: $lastPage, ')
@@ -2139,6 +2175,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
     shelfId,
     favorite,
     cloudState,
+    textState,
     sortPos,
     tags,
     lastPage,
@@ -2160,6 +2197,7 @@ class BookRow extends DataClass implements Insertable<BookRow> {
           other.shelfId == this.shelfId &&
           other.favorite == this.favorite &&
           other.cloudState == this.cloudState &&
+          other.textState == this.textState &&
           other.sortPos == this.sortPos &&
           other.tags == this.tags &&
           other.lastPage == this.lastPage &&
@@ -2179,6 +2217,7 @@ class BooksCompanion extends UpdateCompanion<BookRow> {
   final Value<String?> shelfId;
   final Value<int> favorite;
   final Value<String> cloudState;
+  final Value<String> textState;
   final Value<int> sortPos;
   final Value<String> tags;
   final Value<int> lastPage;
@@ -2197,6 +2236,7 @@ class BooksCompanion extends UpdateCompanion<BookRow> {
     this.shelfId = const Value.absent(),
     this.favorite = const Value.absent(),
     this.cloudState = const Value.absent(),
+    this.textState = const Value.absent(),
     this.sortPos = const Value.absent(),
     this.tags = const Value.absent(),
     this.lastPage = const Value.absent(),
@@ -2216,6 +2256,7 @@ class BooksCompanion extends UpdateCompanion<BookRow> {
     this.shelfId = const Value.absent(),
     this.favorite = const Value.absent(),
     this.cloudState = const Value.absent(),
+    this.textState = const Value.absent(),
     this.sortPos = const Value.absent(),
     this.tags = const Value.absent(),
     this.lastPage = const Value.absent(),
@@ -2236,6 +2277,7 @@ class BooksCompanion extends UpdateCompanion<BookRow> {
     Expression<String>? shelfId,
     Expression<int>? favorite,
     Expression<String>? cloudState,
+    Expression<String>? textState,
     Expression<int>? sortPos,
     Expression<String>? tags,
     Expression<int>? lastPage,
@@ -2255,6 +2297,7 @@ class BooksCompanion extends UpdateCompanion<BookRow> {
       if (shelfId != null) 'shelf_id': shelfId,
       if (favorite != null) 'favorite': favorite,
       if (cloudState != null) 'cloud_state': cloudState,
+      if (textState != null) 'text_state': textState,
       if (sortPos != null) 'sort_pos': sortPos,
       if (tags != null) 'tags': tags,
       if (lastPage != null) 'last_page': lastPage,
@@ -2276,6 +2319,7 @@ class BooksCompanion extends UpdateCompanion<BookRow> {
     Value<String?>? shelfId,
     Value<int>? favorite,
     Value<String>? cloudState,
+    Value<String>? textState,
     Value<int>? sortPos,
     Value<String>? tags,
     Value<int>? lastPage,
@@ -2295,6 +2339,7 @@ class BooksCompanion extends UpdateCompanion<BookRow> {
       shelfId: shelfId ?? this.shelfId,
       favorite: favorite ?? this.favorite,
       cloudState: cloudState ?? this.cloudState,
+      textState: textState ?? this.textState,
       sortPos: sortPos ?? this.sortPos,
       tags: tags ?? this.tags,
       lastPage: lastPage ?? this.lastPage,
@@ -2338,6 +2383,9 @@ class BooksCompanion extends UpdateCompanion<BookRow> {
     if (cloudState.present) {
       map['cloud_state'] = Variable<String>(cloudState.value);
     }
+    if (textState.present) {
+      map['text_state'] = Variable<String>(textState.value);
+    }
     if (sortPos.present) {
       map['sort_pos'] = Variable<int>(sortPos.value);
     }
@@ -2375,6 +2423,7 @@ class BooksCompanion extends UpdateCompanion<BookRow> {
           ..write('shelfId: $shelfId, ')
           ..write('favorite: $favorite, ')
           ..write('cloudState: $cloudState, ')
+          ..write('textState: $textState, ')
           ..write('sortPos: $sortPos, ')
           ..write('tags: $tags, ')
           ..write('lastPage: $lastPage, ')
@@ -3474,6 +3523,309 @@ class HighlightsCompanion extends UpdateCompanion<HighlightRow> {
           ..write('color: $color, ')
           ..write('note: $note, ')
           ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PageTextsTable extends PageTexts
+    with TableInfo<$PageTextsTable, PageTextRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PageTextsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _bookIdMeta = const VerificationMeta('bookId');
+  @override
+  late final GeneratedColumn<String> bookId = GeneratedColumn<String>(
+    'book_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pageMeta = const VerificationMeta('page');
+  @override
+  late final GeneratedColumn<int> page = GeneratedColumn<int>(
+    'page',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyMeta = const VerificationMeta('body');
+  @override
+  late final GeneratedColumn<String> body = GeneratedColumn<String>(
+    'body',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _boxesMeta = const VerificationMeta('boxes');
+  @override
+  late final GeneratedColumn<String> boxes = GeneratedColumn<String>(
+    'boxes',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [bookId, page, body, boxes];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'page_texts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PageTextRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('book_id')) {
+      context.handle(
+        _bookIdMeta,
+        bookId.isAcceptableOrUnknown(data['book_id']!, _bookIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bookIdMeta);
+    }
+    if (data.containsKey('page')) {
+      context.handle(
+        _pageMeta,
+        page.isAcceptableOrUnknown(data['page']!, _pageMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pageMeta);
+    }
+    if (data.containsKey('body')) {
+      context.handle(
+        _bodyMeta,
+        body.isAcceptableOrUnknown(data['body']!, _bodyMeta),
+      );
+    }
+    if (data.containsKey('boxes')) {
+      context.handle(
+        _boxesMeta,
+        boxes.isAcceptableOrUnknown(data['boxes']!, _boxesMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {bookId, page};
+  @override
+  PageTextRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PageTextRow(
+      bookId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}book_id'],
+      )!,
+      page: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}page'],
+      )!,
+      body: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body'],
+      )!,
+      boxes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}boxes'],
+      )!,
+    );
+  }
+
+  @override
+  $PageTextsTable createAlias(String alias) {
+    return $PageTextsTable(attachedDatabase, alias);
+  }
+}
+
+class PageTextRow extends DataClass implements Insertable<PageTextRow> {
+  final String bookId;
+  final int page;
+  final String body;
+  final String boxes;
+  const PageTextRow({
+    required this.bookId,
+    required this.page,
+    required this.body,
+    required this.boxes,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['book_id'] = Variable<String>(bookId);
+    map['page'] = Variable<int>(page);
+    map['body'] = Variable<String>(body);
+    map['boxes'] = Variable<String>(boxes);
+    return map;
+  }
+
+  PageTextsCompanion toCompanion(bool nullToAbsent) {
+    return PageTextsCompanion(
+      bookId: Value(bookId),
+      page: Value(page),
+      body: Value(body),
+      boxes: Value(boxes),
+    );
+  }
+
+  factory PageTextRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PageTextRow(
+      bookId: serializer.fromJson<String>(json['bookId']),
+      page: serializer.fromJson<int>(json['page']),
+      body: serializer.fromJson<String>(json['body']),
+      boxes: serializer.fromJson<String>(json['boxes']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'bookId': serializer.toJson<String>(bookId),
+      'page': serializer.toJson<int>(page),
+      'body': serializer.toJson<String>(body),
+      'boxes': serializer.toJson<String>(boxes),
+    };
+  }
+
+  PageTextRow copyWith({
+    String? bookId,
+    int? page,
+    String? body,
+    String? boxes,
+  }) => PageTextRow(
+    bookId: bookId ?? this.bookId,
+    page: page ?? this.page,
+    body: body ?? this.body,
+    boxes: boxes ?? this.boxes,
+  );
+  PageTextRow copyWithCompanion(PageTextsCompanion data) {
+    return PageTextRow(
+      bookId: data.bookId.present ? data.bookId.value : this.bookId,
+      page: data.page.present ? data.page.value : this.page,
+      body: data.body.present ? data.body.value : this.body,
+      boxes: data.boxes.present ? data.boxes.value : this.boxes,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PageTextRow(')
+          ..write('bookId: $bookId, ')
+          ..write('page: $page, ')
+          ..write('body: $body, ')
+          ..write('boxes: $boxes')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(bookId, page, body, boxes);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PageTextRow &&
+          other.bookId == this.bookId &&
+          other.page == this.page &&
+          other.body == this.body &&
+          other.boxes == this.boxes);
+}
+
+class PageTextsCompanion extends UpdateCompanion<PageTextRow> {
+  final Value<String> bookId;
+  final Value<int> page;
+  final Value<String> body;
+  final Value<String> boxes;
+  final Value<int> rowid;
+  const PageTextsCompanion({
+    this.bookId = const Value.absent(),
+    this.page = const Value.absent(),
+    this.body = const Value.absent(),
+    this.boxes = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PageTextsCompanion.insert({
+    required String bookId,
+    required int page,
+    this.body = const Value.absent(),
+    this.boxes = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : bookId = Value(bookId),
+       page = Value(page);
+  static Insertable<PageTextRow> custom({
+    Expression<String>? bookId,
+    Expression<int>? page,
+    Expression<String>? body,
+    Expression<String>? boxes,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (bookId != null) 'book_id': bookId,
+      if (page != null) 'page': page,
+      if (body != null) 'body': body,
+      if (boxes != null) 'boxes': boxes,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PageTextsCompanion copyWith({
+    Value<String>? bookId,
+    Value<int>? page,
+    Value<String>? body,
+    Value<String>? boxes,
+    Value<int>? rowid,
+  }) {
+    return PageTextsCompanion(
+      bookId: bookId ?? this.bookId,
+      page: page ?? this.page,
+      body: body ?? this.body,
+      boxes: boxes ?? this.boxes,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (bookId.present) {
+      map['book_id'] = Variable<String>(bookId.value);
+    }
+    if (page.present) {
+      map['page'] = Variable<int>(page.value);
+    }
+    if (body.present) {
+      map['body'] = Variable<String>(body.value);
+    }
+    if (boxes.present) {
+      map['boxes'] = Variable<String>(boxes.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PageTextsCompanion(')
+          ..write('bookId: $bookId, ')
+          ..write('page: $page, ')
+          ..write('body: $body, ')
+          ..write('boxes: $boxes, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5248,6 +5600,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ShelvesTable shelves = $ShelvesTable(this);
   late final $BookmarksTable bookmarks = $BookmarksTable(this);
   late final $HighlightsTable highlights = $HighlightsTable(this);
+  late final $PageTextsTable pageTexts = $PageTextsTable(this);
   late final $FieldMetaTable fieldMeta = $FieldMetaTable(this);
   late final $SyncOutboxTable syncOutbox = $SyncOutboxTable(this);
   late final $SyncStateTable syncState = $SyncStateTable(this);
@@ -5280,6 +5633,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'highlights_book',
     'CREATE INDEX highlights_book ON highlights (book_id)',
   );
+  late final Index pageTextsBook = Index(
+    'page_texts_book',
+    'CREATE INDEX page_texts_book ON page_texts (book_id)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5291,6 +5648,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     shelves,
     bookmarks,
     highlights,
+    pageTexts,
     fieldMeta,
     syncOutbox,
     syncState,
@@ -5302,6 +5660,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     booksHash,
     bookmarksBook,
     highlightsBook,
+    pageTextsBook,
   ];
 }
 
@@ -6029,6 +6388,7 @@ typedef $$BooksTableCreateCompanionBuilder = BooksCompanion Function({
   Value<String?> shelfId,
   Value<int> favorite,
   Value<String> cloudState,
+  Value<String> textState,
   Value<int> sortPos,
   Value<String> tags,
   Value<int> lastPage,
@@ -6048,6 +6408,7 @@ typedef $$BooksTableUpdateCompanionBuilder = BooksCompanion Function({
   Value<String?> shelfId,
   Value<int> favorite,
   Value<String> cloudState,
+  Value<String> textState,
   Value<int> sortPos,
   Value<String> tags,
   Value<int> lastPage,
@@ -6112,6 +6473,11 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
 
   ColumnFilters<String> get cloudState => $composableBuilder(
     column: $table.cloudState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get textState => $composableBuilder(
+    column: $table.textState,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6205,6 +6571,11 @@ class $$BooksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get textState => $composableBuilder(
+    column: $table.textState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get sortPos => $composableBuilder(
     column: $table.sortPos,
     builder: (column) => ColumnOrderings(column),
@@ -6277,6 +6648,9 @@ class $$BooksTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get textState =>
+      $composableBuilder(column: $table.textState, builder: (column) => column);
+
   GeneratedColumn<int> get sortPos =>
       $composableBuilder(column: $table.sortPos, builder: (column) => column);
 
@@ -6336,6 +6710,7 @@ class $$BooksTableTableManager
                 Value<String?> shelfId = const Value.absent(),
                 Value<int> favorite = const Value.absent(),
                 Value<String> cloudState = const Value.absent(),
+                Value<String> textState = const Value.absent(),
                 Value<int> sortPos = const Value.absent(),
                 Value<String> tags = const Value.absent(),
                 Value<int> lastPage = const Value.absent(),
@@ -6354,6 +6729,7 @@ class $$BooksTableTableManager
                 shelfId: shelfId,
                 favorite: favorite,
                 cloudState: cloudState,
+                textState: textState,
                 sortPos: sortPos,
                 tags: tags,
                 lastPage: lastPage,
@@ -6374,6 +6750,7 @@ class $$BooksTableTableManager
                 Value<String?> shelfId = const Value.absent(),
                 Value<int> favorite = const Value.absent(),
                 Value<String> cloudState = const Value.absent(),
+                Value<String> textState = const Value.absent(),
                 Value<int> sortPos = const Value.absent(),
                 Value<String> tags = const Value.absent(),
                 Value<int> lastPage = const Value.absent(),
@@ -6392,6 +6769,7 @@ class $$BooksTableTableManager
                 shelfId: shelfId,
                 favorite: favorite,
                 cloudState: cloudState,
+                textState: textState,
                 sortPos: sortPos,
                 tags: tags,
                 lastPage: lastPage,
@@ -7063,6 +7441,194 @@ typedef $$HighlightsTableProcessedTableManager =
         BaseReferences<_$AppDatabase, $HighlightsTable, HighlightRow>,
       ),
       HighlightRow,
+      PrefetchHooks Function()
+    >;
+typedef $$PageTextsTableCreateCompanionBuilder = PageTextsCompanion Function({
+  required String bookId,
+  required int page,
+  Value<String> body,
+  Value<String> boxes,
+  Value<int> rowid,
+});
+typedef $$PageTextsTableUpdateCompanionBuilder = PageTextsCompanion Function({
+  Value<String> bookId,
+  Value<int> page,
+  Value<String> body,
+  Value<String> boxes,
+  Value<int> rowid,
+});
+
+class $$PageTextsTableFilterComposer
+    extends Composer<_$AppDatabase, $PageTextsTable> {
+  $$PageTextsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get bookId => $composableBuilder(
+    column: $table.bookId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get page => $composableBuilder(
+    column: $table.page,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get boxes => $composableBuilder(
+    column: $table.boxes,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PageTextsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PageTextsTable> {
+  $$PageTextsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get bookId => $composableBuilder(
+    column: $table.bookId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get page => $composableBuilder(
+    column: $table.page,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get boxes => $composableBuilder(
+    column: $table.boxes,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PageTextsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PageTextsTable> {
+  $$PageTextsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get bookId =>
+      $composableBuilder(column: $table.bookId, builder: (column) => column);
+
+  GeneratedColumn<int> get page =>
+      $composableBuilder(column: $table.page, builder: (column) => column);
+
+  GeneratedColumn<String> get body =>
+      $composableBuilder(column: $table.body, builder: (column) => column);
+
+  GeneratedColumn<String> get boxes =>
+      $composableBuilder(column: $table.boxes, builder: (column) => column);
+}
+
+class $$PageTextsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PageTextsTable,
+          PageTextRow,
+          $$PageTextsTableFilterComposer,
+          $$PageTextsTableOrderingComposer,
+          $$PageTextsTableAnnotationComposer,
+          $$PageTextsTableCreateCompanionBuilder,
+          $$PageTextsTableUpdateCompanionBuilder,
+          (
+            PageTextRow,
+            BaseReferences<_$AppDatabase, $PageTextsTable, PageTextRow>,
+          ),
+          PageTextRow,
+          PrefetchHooks Function()
+        > {
+  $$PageTextsTableTableManager(_$AppDatabase db, $PageTextsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PageTextsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PageTextsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PageTextsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> bookId = const Value.absent(),
+                Value<int> page = const Value.absent(),
+                Value<String> body = const Value.absent(),
+                Value<String> boxes = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PageTextsCompanion(
+                bookId: bookId,
+                page: page,
+                body: body,
+                boxes: boxes,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String bookId,
+                required int page,
+                Value<String> body = const Value.absent(),
+                Value<String> boxes = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PageTextsCompanion.insert(
+                bookId: bookId,
+                page: page,
+                body: body,
+                boxes: boxes,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$PageTextsTable, PageTextRow>(table),
+                  BaseReferences<_$AppDatabase, $PageTextsTable, PageTextRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PageTextsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PageTextsTable,
+      PageTextRow,
+      $$PageTextsTableFilterComposer,
+      $$PageTextsTableOrderingComposer,
+      $$PageTextsTableAnnotationComposer,
+      $$PageTextsTableCreateCompanionBuilder,
+      $$PageTextsTableUpdateCompanionBuilder,
+      (
+        PageTextRow,
+        BaseReferences<_$AppDatabase, $PageTextsTable, PageTextRow>,
+      ),
+      PageTextRow,
       PrefetchHooks Function()
     >;
 typedef $$FieldMetaTableCreateCompanionBuilder = FieldMetaCompanion Function({
@@ -8028,6 +8594,8 @@ class $AppDatabaseManager {
       $$BookmarksTableTableManager(_db, _db.bookmarks);
   $$HighlightsTableTableManager get highlights =>
       $$HighlightsTableTableManager(_db, _db.highlights);
+  $$PageTextsTableTableManager get pageTexts =>
+      $$PageTextsTableTableManager(_db, _db.pageTexts);
   $$FieldMetaTableTableManager get fieldMeta =>
       $$FieldMetaTableTableManager(_db, _db.fieldMeta);
   $$SyncOutboxTableTableManager get syncOutbox =>

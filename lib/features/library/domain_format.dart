@@ -8,6 +8,8 @@ String formatBytes(int bytes) {
     v /= 1024;
     i++;
   }
-  final text = v >= 100 || v == v.roundToDouble() ? v.round().toString() : v.toStringAsFixed(1);
+  final text = v >= 100 || v == v.roundToDouble()
+      ? v.round().toString()
+      : v.toStringAsFixed(1);
   return '$text ${units[i]}';
 }

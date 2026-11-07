@@ -88,7 +88,11 @@ class _WeekViewState extends ConsumerState<WeekView> {
           DraggableTask(
             item: t,
             fromDay: days[i],
-            child: TaskTile(item: t, dense: true, onOpen: () => _open(context, s, t)),
+            child: TaskTile(
+              item: t,
+              dense: true,
+              onOpen: () => _open(context, s, t),
+            ),
           ),
       ];
       return items.isEmpty
@@ -100,12 +104,15 @@ class _WeekViewState extends ConsumerState<WeekView> {
     }
 
     /// A day (column or section) that tasks can be dropped on.
-    Widget dropTarget(int i, Widget Function(bool hovering) builder) => DragTarget<TaskDrag>(
-      key: Key('week-drop-${days[i].day}'),
-      onWillAcceptWithDetails: (d) => d.data.fromDay == null || !sameDay(d.data.fromDay!, days[i]),
-      onAcceptWithDetails: (d) => ctrl.moveTaskToDay(d.data.id, days[i], fromDay: d.data.fromDay),
-      builder: (context, candidates, _) => builder(candidates.isNotEmpty),
-    );
+    Widget dropTarget(int i, Widget Function(bool hovering) builder) =>
+        DragTarget<TaskDrag>(
+          key: Key('week-drop-${days[i].day}'),
+          onWillAcceptWithDetails: (d) =>
+              d.data.fromDay == null || !sameDay(d.data.fromDay!, days[i]),
+          onAcceptWithDetails: (d) =>
+              ctrl.moveTaskToDay(d.data.id, days[i], fromDay: d.data.fromDay),
+          builder: (context, candidates, _) => builder(candidates.isNotEmpty),
+        );
 
     Widget header(int i) {
       final d = days[i];
@@ -148,7 +155,10 @@ class _WeekViewState extends ConsumerState<WeekView> {
                     padding: const EdgeInsets.all(Space.s4),
                     decoration: BoxDecoration(
                       color: hovering ? c.accentSoft : null,
-                      border: Border.all(color: hovering ? c.accent : c.border, width: hovering ? 2 : 1),
+                      border: Border.all(
+                        color: hovering ? c.accent : c.border,
+                        width: hovering ? 2 : 1,
+                      ),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Column(
@@ -156,7 +166,11 @@ class _WeekViewState extends ConsumerState<WeekView> {
                       children: [
                         header(i),
                         const SizedBox(height: Space.s4),
-                        Expanded(child: SingleChildScrollView(child: dayBody(i, dense: true))),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: dayBody(i, dense: true),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -183,14 +197,21 @@ class _WeekViewState extends ConsumerState<WeekView> {
                 decoration: BoxDecoration(
                   color: hovering ? c.accentSoft : null,
                   borderRadius: BorderRadius.circular(8),
-                  border: hovering ? Border.all(color: c.accent, width: 2) : null,
+                  border: hovering
+                      ? Border.all(color: c.accent, width: 2)
+                      : null,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     header(i),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(Space.s8, Space.s4, 0, Space.s12),
+                      padding: const EdgeInsets.fromLTRB(
+                        Space.s8,
+                        Space.s4,
+                        0,
+                        Space.s12,
+                      ),
                       child: dayBody(i, dense: false),
                     ),
                   ],
@@ -225,176 +246,193 @@ class MonthView extends ConsumerWidget {
     final ctrl = ref.read(plannerControllerProvider.notifier);
     final t = Theme.of(context).textTheme;
 
-    return LayoutBuilder(builder: (context, outer) {
-    // the tasks of the picked day (drag source) need room: only on screens tall enough
-    final showPanel = outer.maxHeight >= 460;
-    return Padding(
-      padding: const EdgeInsets.all(Space.s8),
-      child: Column(
-        children: [
-          Row(
+    return LayoutBuilder(
+      builder: (context, outer) {
+        // the tasks of the picked day (drag source) need room: only on screens tall enough
+        final showPanel = outer.maxHeight >= 460;
+        return Padding(
+          padding: const EdgeInsets.all(Space.s8),
+          child: Column(
             children: [
-              for (var i = 1; i <= 7; i++)
-                Expanded(
-                  child: Center(
-                    child: Text(weekdayShort(i), style: t.bodySmall),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: Space.s4),
-          for (var w = 0; w < weeks; w++)
-            Expanded(
-              child: Row(
+              Row(
                 children: [
-                  for (var i = 0; i < 7; i++)
+                  for (var i = 1; i <= 7; i++)
                     Expanded(
-                      child: Builder(
-                        builder: (context) {
-                          final d = DateTime(
-                            gridStart.year,
-                            gridStart.month,
-                            gridStart.day + w * 7 + i,
-                          );
-                          final inMonth = d.month == first.month;
-                          final isToday = sameDay(d, s.today);
-                          final isSel = sameDay(d, s.day);
-                          final n = counts[d];
-                          final cell = Semantics(
-                            button: true,
-                            label:
-                                '${dayTitle(d)}${n == null ? ', nothing planned' : ', ${n.events} events, ${n.open} open tasks'}',
-                            child: InkWell(
-                              key: Key('month-${d.month}-${d.day}'),
-                              onTap: () => ctrl.openDay(d),
-                              child: Container(
-                                margin: const EdgeInsets.all(1.5),
-                                padding: const EdgeInsets.all(3),
-                                decoration: BoxDecoration(
-                                  color: isSel
-                                      ? c.accentSoft
-                                      : (inMonth
-                                            ? c.surface
-                                            : Colors.transparent),
-                                  border: Border.all(
-                                    color: isToday ? c.accent : c.border,
-                                    width: isToday ? 2 : 1,
-                                  ),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: LayoutBuilder(
-                                  builder: (context, box) {
-                                    final number = Text(
-                                      '${d.day}',
-                                      style: t.bodySmall?.copyWith(
-                                        color: inMonth ? c.text : c.textMuted,
-                                        fontWeight: isToday
-                                            ? FontWeight.w800
-                                            : null,
+                      child: Center(
+                        child: Text(weekdayShort(i), style: t.bodySmall),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: Space.s4),
+              for (var w = 0; w < weeks; w++)
+                Expanded(
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < 7; i++)
+                        Expanded(
+                          child: Builder(
+                            builder: (context) {
+                              final d = DateTime(
+                                gridStart.year,
+                                gridStart.month,
+                                gridStart.day + w * 7 + i,
+                              );
+                              final inMonth = d.month == first.month;
+                              final isToday = sameDay(d, s.today);
+                              final isSel = sameDay(d, s.day);
+                              final n = counts[d];
+                              final cell = Semantics(
+                                button: true,
+                                label:
+                                    '${dayTitle(d)}${n == null ? ', nothing planned' : ', ${n.events} events, ${n.open} open tasks'}',
+                                child: InkWell(
+                                  key: Key('month-${d.month}-${d.day}'),
+                                  onTap: () => ctrl.openDay(d),
+                                  child: Container(
+                                    margin: const EdgeInsets.all(1.5),
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: BoxDecoration(
+                                      color: isSel
+                                          ? c.accentSoft
+                                          : (inMonth
+                                                ? c.surface
+                                                : Colors.transparent),
+                                      border: Border.all(
+                                        color: isToday ? c.accent : c.border,
+                                        width: isToday ? 2 : 1,
                                       ),
-                                    );
-                                    if (box.maxHeight < 56) {
-                                      // short cells (landscape phones): number and tiny dots on ONE line
-                                      return Row(
-                                        children: [
-                                          number,
-                                          const Spacer(),
-                                          if (n != null && n.events > 0)
-                                            _Dot(
-                                              c.accent,
-                                              key: Key(
-                                                'month-ev-${d.month}-${d.day}',
-                                              ),
-                                            ),
-                                          if (n != null && n.open > 0)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                left: 2,
-                                              ),
-                                              child: _Dot(
-                                                c.brass,
-                                                key: Key(
-                                                  'month-task-${d.month}-${d.day}',
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      );
-                                    }
-                                    return Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        number,
-                                        const Spacer(),
-                                        if (n != null)
-                                          Wrap(
-                                            spacing: 2,
-                                            runSpacing: 2,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: LayoutBuilder(
+                                      builder: (context, box) {
+                                        final number = Text(
+                                          '${d.day}',
+                                          style: t.bodySmall?.copyWith(
+                                            color: inMonth
+                                                ? c.text
+                                                : c.textMuted,
+                                            fontWeight: isToday
+                                                ? FontWeight.w800
+                                                : null,
+                                          ),
+                                        );
+                                        if (box.maxHeight < 56) {
+                                          // short cells (landscape phones): number and tiny dots on ONE line
+                                          return Row(
                                             children: [
-                                              if (n.events > 0)
-                                                _Pill(
-                                                  '${n.events}',
-                                                  c.accentSoft,
+                                              number,
+                                              const Spacer(),
+                                              if (n != null && n.events > 0)
+                                                _Dot(
                                                   c.accent,
                                                   key: Key(
                                                     'month-ev-${d.month}-${d.day}',
                                                   ),
                                                 ),
-                                              if (n.open > 0)
-                                                _Pill(
-                                                  '${n.open}',
-                                                  Color.alphaBlend(
-                                                    c.brass.withValues(
-                                                      alpha: .25,
+                                              if (n != null && n.open > 0)
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        left: 2,
+                                                      ),
+                                                  child: _Dot(
+                                                    c.brass,
+                                                    key: Key(
+                                                      'month-task-${d.month}-${d.day}',
                                                     ),
-                                                    c.surface,
                                                   ),
-                                                  c.text,
-                                                  key: Key(
-                                                    'month-task-${d.month}-${d.day}',
-                                                  ),
-                                                ),
-                                              if (n.done > 0 && n.open == 0)
-                                                _Pill(
-                                                  '✓',
-                                                  c.surface2,
-                                                  c.textMuted,
                                                 ),
                                             ],
-                                          ),
-                                      ],
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                          );
-                          return DragTarget<TaskDrag>(
-                            key: Key('month-drop-${d.month}-${d.day}'),
-                            onWillAcceptWithDetails: (x) => x.data.fromDay == null || !sameDay(x.data.fromDay!, d),
-                            onAcceptWithDetails: (x) => ctrl.moveTaskToDay(x.data.id, d, fromDay: x.data.fromDay),
-                            builder: (context, candidates, _) => candidates.isEmpty
-                                ? cell
-                                : DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: c.accent, width: 3),
+                                          );
+                                        }
+                                        return Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            number,
+                                            const Spacer(),
+                                            if (n != null)
+                                              Wrap(
+                                                spacing: 2,
+                                                runSpacing: 2,
+                                                children: [
+                                                  if (n.events > 0)
+                                                    _Pill(
+                                                      '${n.events}',
+                                                      c.accentSoft,
+                                                      c.accent,
+                                                      key: Key(
+                                                        'month-ev-${d.month}-${d.day}',
+                                                      ),
+                                                    ),
+                                                  if (n.open > 0)
+                                                    _Pill(
+                                                      '${n.open}',
+                                                      Color.alphaBlend(
+                                                        c.brass.withValues(
+                                                          alpha: .25,
+                                                        ),
+                                                        c.surface,
+                                                      ),
+                                                      c.text,
+                                                      key: Key(
+                                                        'month-task-${d.month}-${d.day}',
+                                                      ),
+                                                    ),
+                                                  if (n.done > 0 && n.open == 0)
+                                                    _Pill(
+                                                      '✓',
+                                                      c.surface2,
+                                                      c.textMuted,
+                                                    ),
+                                                ],
+                                              ),
+                                          ],
+                                        );
+                                      },
                                     ),
-                                    child: cell,
                                   ),
-                          );
-                        },
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          if (showPanel) _MonthDayPanel(state: s),
-        ],
-      ),
+                                ),
+                              );
+                              return DragTarget<TaskDrag>(
+                                key: Key('month-drop-${d.month}-${d.day}'),
+                                onWillAcceptWithDetails: (x) =>
+                                    x.data.fromDay == null ||
+                                    !sameDay(x.data.fromDay!, d),
+                                onAcceptWithDetails: (x) => ctrl.moveTaskToDay(
+                                  x.data.id,
+                                  d,
+                                  fromDay: x.data.fromDay,
+                                ),
+                                builder: (context, candidates, _) =>
+                                    candidates.isEmpty
+                                    ? cell
+                                    : DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          border: Border.all(
+                                            color: c.accent,
+                                            width: 3,
+                                          ),
+                                        ),
+                                        child: cell,
+                                      ),
+                              );
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              if (showPanel) _MonthDayPanel(state: s),
+            ],
+          ),
+        );
+      },
     );
-    });
   }
 }
 
@@ -415,7 +453,11 @@ class _MonthDayPanel extends ConsumerWidget {
       key: const Key('month-panel'),
       margin: const EdgeInsets.only(top: Space.s8),
       padding: const EdgeInsets.all(Space.s8),
-      decoration: BoxDecoration(color: c.surface, border: Border.all(color: c.border), borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(
+        color: c.surface,
+        border: Border.all(color: c.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -449,11 +491,16 @@ class _MonthDayPanel extends ConsumerWidget {
           if (tasks.isEmpty)
             Padding(
               padding: const EdgeInsets.all(Space.s8),
-              child: Text('Nothing to move. Use the arrows to look at another day.', style: t.bodySmall),
+              child: Text(
+                'Nothing to move. Use the arrows to look at another day.',
+                style: t.bodySmall,
+              ),
             )
           else ...[
             Text(
-              DraggableTask.isTouch ? 'Press and hold a task, then drop it on a day above.' : 'Drag a task onto a day above to move it.',
+              DraggableTask.isTouch
+                  ? 'Press and hold a task, then drop it on a day above.'
+                  : 'Drag a task onto a day above to move it.',
               style: t.bodySmall?.copyWith(color: c.textMuted),
             ),
             ConstrainedBox(
@@ -465,7 +512,11 @@ class _MonthDayPanel extends ConsumerWidget {
                     DraggableTask(
                       item: i,
                       fromDay: s.day,
-                      child: TaskTile(item: i, dense: true, onOpen: () => _open(context, s, i)),
+                      child: TaskTile(
+                        item: i,
+                        dense: true,
+                        onOpen: () => _open(context, s, i),
+                      ),
                     ),
                 ],
               ),

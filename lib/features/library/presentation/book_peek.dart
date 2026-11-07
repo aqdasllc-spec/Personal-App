@@ -14,10 +14,16 @@ import 'book_visuals.dart';
 /// Lets a finger drag across books to select (or deselect) them while in selection mode.
 /// Each selectable book registers itself; the owner turns pointer positions into book ids.
 class SelectDragScope extends InheritedWidget {
-  const SelectDragScope({super.key, required this.onStart, required this.onMove, required super.child});
+  const SelectDragScope({
+    super.key,
+    required this.onStart,
+    required this.onMove,
+    required super.child,
+  });
   final void Function(String bookId, Offset global) onStart;
   final void Function(Offset global) onMove;
-  static SelectDragScope? maybeOf(BuildContext c) => c.dependOnInheritedWidgetOfExactType<SelectDragScope>();
+  static SelectDragScope? maybeOf(BuildContext c) =>
+      c.dependOnInheritedWidgetOfExactType<SelectDragScope>();
   @override
   bool updateShouldNotify(SelectDragScope old) => false;
 }
@@ -145,45 +151,53 @@ class _BookPeekTargetState extends State<BookPeekTarget> {
       return GestureDetector(
         behavior: HitTestBehavior.translucent,
         // press and hold on a book, then slide over others: they get the same state as the first one
-        onLongPressStart: (d) => drag?.onStart(widget.book.id, d.globalPosition),
+        onLongPressStart: (d) =>
+            drag?.onStart(widget.book.id, d.globalPosition),
         onLongPressMoveUpdate: (d) => drag?.onMove(d.globalPosition),
         child: MetaData(
           metaData: BookTag(widget.book.id),
           behavior: HitTestBehavior.translucent,
           child: Stack(
-        children: [
-          widget.child,
-          if (sel)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: c.accent.withValues(alpha: .18),
-                    border: Border.all(color: c.accent, width: 2),
-                    borderRadius: BorderRadius.circular(Radii.input),
+            children: [
+              widget.child,
+              if (sel)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: c.accent.withValues(alpha: .18),
+                        border: Border.all(color: c.accent, width: 2),
+                        borderRadius: BorderRadius.circular(Radii.input),
+                      ),
+                    ),
+                  ),
+                ),
+              Positioned(
+                left: 4,
+                bottom: 4,
+                child: IgnorePointer(
+                  child: Container(
+                    key: Key(
+                      sel ? 'sel-${widget.book.id}' : 'unsel-${widget.book.id}',
+                    ),
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: sel ? c.accent : c.surface.withValues(alpha: .85),
+                      border: Border.all(
+                        color: sel ? c.onAccent : c.textMuted,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: sel
+                        ? Icon(Icons.check, size: 15, color: c.onAccent)
+                        : null,
                   ),
                 ),
               ),
-            ),
-          Positioned(
-            left: 4,
-            bottom: 4,
-            child: IgnorePointer(
-              child: Container(
-                key: Key(sel ? 'sel-${widget.book.id}' : 'unsel-${widget.book.id}'),
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: sel ? c.accent : c.surface.withValues(alpha: .85),
-                  border: Border.all(color: sel ? c.onAccent : c.textMuted, width: 1.5),
-                ),
-                child: sel ? Icon(Icons.check, size: 15, color: c.onAccent) : null,
-              ),
-            ),
+            ],
           ),
-        ],
-      ),
         ),
       );
     }
@@ -302,7 +316,8 @@ class _PeekCard extends ConsumerWidget {
                             Chip(
                               label: Text('#$tag'),
                               visualDensity: VisualDensity.compact,
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
                               padding: EdgeInsets.zero,
                               labelStyle: t.bodySmall,
                             ),

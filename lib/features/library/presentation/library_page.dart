@@ -410,19 +410,31 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
             if (editing)
               Builder(
                 builder: (context) {
-                  final ids = [for (final b in visible.value ?? const <BookRow>[]) b.id];
+                  final ids = [
+                    for (final b in visible.value ?? const <BookRow>[]) b.id,
+                  ];
                   final i = moveId == null ? -1 : ids.indexOf(moveId);
-                  final picked = i < 0 ? null : (visible.value ?? const <BookRow>[])[i];
+                  final picked = i < 0
+                      ? null
+                      : (visible.value ?? const <BookRow>[])[i];
                   return Material(
                     key: const Key('edit-bar'),
                     color: context.colors.accentSoft,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: Space.s16, vertical: Space.s4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Space.s16,
+                        vertical: Space.s4,
+                      ),
                       child: Row(
                         children: [
                           Expanded(
                             child: picked != null
-                                ? Text('Move "${picked.title}"', key: const Key('edit-picked'), maxLines: 1, overflow: TextOverflow.ellipsis)
+                                ? Text(
+                                    'Move "${picked.title}"',
+                                    key: const Key('edit-picked'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  )
                                 : Text(
                                     canReorder
                                         ? 'Drag a book to a new place, or tap one and use the arrows. Drop a book on a shelf name to move it there.'
@@ -435,16 +447,24 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                               key: const Key('edit-left'),
                               tooltip: 'Move earlier',
                               icon: const Icon(Icons.arrow_back),
-                              onPressed: canReorder && i > 0 ? () => _nudgeBook(picked.id, -1) : null,
+                              onPressed: canReorder && i > 0
+                                  ? () => _nudgeBook(picked.id, -1)
+                                  : null,
                             ),
                             IconButton(
                               key: const Key('edit-right'),
                               tooltip: 'Move later',
                               icon: const Icon(Icons.arrow_forward),
-                              onPressed: canReorder && i < ids.length - 1 ? () => _nudgeBook(picked.id, 1) : null,
+                              onPressed: canReorder && i < ids.length - 1
+                                  ? () => _nudgeBook(picked.id, 1)
+                                  : null,
                             ),
                           ],
-                          FilledButton(key: const Key('edit-done'), onPressed: _toggleEdit, child: const Text('Done')),
+                          FilledButton(
+                            key: const Key('edit-done'),
+                            onPressed: _toggleEdit,
+                            child: const Text('Done'),
+                          ),
                         ],
                       ),
                     ),
@@ -537,15 +557,15 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                           if (list.isEmpty) {
                             return PrimaryScrollController.none(
                               child: EmptyState(
-                              icon: Icons.search_off,
-                              title: 'Nothing here',
-                              message: ui.query.isNotEmpty
-                                  ? 'No book matches "${ui.query}".'
-                                  : (ui.activeFilters > 0
-                                        ? 'No book matches these filters. Remove one above to see more.'
-                                        : (ui.filter is Favorites
-                                              ? 'Star a book to find it here.'
-                                              : 'This shelf is empty. Open a book\'s menu to move it here.')),
+                                icon: Icons.search_off,
+                                title: 'Nothing here',
+                                message: ui.query.isNotEmpty
+                                    ? 'No book matches "${ui.query}".'
+                                    : (ui.activeFilters > 0
+                                          ? 'No book matches these filters. Remove one above to see more.'
+                                          : (ui.filter is Favorites
+                                                ? 'Star a book to find it here.'
+                                                : 'This shelf is empty. Open a book\'s menu to move it here.')),
                               ),
                             );
                           }

@@ -22,7 +22,11 @@ class SyncedStore {
   final int Function() _now;
   final _uuid = const Uuid();
 
-  static Future<SyncedStore> open(AppDatabase db, {int Function()? now, String? deviceId}) async {
+  static Future<SyncedStore> open(
+    AppDatabase db, {
+    int Function()? now,
+    String? deviceId,
+  }) async {
     final nowFn = now ?? () => DateTime.now().millisecondsSinceEpoch;
     var id = deviceId ?? await _getState(db, 'device_id');
     if (id == null) {
@@ -36,10 +40,15 @@ class SyncedStore {
   }
 
   static Future<String?> _getState(AppDatabase db, String key) async =>
-      (await (db.select(db.syncState)..where((t) => t.key.equals(key))).getSingleOrNull())?.value;
+      (await (db.select(
+        db.syncState,
+      )..where((t) => t.key.equals(key))).getSingleOrNull())?.value;
 
-  static Future<void> _setState(AppDatabase db, String key, String value) =>
-      db.into(db.syncState).insertOnConflictUpdate(SyncStateCompanion.insert(key: key, value: value));
+  static Future<void> _setState(AppDatabase db, String key, String value) => db
+      .into(db.syncState)
+      .insertOnConflictUpdate(
+        SyncStateCompanion.insert(key: key, value: value),
+      );
 
   Future<String?> state(String key) => _getState(db, key);
   Future<void> setState(String key, String value) => _setState(db, key, value);
@@ -49,26 +58,37 @@ class SyncedStore {
   int get nowMs => _now();
 
   /// Local edit of one or more fields of one row, atomically.
-  Future<void> setFields(String tbl, String rowId, Map<String, Object?> fields) {
-    final table = syncedTables[tbl] ?? (throw ArgumentError('Table $tbl is not synced'));
+  Future<void> setFields(
+    String tbl,
+    String rowId,
+    Map<String, Object?> fields,
+  ) {
+    final table =
+        syncedTables[tbl] ?? (throw ArgumentError('Table $tbl is not synced'));
     return db.transaction(() async {
       if (table.custom == null) await _ensureRow(table, rowId);
       for (final e in fields.entries) {
-        final column = table.fieldToColumn[e.key] ?? (throw ArgumentError('Unknown field ${e.key} on $tbl'));
+        final column =
+            table.fieldToColumn[e.key] ??
+            (throw ArgumentError('Unknown field ${e.key} on $tbl'));
         final hlc = clock.tick();
         final base = await _metaHlc(tbl, rowId, e.key);
         await _writeField(table, column, rowId, e.key, e.value, hlc.wall);
         await _putMeta(tbl, rowId, e.key, hlc);
-        await db.into(db.syncOutbox).insert(SyncOutboxCompanion.insert(
-              tbl: tbl,
-              rowId: rowId,
-              field: e.key,
-              valueJson: Value(jsonEncode(e.value)),
-              hlc: hlc.toString(),
-              baseHlc: Value(base),
-              changeId: _uuid.v4(),
-              createdAt: _now(),
-            ));
+        await db
+            .into(db.syncOutbox)
+            .insert(
+              SyncOutboxCompanion.insert(
+                tbl: tbl,
+                rowId: rowId,
+                field: e.key,
+                valueJson: Value(jsonEncode(e.value)),
+                hlc: hlc.toString(),
+                baseHlc: Value(base),
+                changeId: _uuid.v4(),
+                createdAt: _now(),
+              ),
+            );
       }
       await _setState(db, 'last_hlc', clock.latest.toString());
     });
@@ -79,7 +99,11 @@ class SyncedStore {
   /// pending edit is kept and will be reconciled (and logged as a conflict) at the server.
   Future<bool> applyRemote(Change c) {
     final table = syncedTables[c.key.table];
-    if (table == null) return Future.value(false); // unknown table from a newer app version: skip, don't crash
+    if (table == null) {
+      return Future.value(
+        false,
+      ); // unknown table from a newer app version: skip, don't crash
+    }
     final column = table.fieldToColumn[c.key.field];
     if (column == null) return Future.value(false);
     return db.transaction(() async {
@@ -90,47 +114,80 @@ class SyncedStore {
         return false;
       }
       if (table.custom == null) await _ensureRow(table, c.key.rowId);
-      await _writeField(table, column, c.key.rowId, c.key.field, c.value, c.hlc.wall);
+      await _writeField(
+        table,
+        column,
+        c.key.rowId,
+        c.key.field,
+        c.value,
+        c.hlc.wall,
+      );
       await _putMeta(c.key.table, c.key.rowId, c.key.field, c.hlc);
       await _setState(db, 'last_hlc', clock.latest.toString());
       return true;
     });
   }
 
-  Future<void> _writeField(SyncedTable table, String column, String rowId, String field, Object? value, int wallMs) async {
+  Future<void> _writeField(
+    SyncedTable table,
+    String column,
+    String rowId,
+    String field,
+    Object? value,
+    int wallMs,
+  ) async {
     final custom = table.custom;
     if (custom != null) {
       await custom(db, rowId, field, value, wallMs);
     } else {
-      await db.customUpdate('UPDATE ${table.name} SET $column = ? WHERE id = ?',
-          variables: [_variable(value), Variable.withString(rowId)], updates: {_tableInfo(table.name)});
+      await db.customUpdate(
+        'UPDATE ${table.name} SET $column = ? WHERE id = ?',
+        variables: [_variable(value), Variable.withString(rowId)],
+        updates: {_tableInfo(table.name)},
+      );
     }
     await table.afterApply?.call(db, rowId, field, value, wallMs);
   }
 
   Future<void> _ensureRow(SyncedTable t, String rowId) => db.customInsert(
-        'INSERT INTO ${t.name} (id, ${t.createdAtColumn}) VALUES (?, ?) ON CONFLICT(id) DO NOTHING',
-        variables: [Variable.withString(rowId), Variable.withInt(_now())],
-      );
+    'INSERT INTO ${t.name} (id, ${t.createdAtColumn}) VALUES (?, ?) ON CONFLICT(id) DO NOTHING',
+    variables: [Variable.withString(rowId), Variable.withInt(_now())],
+  );
 
-  TableInfo _tableInfo(String tbl) => db.allTables.firstWhere((t) => t.actualTableName == tbl);
+  TableInfo _tableInfo(String tbl) =>
+      db.allTables.firstWhere((t) => t.actualTableName == tbl);
 
   Future<String?> _metaHlc(String tbl, String rowId, String field) async {
-    final row = await (db.select(db.fieldMeta)
-          ..where((m) => m.tbl.equals(tbl) & m.rowId.equals(rowId) & m.field.equals(field)))
-        .getSingleOrNull();
+    final row =
+        await (db.select(db.fieldMeta)..where(
+              (m) =>
+                  m.tbl.equals(tbl) &
+                  m.rowId.equals(rowId) &
+                  m.field.equals(field),
+            ))
+            .getSingleOrNull();
     return row?.hlc;
   }
 
-  Future<void> _putMeta(String tbl, String rowId, String field, Hlc hlc) => db.into(db.fieldMeta).insertOnConflictUpdate(
-      FieldMetaCompanion.insert(tbl: tbl, rowId: rowId, field: field, hlc: hlc.toString()));
+  Future<void> _putMeta(String tbl, String rowId, String field, Hlc hlc) => db
+      .into(db.fieldMeta)
+      .insertOnConflictUpdate(
+        FieldMetaCompanion.insert(
+          tbl: tbl,
+          rowId: rowId,
+          field: field,
+          hlc: hlc.toString(),
+        ),
+      );
 
   static Variable _variable(Object? v) => switch (v) {
-        null => const Variable<Object>(null),
-        String s => Variable.withString(s),
-        int i => Variable.withInt(i),
-        bool b => Variable.withInt(b ? 1 : 0),
-        double d => Variable.withReal(d),
-        _ => throw ArgumentError('Unsupported scalar ${v.runtimeType}; complex values need a codec'),
-      };
+    null => const Variable<Object>(null),
+    String s => Variable.withString(s),
+    int i => Variable.withInt(i),
+    bool b => Variable.withInt(b ? 1 : 0),
+    double d => Variable.withReal(d),
+    _ => throw ArgumentError(
+      'Unsupported scalar ${v.runtimeType}; complex values need a codec',
+    ),
+  };
 }

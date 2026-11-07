@@ -16,6 +16,7 @@ BookRow book(String id, String title, {String author = '', int pages = 100, int 
       cloudState: 'local',
       tags: tags,
       sortPos: 0,
+      textState: 'unknown',
       lastPage: last,
       lastOpenedAt: opened,
       addedAt: added,

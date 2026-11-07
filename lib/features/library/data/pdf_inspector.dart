@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../application/library_controller.dart';
+import '../application/reader_prefs.dart';
 import '../domain_highlights.dart';
 import 'library_repository.dart';
 
@@ -73,6 +74,49 @@ class _PdfViewState extends State<_PdfView> {
   late final _searcher = PdfTextSearcher(_controller);
   String _query = '';
 
+  void _prefsChanged() {
+    if (mounted) setState(() {}); // new colours / scroll direction
+    // the page layout (vertical / sideways) is only recomputed when asked
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _controller.invalidate();
+    });
+  }
+
+  /// Pages side by side (swipe sideways) instead of one under another.
+  static PdfPageLayout _sideways(List<PdfPage> pages, PdfViewerParams params) {
+    var height = 0.0;
+    for (final p in pages) {
+      if (p.height > height) height = p.height;
+    }
+    height += params.margin * 2;
+    final rects = <Rect>[];
+    var x = params.margin;
+    for (final p in pages) {
+      rects.add(Rect.fromLTWH(x, (height - p.height) / 2, p.width, p.height));
+      x += p.width + params.margin;
+    }
+    return PdfPageLayout(pageLayouts: rects, documentSize: Size(x, height));
+  }
+
+  bool _onTap(
+    BuildContext context,
+    PdfViewerController controller,
+    PdfViewerGeneralTapHandlerDetails d,
+  ) {
+    if (d.type != PdfViewerGeneralTapType.tap ||
+        d.tapOn != PdfViewerPart.background) {
+      return false;
+    }
+    final box = context.findRenderObject();
+    final w = box is RenderBox ? box.size.width : 0.0;
+    if (w <= 0) return false;
+    final f = d.localPosition.dx / w;
+    widget.control.onZoneTap?.call(
+      f < 0.28 ? TapZone.left : (f > 0.72 ? TapZone.right : TapZone.center),
+    );
+    return true;
+  }
+
   void _publish() {
     final m = _searcher.matches.length;
     widget.control.search.value = ReaderSearch(
@@ -132,6 +176,8 @@ class _PdfViewState extends State<_PdfView> {
   void dispose() {
     final c = widget.control;
     c.highlights.removeListener(_controller.invalidate);
+    c.ocrBoxes.removeListener(_controller.invalidate);
+    c.prefs.removeListener(_prefsChanged);
     c.goTo = c.startSearch = c.nextMatch = c.prevMatch = c.stopSearch = null;
     _searcher.dispose();
     super.dispose();
@@ -149,6 +195,25 @@ class _PdfViewState extends State<_PdfView> {
             .translate(pageRect.left, pageRect.top);
         canvas.drawRect(rect, paint);
       }
+    }
+  }
+
+  /// Search hits on scanned pages (recognised text): a yellow bar over each matching line.
+  void _paintOcr(ui.Canvas canvas, Rect pageRect, PdfPage page) {
+    final paint = Paint()
+      ..color = const Color(0xFFFFD84D).withValues(alpha: 0.5)
+      ..blendMode = BlendMode.multiply;
+    for (final h in widget.control.ocrBoxes.value) {
+      if (h.page != page.pageNumber) continue;
+      canvas.drawRect(
+        Rect.fromLTRB(
+          pageRect.left + h.left * pageRect.width,
+          pageRect.top + h.top * pageRect.height,
+          pageRect.left + h.right * pageRect.width,
+          pageRect.top + h.bottom * pageRect.height,
+        ),
+        paint,
+      );
     }
   }
 
@@ -192,8 +257,14 @@ class _PdfViewState extends State<_PdfView> {
     controller: _controller,
     initialPageNumber: widget.initialPage < 1 ? 1 : widget.initialPage,
     params: PdfViewerParams(
+      backgroundColor: widget.control.prefs.value.theme.background,
+      layoutPages: widget.control.prefs.value.scroll == ReaderScroll.horizontal
+          ? _sideways
+          : null,
+      onGeneralTap: _onTap,
       pagePaintCallbacks: [
         _paintHighlights,
+        _paintOcr,
         _searcher.pageTextMatchPaintCallback,
       ],
       customizeContextMenuItems: _addHighlightItem,

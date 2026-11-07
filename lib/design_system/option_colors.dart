@@ -3,7 +3,18 @@ import 'package:flutter/material.dart';
 /// Colour pairs for select/status options (docs/02 §2). Option colours are stored by NAME so
 /// both themes stay legible; every pair is checked for >= 4.5:1 contrast in tests.
 abstract final class OptionColors {
-  static const names = ['gray', 'brown', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink', 'red'];
+  static const names = [
+    'gray',
+    'brown',
+    'orange',
+    'yellow',
+    'green',
+    'teal',
+    'blue',
+    'purple',
+    'pink',
+    'red',
+  ];
 
   static const _light = {
     'gray': (Color(0xFFE8E3D9), Color(0xFF5B554A)),

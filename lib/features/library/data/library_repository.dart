@@ -8,6 +8,8 @@ import 'package:uuid/uuid.dart';
 import '../../../data/local/app_database.dart';
 import '../domain_highlights.dart';
 import '../domain_tags.dart';
+import '../domain_ocr.dart';
+import 'ocr.dart';
 
 /// What we learn about a PDF before accepting it.
 class PdfInfo {
@@ -29,7 +31,9 @@ const binRetention = Duration(days: 30);
 
 /// Whole days left before a book removed at [deletedAtMs] is deleted for good (0 = less than a day).
 int binDaysLeft(int deletedAtMs, DateTime now) {
-  final used = now.difference(DateTime.fromMillisecondsSinceEpoch(deletedAtMs)).inDays;
+  final used = now
+      .difference(DateTime.fromMillisecondsSinceEpoch(deletedAtMs))
+      .inDays;
   return (binRetention.inDays - used).clamp(0, binRetention.inDays);
 }
 
@@ -44,7 +48,13 @@ class StorageReport {
     required this.coverBytes,
     required this.largest,
   });
-  final int bookCount, bookBytes, removedCount, removedBytes, cloudCount, cloudBytes, coverBytes;
+  final int bookCount,
+      bookBytes,
+      removedCount,
+      removedBytes,
+      cloudCount,
+      cloudBytes,
+      coverBytes;
 
   /// The biggest books, largest first.
   final List<BookRow> largest;
@@ -178,10 +188,12 @@ class LibraryRepository {
 
   /// Saves the user's own order: [ids] get positions 0, 1, 2... (books not listed keep theirs).
   Future<void> setOrder(List<String> ids) => _db.transaction(() async {
-        for (var i = 0; i < ids.length; i++) {
-          await (_db.update(_db.books)..where((b) => b.id.equals(ids[i]))).write(BooksCompanion(sortPos: Value(i)));
-        }
-      });
+    for (var i = 0; i < ids.length; i++) {
+      await (_db.update(_db.books)..where((b) => b.id.equals(ids[i]))).write(
+        BooksCompanion(sortPos: Value(i)),
+      );
+    }
+  });
 
   /// Replaces the book's tags with the cleaned-up version of [input] (see [normalizeTags]).
   Future<List<String>> setTags(String id, String input) async {
@@ -195,7 +207,10 @@ class LibraryRepository {
   // ------------------------------------------------------------ bulk / tag management
   /// Applies [change] to the tag list of every book (removed books included, so Undo never brings back an old name).
   /// Returns how many books changed.
-  Future<int> _rewriteTags(List<String> Function(List<String> tags) change, {Set<String>? onlyIds}) async {
+  Future<int> _rewriteTags(
+    List<String> Function(List<String> tags) change, {
+    Set<String>? onlyIds,
+  }) async {
     var changed = 0;
     await _db.transaction(() async {
       for (final b in await _db.select(_db.books).get()) {
@@ -203,7 +218,9 @@ class LibraryRepository {
         final before = decodeTags(b.tags);
         final after = _dedupe(change(before));
         if (encodeTags(after) == encodeTags(before)) continue;
-        await (_db.update(_db.books)..where((x) => x.id.equals(b.id))).write(BooksCompanion(tags: Value(encodeTags(after))));
+        await (_db.update(_db.books)..where((x) => x.id.equals(b.id))).write(
+          BooksCompanion(tags: Value(encodeTags(after))),
+        );
         changed++;
       }
     });
@@ -223,13 +240,20 @@ class LibraryRepository {
     final target = normalizeTags(to).firstOrNull;
     if (target == null) throw ArgumentError('A tag needs a name.');
     final f = from.toLowerCase();
-    return await _rewriteTags((tags) => [for (final t in tags) t.toLowerCase() == f ? target : t]);
+    return await _rewriteTags(
+      (tags) => [for (final t in tags) t.toLowerCase() == f ? target : t],
+    );
   }
 
   /// Removes a tag from every book.
   Future<int> deleteTag(String tag) {
     final f = tag.toLowerCase();
-    return _rewriteTags((tags) => [for (final t in tags) if (t.toLowerCase() != f) t]);
+    return _rewriteTags(
+      (tags) => [
+        for (final t in tags)
+          if (t.toLowerCase() != f) t,
+      ],
+    );
   }
 
   /// Adds the tags typed in [input] to each of [ids] (existing tags are kept).
@@ -240,10 +264,14 @@ class LibraryRepository {
   }
 
   Future<void> moveBooksToShelf(Iterable<String> ids, String? shelfId) =>
-      (_db.update(_db.books)..where((b) => b.id.isIn(ids.toList()))).write(BooksCompanion(shelfId: Value(shelfId)));
+      (_db.update(_db.books)..where((b) => b.id.isIn(ids.toList()))).write(
+        BooksCompanion(shelfId: Value(shelfId)),
+      );
 
   Future<void> setFavorites(Iterable<String> ids, bool fav) =>
-      (_db.update(_db.books)..where((b) => b.id.isIn(ids.toList()))).write(BooksCompanion(favorite: Value(fav ? 1 : 0)));
+      (_db.update(_db.books)..where((b) => b.id.isIn(ids.toList()))).write(
+        BooksCompanion(favorite: Value(fav ? 1 : 0)),
+      );
 
   Future<void> setFavorite(String id, bool fav) =>
       (_db.update(_db.books)..where((b) => b.id.equals(id))).write(
@@ -293,7 +321,8 @@ class LibraryRepository {
         if (e is File) cover += await e.length();
       }
     }
-    final largest = [...live]..sort((a, b) => b.sizeBytes.compareTo(a.sizeBytes));
+    final largest = [...live]
+      ..sort((a, b) => b.sizeBytes.compareTo(a.sizeBytes));
     return StorageReport(
       bookCount: live.length,
       bookBytes: live.fold(0, (n, b) => n + b.sizeBytes),
@@ -324,9 +353,13 @@ class LibraryRepository {
   /// bin for at least [keep]. The default deletes everything in the bin. Returns how many were purged.
   Future<int> purge({Duration keep = Duration.zero}) async {
     final cutoff = _now().millisecondsSinceEpoch - keep.inMilliseconds;
-    final gone = await (_db.select(
-      _db.books,
-    )..where((b) => b.deletedAt.isNotNull() & b.deletedAt.isSmallerOrEqualValue(cutoff))).get();
+    final gone =
+        await (_db.select(_db.books)..where(
+              (b) =>
+                  b.deletedAt.isNotNull() &
+                  b.deletedAt.isSmallerOrEqualValue(cutoff),
+            ))
+            .get();
     for (final b in gone) {
       await _eraseBook(b);
     }
@@ -335,7 +368,10 @@ class LibraryRepository {
 
   /// Deletes one removed book for good (from the bin).
   Future<void> deletePermanently(String id) async {
-    final b = await (_db.select(_db.books)..where((x) => x.id.equals(id) & x.deletedAt.isNotNull())).getSingleOrNull();
+    final b =
+        await (_db.select(_db.books)
+              ..where((x) => x.id.equals(id) & x.deletedAt.isNotNull()))
+            .getSingleOrNull();
     if (b != null) await _eraseBook(b);
   }
 
@@ -345,13 +381,63 @@ class LibraryRepository {
     final cover = File(p.join(directory.path, 'covers', '${b.id}.png'));
     if (await cover.exists()) await cover.delete();
     await (_db.delete(_db.bookmarks)..where((x) => x.bookId.equals(b.id))).go();
-    await (_db.delete(_db.highlights)..where((x) => x.bookId.equals(b.id))).go();
+    await (_db.delete(_db.pageTexts)..where((x) => x.bookId.equals(b.id))).go();
+    await (_db.delete(
+      _db.highlights,
+    )..where((x) => x.bookId.equals(b.id))).go();
     await (_db.delete(_db.books)..where((x) => x.id.equals(b.id))).go();
   }
 
   /// The bin: removed books, most recently removed first.
   Stream<List<BookRow>> watchRemoved() =>
-      (_db.select(_db.books)..where((b) => b.deletedAt.isNotNull())..orderBy([(b) => OrderingTerm.desc(b.deletedAt)])).watch();
+      (_db.select(_db.books)
+            ..where((b) => b.deletedAt.isNotNull())
+            ..orderBy([(b) => OrderingTerm.desc(b.deletedAt)]))
+          .watch();
+
+  // ------------------------------------------------------- scanned PDFs (OCR)
+  Future<void> setTextState(String id, String state) =>
+      (_db.update(_db.books)..where((b) => b.id.equals(id))).write(
+        BooksCompanion(textState: Value(state)),
+      );
+
+  Future<void> savePageText(String bookId, int page, RecognizedPage p) => _db
+      .into(_db.pageTexts)
+      .insertOnConflictUpdate(
+        PageTextsCompanion.insert(
+          bookId: bookId,
+          page: page,
+          body: Value(p.text),
+          boxes: Value(encodeLines(p.lines)),
+        ),
+      );
+
+  Future<Set<int>> recognisedPages(String bookId) async => {
+    for (final r in await (_db.select(
+      _db.pageTexts,
+    )..where((t) => t.bookId.equals(bookId))).get())
+      r.page,
+  };
+
+  Future<List<PageTextRow>> pageTexts(String bookId) =>
+      (_db.select(_db.pageTexts)..where((t) => t.bookId.equals(bookId))).get();
+
+  Future<PageTextRow?> pageText(String bookId, int page) =>
+      (_db.select(_db.pageTexts)
+            ..where((t) => t.bookId.equals(bookId) & t.page.equals(page)))
+          .getSingleOrNull();
+
+  Stream<int> watchRecognisedCount(String bookId) => (_db.select(
+    _db.pageTexts,
+  )..where((t) => t.bookId.equals(bookId))).watch().map((r) => r.length);
+
+  /// Forgets the recognised text of a book (e.g. to run recognition again).
+  Future<void> clearPageTexts(String bookId) async {
+    await (_db.delete(
+      _db.pageTexts,
+    )..where((t) => t.bookId.equals(bookId))).go();
+    await setTextState(bookId, 'scanned');
+  }
 
   // ---------------------------------------------------------------- highlights
   Stream<List<HighlightRow>> watchHighlights(String bookId) =>

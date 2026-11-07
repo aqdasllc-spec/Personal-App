@@ -20,6 +20,7 @@ BookRow bk(String id, {int pos = 0, int added = 0, String title = 'x'}) => BookR
       favorite: 0,
       cloudState: 'local',
       sortPos: pos,
+      textState: 'unknown',
       tags: '[]',
       lastPage: 0,
       addedAt: added,

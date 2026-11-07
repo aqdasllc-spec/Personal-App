@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+
 import 'features/library/application/library_controller.dart';
 import 'features/library/application/book_sync.dart';
 import 'features/library/data/cloud_books.dart';
 import 'features/library/data/library_repository.dart';
 import 'features/library/data/pdf_inspector.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -50,47 +52,66 @@ Future<void> main() async {
   SyncService? sync;
   if (_supabaseUrl.isNotEmpty && _supabaseKey.isNotEmpty) {
     await Supabase.initialize(url: _supabaseUrl, publishableKey: _supabaseKey);
-    auth = SupabaseAuthRepository(Supabase.instance.client,
-        startLocalOnly: (await store.state('mode')) == 'local',
-        onLocalOnly: (local) => store.setState('mode', local ? 'local' : 'cloud'));
+    auth = SupabaseAuthRepository(
+      Supabase.instance.client,
+      startLocalOnly: (await store.state('mode')) == 'local',
+      onLocalOnly: (local) => store.setState('mode', local ? 'local' : 'cloud'),
+    );
     sync = SyncService(store, SupabaseSyncTransport(Supabase.instance.client));
   }
 
   final libraryDir = await resolveLibraryDirectory();
   // Books stay in the bin (Settings -> Storage) for 30 days, then are deleted for good.
-  await LibraryRepository(db, directory: libraryDir, inspector: PdfrxInspector()).purge(keep: binRetention);
+  await LibraryRepository(
+    db,
+    directory: libraryDir,
+    inspector: PdfrxInspector(),
+  ).purge(keep: binRetention);
 
-  runApp(ProviderScope(
-    overrides: [
-      databaseProvider.overrideWithValue(db),
-      syncedStoreProvider.overrideWithValue(store),
-      authRepositoryProvider.overrideWithValue(auth),
-      syncServiceProvider.overrideWithValue(sync),
-      authenticatorProvider.overrideWithValue(authenticator),
-      appLockProvider.overrideWith(() => AppLockController(
-          authenticator: authenticator,
-          startEnabled: lockEnabled,
-          persistEnabled: (v) => store.setState('app_lock_enabled', v ? '1' : '0'),
-        )),
-      syncControllerProvider.overrideWith(() => SyncController(
-        sync,
-        isSignedIn: () => auth.current is SignedInSession,
-        accountConflict: () async {
-          // Never mix two accounts' data on one device: the first account to sync owns this database.
-          final user = (auth.current as SignedInSession).userId;
-          final owner = await store.state('sync_owner');
-          if (owner == null) {
-            await store.setState('sync_owner', user);
-            return null;
-          }
-          return owner == user ? null : 'This device already holds data from another account, so it will not sync with this one.';
-        },
-      )),
-      rotationProvider.overrideWith(() => RotationController(rotation)),
-      reminderSchedulerProvider.overrideWithValue(createReminderScheduler()),
-      libraryDirectoryProvider.overrideWithValue(libraryDir),
-      cloudBooksProvider.overrideWithValue(_supabaseUrl.isNotEmpty && _supabaseKey.isNotEmpty ? SupabaseCloudBooks(Supabase.instance.client) : null),
-    ],
-    child: const FolioApp(),
-  ));
+  runApp(
+    ProviderScope(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        syncedStoreProvider.overrideWithValue(store),
+        authRepositoryProvider.overrideWithValue(auth),
+        syncServiceProvider.overrideWithValue(sync),
+        authenticatorProvider.overrideWithValue(authenticator),
+        appLockProvider.overrideWith(
+          () => AppLockController(
+            authenticator: authenticator,
+            startEnabled: lockEnabled,
+            persistEnabled: (v) =>
+                store.setState('app_lock_enabled', v ? '1' : '0'),
+          ),
+        ),
+        syncControllerProvider.overrideWith(
+          () => SyncController(
+            sync,
+            isSignedIn: () => auth.current is SignedInSession,
+            accountConflict: () async {
+              // Never mix two accounts' data on one device: the first account to sync owns this database.
+              final user = (auth.current as SignedInSession).userId;
+              final owner = await store.state('sync_owner');
+              if (owner == null) {
+                await store.setState('sync_owner', user);
+                return null;
+              }
+              return owner == user
+                  ? null
+                  : 'This device already holds data from another account, so it will not sync with this one.';
+            },
+          ),
+        ),
+        rotationProvider.overrideWith(() => RotationController(rotation)),
+        reminderSchedulerProvider.overrideWithValue(createReminderScheduler()),
+        libraryDirectoryProvider.overrideWithValue(libraryDir),
+        cloudBooksProvider.overrideWithValue(
+          _supabaseUrl.isNotEmpty && _supabaseKey.isNotEmpty
+              ? SupabaseCloudBooks(Supabase.instance.client)
+              : null,
+        ),
+      ],
+      child: const FolioApp(),
+    ),
+  );
 }

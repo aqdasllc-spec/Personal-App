@@ -36,10 +36,16 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: refresh,
     redirect: (context, state) {
       final lock = ref.read(appLockProvider);
-      final session = ref.read(sessionProvider).value ?? ref.read(authRepositoryProvider).current;
+      final session =
+          ref.read(sessionProvider).value ??
+          ref.read(authRepositoryProvider).current;
       final loc = state.matchedLocation;
-      if (lock.enabled && lock.locked) return loc == Routes.locked ? null : Routes.locked;
-      if (session is SignedOutSession) return loc == Routes.signIn ? null : Routes.signIn;
+      if (lock.enabled && lock.locked) {
+        return loc == Routes.locked ? null : Routes.locked;
+      }
+      if (session is SignedOutSession) {
+        return loc == Routes.signIn ? null : Routes.signIn;
+      }
       if (loc == Routes.locked || loc == Routes.signIn) return Routes.home;
       return null;
     },
@@ -49,14 +55,43 @@ final routerProvider = Provider<GoRouter>((ref) {
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AdaptiveShell(shell: shell),
         branches: [
-          StatefulShellBranch(routes: [GoRoute(path: Routes.home, builder: (_, _) => const HomePage())]),
-          StatefulShellBranch(routes: [GoRoute(
-            path: Routes.library,
-            builder: (_, _) => const LibraryPage(),
-            routes: [GoRoute(path: 'read/:id', parentNavigatorKey: _rootKey, builder: (_, s) => ReaderPage(bookId: s.pathParameters['id']!))],
-          )]),
-          StatefulShellBranch(routes: [GoRoute(path: Routes.planner, builder: (_, _) => const PlannerPage())]),
-          StatefulShellBranch(routes: [GoRoute(path: Routes.settings, builder: (_, _) => const SettingsPage())]),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: Routes.home, builder: (_, _) => const HomePage()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.library,
+                builder: (_, _) => const LibraryPage(),
+                routes: [
+                  GoRoute(
+                    path: 'read/:id',
+                    parentNavigatorKey: _rootKey,
+                    builder: (_, s) =>
+                        ReaderPage(bookId: s.pathParameters['id']!),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.planner,
+                builder: (_, _) => const PlannerPage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.settings,
+                builder: (_, _) => const SettingsPage(),
+              ),
+            ],
+          ),
         ],
       ),
     ],
