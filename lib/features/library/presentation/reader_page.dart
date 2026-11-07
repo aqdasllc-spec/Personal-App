@@ -9,8 +9,10 @@ import '../../../design_system/components.dart';
 import '../../../data/local/app_database.dart';
 import '../application/export_notes.dart';
 import '../application/library_controller.dart';
+import '../application/export_ink.dart';
 import '../application/ocr_controller.dart';
 import '../application/read_aloud.dart';
+import '../data/media_controls.dart';
 import '../domain_speech.dart';
 import '../domain_ink.dart';
 import '../domain_ocr.dart';
@@ -44,6 +46,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     ref.read(pageRecognizerProvider),
     ref.read(textProbeProvider),
   );
+  late final MediaControls _media; // read in initState: dispose cannot read providers
   late final ReadAloud _aloud = ReadAloud(
     engine: ref.read(speechEngineProvider),
     textOf: _textOfPage,
@@ -64,6 +67,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     _container = ProviderScope.containerOf(context, listen: false);
     _control.prefs.value = ref.read(readerPrefsProvider);
     _control.onZoneTap = _onZone;
+    _media = ref.read(mediaControlsProvider);
     _control.onStroke = _onStroke;
     _control.onErase = _onErase;
     _ocr.progress.addListener(() {
@@ -71,6 +75,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     });
     _aloud.state.addListener(() {
       if (mounted) setState(() {});
+      _syncLockScreen();
     });
     _applySystem(_control.prefs.value);
     Future.microtask(() => _repo.markOpened(widget.bookId));
@@ -253,6 +258,106 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     return ref.read(pageTextReaderProvider).textOf(_repo.fileOf(book), page);
   }
 
+  /// Keeps the lock-screen / notification controls in step with what is being read.
+  void _syncLockScreen() {
+    final s = _aloud.state.value;
+    final book = _book;
+    if (!s.active || book == null) {
+      _media.hide();
+      return;
+    }
+    _media.show(
+      title: book.title,
+      subtitle: s.message ?? 'Page ${s.page} of ${book.pageCount}',
+      playing: s.playing,
+      onPlay: _aloud.resume,
+      onPause: _aloud.pause,
+      onStop: _aloud.stop,
+      onNext: () => _aloud.start((s.page + 1).clamp(1, book.pageCount)),
+      onPrevious: () => _aloud.start((s.page - 1).clamp(1, book.pageCount)),
+    );
+  }
+
+  /// "Export as PDF with my drawings": choose what to include, build it, share it.
+  Future<void> _exportInk(BookRow book, int current, Map<int, List<Stroke>> ink) async {
+    final drawn = drawnPages(ink);
+    final here = (ink[current] ?? const <Stroke>[]).isNotEmpty;
+    final whole = book.pageCount <= maxWholeBookExportPages;
+    final scope = await showDialog<InkExportScope>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Export as PDF with my drawings'),
+        children: [
+          if (here)
+            SimpleDialogOption(
+              key: const Key('export-ink-this'),
+              onPressed: () => Navigator.pop(ctx, InkExportScope.thisPage),
+              child: Text('This page ($current)'),
+            ),
+          SimpleDialogOption(
+            key: const Key('export-ink-drawn'),
+            onPressed: drawn.isEmpty ? null : () => Navigator.pop(ctx, InkExportScope.drawnPages),
+            child: Text('Pages with drawings (${drawn.length})'),
+          ),
+          SimpleDialogOption(
+            key: const Key('export-ink-all'),
+            onPressed: whole ? () => Navigator.pop(ctx, InkExportScope.wholeBook) : null,
+            child: Text(
+              whole
+                  ? 'The whole book (${book.pageCount} pages)'
+                  : 'The whole book (only for books up to $maxWholeBookExportPages pages)',
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 8, 24, 8),
+            child: Text(
+              'Pages become pictures in the new PDF, so their text can no longer be selected there. Your original PDF is not changed.',
+              style: TextStyle(fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (scope == null || !mounted) return;
+    final progress = ValueNotifier<(int, int)>((0, 1));
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: ValueListenableBuilder<(int, int)>(
+            valueListenable: progress,
+            builder: (_, v, _) => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Drawing page ${v.$1} of ${v.$2}…', key: const Key('export-ink-progress')),
+                const SizedBox(height: 12),
+                LinearProgressIndicator(value: v.$2 == 0 ? null : v.$1 / v.$2),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    String message;
+    try {
+      message = await exportBookWithInk(
+        ref,
+        book,
+        scope: scope,
+        currentPage: current,
+        onProgress: (d, t) => progress.value = (d, t),
+      );
+    } catch (_) {
+      message = 'Could not make the PDF. Please try again.';
+    }
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop(); // the progress dialog
+    progress.dispose();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   void _toggleListen(int current) {
     final s = _aloud.state.value;
     if (!s.active) {
@@ -433,6 +538,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     _searchCtl.dispose();
     _ocr.dispose();
     _aloud.dispose();
+    _media.hide();
     final p = _page;
     if (p != null) _repo.saveProgress(widget.bookId, p);
     // give the phone back to the app's own settings
@@ -881,6 +987,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                             });
                           }
                           if (v == 'text') _showPageText(book, current);
+                          if (v == 'exportink') _exportInk(book, current, inkMap);
                         },
                         itemBuilder: (_) => [
                           if (_ocr.supported && _textState != 'ocr')
@@ -894,6 +1001,12 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                             const PopupMenuItem(
                               value: 'redo',
                               child: Text('Read the pages again'),
+                            ),
+                          if (inkMap.values.any((l) => l.isNotEmpty))
+                            const PopupMenuItem(
+                              key: Key('reader-export-ink'),
+                              value: 'exportink',
+                              child: Text('Export as PDF with my drawings'),
                             ),
                           if (_useOcr)
                             const PopupMenuItem(

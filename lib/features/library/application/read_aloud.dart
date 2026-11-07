@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/media_controls.dart';
 import '../data/speech.dart';
 import '../domain_speech.dart';
 
@@ -10,6 +11,9 @@ final speechEngineProvider = Provider<SpeechEngine>((ref) {
   ref.onDispose(e.dispose);
   return e;
 });
+
+/// Lock-screen / notification controls for Listen. Overridden in tests.
+final mediaControlsProvider = Provider<MediaControls>((ref) => AudioServiceControls());
 
 /// Where page text comes from for books that are not scans. Overridden in tests.
 final pageTextReaderProvider = Provider<PageTextReader>((ref) => PdfrxPageTextReader());

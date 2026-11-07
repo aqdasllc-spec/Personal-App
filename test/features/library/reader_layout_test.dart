@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/data/local/app_database.dart';
@@ -130,6 +132,25 @@ void main() {
       await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
       await io(t, rounds: 3);
       expect(env.speech.spoken.first, 'Scanned words here.');
+    });
+
+    layoutTest('lock-screen controls follow the reading and their buttons work', (t) async {
+      final (env, _) = await openIt(t, pages: 3);
+      expect(env.media.log, isEmpty);
+      await t.tap(find.byKey(const Key('reader-listen')));
+      await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await io(t, rounds: 4);
+      expect(env.media.log.any((l) => l.startsWith('x|')), isTrue, reason: 'shows the book title');
+      expect(env.media.log.any((l) => l.contains('Page 2 of 3')), isTrue);
+      expect(env.media.log.last, contains('Finished the book.'));
+      // pressing Play on the lock screen reads again; Stop removes the controls and the bar
+      unawaited(env.media.onPlay!());
+      await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await io(t, rounds: 3);
+      unawaited(env.media.onStop!());
+      await io(t, rounds: 3);
+      expect(env.media.log.last, 'hide');
+      expect(find.byKey(const Key('listen-bar')), findsNothing);
     });
 
     layoutTest('leaving the reader stops the voice', (t) async {

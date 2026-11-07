@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
@@ -34,6 +35,7 @@ final libraryRepositoryProvider = Provider<LibraryRepository>(
     ref.watch(databaseProvider),
     directory: ref.watch(libraryDirectoryProvider),
     inspector: ref.watch(pdfInspectorProvider),
+    store: ref.watch(syncedStoreProvider),
   ),
 );
 
@@ -551,23 +553,27 @@ final homeReadingOrderProvider = NotifierProvider<HomeReadingOrder, String>(
 double readingProgress(BookRow b) =>
     b.pageCount <= 0 ? 0 : (b.lastPage / b.pageCount).clamp(0.0, 1.0);
 
-/// A colour per tag (tag name, ignoring case -> palette index). Remembered; a tag without an entry has no colour.
+/// A colour per tag (tag name, ignoring case -> palette index). Syncs between devices (one synced row per tag).
 class TagColors extends Notifier<Map<String, int>> {
   static const key = 'tag_colors';
   @override
   Map<String, int> build() {
-    Future.microtask(() async {
-      try {
-        final v = decodeTagColors(await ref.read(syncedStoreProvider).state(key));
-        if (v.isNotEmpty) state = {...v, ...state};
-      } catch (_) {}
-    });
+    Future.microtask(_reload);
+    // another device changed something: read it
+    ref.listen(syncControllerProvider.select((s) => s.lastSync), (_, _) => _reload());
     return const {};
   }
 
-  void _save() {
+  Future<void> _reload() async {
     try {
-      ref.read(syncedStoreProvider).setState(key, encodeTagColors(state));
+      final v = decodeTagColors(await ref.read(syncedStoreProvider).state(key));
+      if (v.isNotEmpty || state.isNotEmpty) state = v;
+    } catch (_) {}
+  }
+
+  void _push(String tag, int? index) {
+    try {
+      ref.read(syncedStoreProvider).setFields(key, tagKey(tag), {'color': index});
     } catch (_) {}
   }
 
@@ -580,17 +586,15 @@ class TagColors extends Notifier<Map<String, int>> {
       m[tagKey(tag)] = index;
     }
     state = m;
-    _save();
+    _push(tag, index);
   }
 
   /// A renamed tag keeps its colour (when merging into a coloured tag, the target's colour wins).
   void rename(String from, String to) {
     final c = state[tagKey(from)];
-    if (c == null) return;
-    final m = {...state}..remove(tagKey(from));
-    m.putIfAbsent(tagKey(to), () => c);
-    state = m;
-    _save();
+    if (c == null || tagKey(from) == tagKey(to)) return;
+    set(from, null);
+    if (!state.containsKey(tagKey(to))) set(to, c);
   }
 }
 
@@ -598,47 +602,50 @@ final tagColorsProvider = NotifierProvider<TagColors, Map<String, int>>(
   TagColors.new,
 );
 
-/// Saved Library views ("smart collections"). Remembered on this device.
+/// Saved Library views ("smart collections"). Sync between devices (one synced row per view).
 class SmartViews extends Notifier<List<SmartView>> {
   static const key = 'smart_views';
   @override
   List<SmartView> build() {
-    Future.microtask(() async {
-      try {
-        final v = decodeViews(await ref.read(syncedStoreProvider).state(key));
-        if (v.isNotEmpty && state.isEmpty) state = v;
-      } catch (_) {}
-    });
+    Future.microtask(_reload);
+    ref.listen(syncControllerProvider.select((s) => s.lastSync), (_, _) => _reload());
     return const [];
   }
 
-  void _save() {
+  Future<void> _reload() async {
     try {
-      ref.read(syncedStoreProvider).setState(key, encodeViews(state));
+      final v = decodeViews(await ref.read(syncedStoreProvider).state(key));
+      if (v.isNotEmpty || state.isNotEmpty) state = v;
+    } catch (_) {}
+  }
+
+  /// Makes [next] the list: every view that was added or changed, and every one that went, is sent as its own change.
+  void _commit(List<SmartView> next) {
+    final before = {for (final v in state) v.name.toLowerCase(): jsonEncode(v.toJson())};
+    final after = {for (final v in next) v.name.toLowerCase(): v};
+    state = next;
+    try {
+      final store = ref.read(syncedStoreProvider);
+      after.forEach((k, v) {
+        if (before[k] != jsonEncode(v.toJson())) store.setFields(key, k, {'view': v.toJson()});
+      });
+      for (final k in before.keys) {
+        if (!after.containsKey(k)) store.setFields(key, k, {'view': null});
+      }
     } catch (_) {}
   }
 
   /// Saves what the Library currently shows (status, tags, sort) under [name].
   void saveCurrent(String name, LibraryUi ui) {
     if (name.trim().isEmpty) return;
-    state = withView(state, SmartView(name: name, status: ui.status.name, tags: ui.tags.toList(), sort: ui.sort.name));
-    _save();
+    _commit(withView(state, SmartView(name: name, status: ui.status.name, tags: ui.tags.toList(), sort: ui.sort.name)));
   }
 
-  void remove(String name) {
-    state = [for (final v in state) if (v.name != name) v];
-    _save();
-  }
+  void remove(String name) => _commit([for (final v in state) if (v.name != name) v]);
 
-  void tagRenamed(String from, String to) {
-    state = renameTagInViews(state, from, to);
-    _save();
-  }
+  void tagRenamed(String from, String to) => _commit(renameTagInViews(state, from, to));
 
-  void tagDeleted(String tag) {
-    state = dropTagFromViews(state, tag);
-    _save();
-  }
+  void tagDeleted(String tag) => _commit(dropTagFromViews(state, tag));
 }
 
 final smartViewsProvider = NotifierProvider<SmartViews, List<SmartView>>(SmartViews.new);

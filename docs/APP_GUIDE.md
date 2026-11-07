@@ -33,7 +33,8 @@ Everything works offline. Signing in only adds syncing between your devices.
 | Search the text | **Search** (magnifier) |
 | Bookmark | **Bookmark** tool; highlights: select text → Highlight; **Contents** lists both, with notes and export |
 | Draw or write on a page | **Draw**: pick colour and thickness, draw with a finger or stylus; **Eraser** removes a stroke you touch; Undo; Clear page; Done. Zoom and scrolling are off while the pen is on |
-| Have it read aloud | **Listen**: reads from this page and turns pages by itself. Pause/Play, speed (0.75x to 2x), close. Uses your phone's voice. Scans are read from the recognised text; a scan that is not made searchable yet says so |
+| Share your drawings | ⋮ menu → **Export as PDF with my drawings**: this page, pages with drawings, or the whole book (up to 60 pages). The new PDF has the pages as pictures with your drawing on top; the original is not changed |
+| Have it read aloud | **Listen**: reads from this page and turns pages by itself. Pause/Play, speed (0.75x to 2x), close. Uses your phone's voice, and keeps reading with the screen off, with Play/Pause, Previous/Next page and Stop on the lock screen and in the notification shade. Scans are read from the recognised text; a scan that is not made searchable yet says so |
 | Scanned or handwritten PDF | See below |
 
 ### Scanned and handwritten PDFs
@@ -51,6 +52,7 @@ Everything works offline. Signing in only adds syncing between your devices.
 ## Settings
 - **Account & sync**, **App lock** (fingerprint / PIN), **Rotation**. Light and dark follow your phone.
 - **Storage**: space used, recently removed books.
+- **Sync**: with an account, tasks and events sync as before, and now also your **drawings, tag colours and saved views** (the PDFs themselves only when you press Sync on a book).
 - **Backup**: save everything (books, notes, highlights, drawings, tag colours, scanned-page text) to a file; restore it later.
 - **Help**: replay the welcome tour, gesture cheat-sheet.
 
@@ -58,4 +60,4 @@ Everything works offline. Signing in only adds syncing between your devices.
 Press and hold the Folio icon: **Continue reading**, **Add a task**, **Planner: today**, **Library**.
 
 ---
-Not built yet: exporting drawings into a PDF, choosing a particular voice, a Windows/macOS text-recogniser, syncing drawings / tag colours / saved views between devices.
+Not built yet: choosing a particular voice, a Windows/macOS text-recogniser.

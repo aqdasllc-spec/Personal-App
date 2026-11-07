@@ -8,11 +8,30 @@
     <!-- Exact reminder times. USE_EXACT_ALARM is granted automatically on Android 13+ to calendar/alarm-style apps;
          SCHEDULE_EXACT_ALARM covers Android 12. (Play Store review may ask to justify USE_EXACT_ALARM.) -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+    <!-- "Listen" keeps reading with the screen off and shows lock-screen controls (a media foreground service). -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32"/>
     <application
         android:label="Folio"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <service
+            android:name="com.ryanheise.audioservice.AudioService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        <receiver
+            android:name="com.ryanheise.audioservice.MediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
             <intent-filter>

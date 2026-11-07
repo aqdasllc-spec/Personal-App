@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../../../data/local/app_database.dart';
 import '../domain_highlights.dart';
 import '../domain_tags.dart';
+import '../../../data/sync/synced_store.dart';
 import '../domain_ink.dart';
 import '../domain_ocr.dart';
 import 'ocr.dart';
@@ -77,10 +78,16 @@ class LibraryRepository {
     required this.inspector,
     DateTime Function()? now,
     String Function()? newId,
-  }) : _now = now ?? DateTime.now,
+    SyncedStore? store,
+  // ignore: prefer_initializing_formals
+  }) : _store = store,
+       _now = now ?? DateTime.now,
        _newId = newId ?? (() => const Uuid().v4());
 
   final AppDatabase _db;
+
+  /// When given, drawings are saved through it so they sync; without it (tests, tools) they are saved locally only.
+  final SyncedStore? _store;
   final Directory directory;
   final PdfInspector inspector;
   final DateTime Function() _now;
@@ -444,6 +451,11 @@ class LibraryRepository {
   // ------------------------------------------------------------- pen drawings
   /// Saves the strokes of a page; an empty list removes the row.
   Future<void> saveInk(String bookId, int page, List<Stroke> strokes) async {
+    final store = _store;
+    if (store != null) {
+      await store.setFields('page_ink', '$bookId:$page', {'strokes': strokes.isEmpty ? null : encodeStrokes(strokes)});
+      return;
+    }
     if (strokes.isEmpty) {
       await (_db.delete(_db.pageInk)..where((t) => t.bookId.equals(bookId) & t.page.equals(page))).go();
       return;

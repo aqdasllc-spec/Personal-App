@@ -11,3 +11,4 @@ psql -q -v ON_ERROR_STOP=1 -f 00_stub_auth.sql
 for m in ../migrations/*.sql; do psql -q -v ON_ERROR_STOP=1 -f "$m"; done
 psql -q -v ON_ERROR_STOP=1 -f 10_sync_core.sql
 psql -q -v ON_ERROR_STOP=1 -f 20_cloud_books.sql
+psql -q -v ON_ERROR_STOP=1 -f 30_sync_more_tables.sql

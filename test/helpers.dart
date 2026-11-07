@@ -12,6 +12,11 @@ import 'package:folio/features/library/application/library_controller.dart';
 import 'package:folio/features/library/application/reader_prefs.dart';
 import 'package:folio/features/library/application/ocr_controller.dart';
 import 'package:folio/features/library/data/ocr.dart';
+import 'package:folio/features/library/application/export_ink.dart';
+import 'package:folio/features/library/data/ink_export.dart';
+import 'package:folio/features/library/data/media_controls.dart';
+import 'package:folio/features/library/application/export_notes.dart' show shareFileProvider;
+import 'package:folio/features/backup/backup_controller.dart' show backupTempDirProvider;
 import 'package:folio/features/library/data/speech.dart';
 import 'package:folio/features/library/application/read_aloud.dart';
 import 'package:folio/features/library/domain_highlights.dart';
@@ -211,6 +216,49 @@ class FakeSpeechEngine implements SpeechEngine {
   Future<void> dispose() async {}
 }
 
+class FakeMediaControls implements MediaControls {
+  /// One entry per update: "title|subtitle|playing"; "hide" when removed.
+  final log = <String>[];
+  Future<void> Function()? onPlay, onPause, onStop, onNext, onPrevious;
+  @override
+  Future<void> show({
+    required String title,
+    required String subtitle,
+    required bool playing,
+    required Future<void> Function() onPlay,
+    required Future<void> Function() onPause,
+    required Future<void> Function() onStop,
+    required Future<void> Function() onNext,
+    required Future<void> Function() onPrevious,
+  }) async {
+    log.add('$title|$subtitle|${playing ? 'playing' : 'paused'}');
+    this.onPlay = onPlay;
+    this.onPause = onPause;
+    this.onStop = onStop;
+    this.onNext = onNext;
+    this.onPrevious = onPrevious;
+  }
+
+  @override
+  Future<void> hide() async => log.add('hide');
+}
+
+/// "Draws" every page as the same tiny picture (a 1x1 PNG); pages in [missing] cannot be drawn.
+class FakePageImager implements PageImager {
+  FakePageImager({this.missing = const {}});
+  final Set<int> missing;
+  final asked = <int>[];
+  static final Uint8List onePixel = base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+  @override
+  Future<Uint8List?> png(File pdf, int page, {int width = 1100}) async {
+    asked.add(page);
+    return missing.contains(page) ? null : onePixel;
+  }
+
+  @override
+  Future<void> close() async {}
+}
+
 class FakePageTexts implements PageTextReader {
   FakePageTexts(this.pages);
   final Map<int, String> pages;
@@ -271,6 +319,12 @@ class TestEnv {
   FakeRecognizer? recognizer;
   final quick = FakeQuickActions();
   final speech = FakeSpeechEngine();
+  final media = FakeMediaControls();
+  final imager = FakePageImager();
+
+  /// Files handed to the share sheet: (file name, subject, first bytes).
+  final sharedFiles = <(String, String, String)>[];
+  late final Directory shareDir = Directory.systemTemp.createTempSync('folio_share');
 
   /// What the voice finds on each page of a book that has real text.
   final pageTexts = <int, String>{1: 'First page text.', 2: 'Second page text.', 3: 'Third page text.'};
@@ -307,6 +361,9 @@ class TestEnv {
         readerSystemProvider.overrideWithValue(readerSystem),
         quickActionsProvider.overrideWithValue(quick),
         speechEngineProvider.overrideWithValue(speech),
+        mediaControlsProvider.overrideWithValue(media),
+        pageImagerProvider.overrideWithValue(imager),
+
         pageTextReaderProvider.overrideWithValue(FakePageTexts(pageTexts)),
         textProbeProvider.overrideWithValue(FakeProbe(probeResult)),
         pageRecognizerProvider.overrideWithValue(recognizer),
@@ -368,6 +425,15 @@ class TestEnv {
             ValueListenableBuilder(valueListenable: control.pen, builder: (_, v, _) => Text('pen ${v.on ? 'on' : 'off'}')),
             ValueListenableBuilder(valueListenable: control.highlights, builder: (_, v, _) => Text('painting ${v.length} highlights')),
           ]));
+        }),
+      ];
+
+  /// Overrides for tests that look at what was shared (not in [overrides]: the Backup and notes tests set their own).
+  List<Override> get shareOverrides => [
+        backupTempDirProvider.overrideWithValue(() async => shareDir),
+        shareFileProvider.overrideWithValue((file, subject) async {
+          sharedFiles.add((file.uri.pathSegments.last, subject, String.fromCharCodes(file.readAsBytesSync().take(5))));
+          return true;
         }),
       ];
 

@@ -5,7 +5,8 @@ import 'package:folio/data/sync/synced_tables.dart';
 
 void main() {
   test('every table the client syncs is on the server allow-list in apply_changes', () {
-    final sql = Directory('supabase/migrations').listSync().whereType<File>().map((f) => f.readAsStringSync()).join('\n');
+    final files = Directory('supabase/migrations').listSync().whereType<File>().toList()..sort((a, b) => a.path.compareTo(b.path)); // oldest first: the LAST definition is the live one
+    final sql = files.map((f) => f.readAsStringSync()).join('\n');
     final m = RegExp(r"allowed_tbl constant text\[\] := array\[(.*?)\];", dotAll: true).allMatches(sql).last;
     final server = RegExp(r"'([a-z_]+)'").allMatches(m.group(1)!).map((x) => x.group(1)!).toSet();
     final client = syncedTables.keys.toSet();

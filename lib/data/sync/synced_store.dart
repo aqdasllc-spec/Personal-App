@@ -53,6 +53,32 @@ class SyncedStore {
   Future<String?> state(String key) => _getState(db, key);
   Future<void> setState(String key, String value) => _setState(db, key, value);
 
+  /// Drawings, tag colours and saved views made before they could sync have no sync record: queue them once
+  /// (the first time this device syncs), so they reach the other devices too.
+  Future<void> backfillExtras() async {
+    if (await _getState(db, 'extras_backfilled') == '1') return;
+    try {
+      final colors = jsonDecode(await _getState(db, 'tag_colors') ?? '{}') as Map;
+      for (final e in colors.entries) {
+        if (e.value is int) await setFields('tag_colors', '${e.key}', {'color': e.value});
+      }
+      final views = jsonDecode(await _getState(db, 'smart_views') ?? '[]') as List;
+      for (final v in views) {
+        if (v is Map && v['n'] is String) {
+          await setFields('smart_views', (v['n'] as String).trim().toLowerCase(), {'view': v});
+        }
+      }
+      for (final r in await db.select(db.pageInk).get()) {
+        if (r.strokes.isNotEmpty && r.strokes != '[]') {
+          await setFields('page_ink', '${r.bookId}:${r.page}', {'strokes': r.strokes});
+        }
+      }
+    } catch (_) {
+      // unreadable old data is simply not synced
+    }
+    await _setState(db, 'extras_backfilled', '1');
+  }
+
   String newId() => _uuid.v7();
 
   int get nowMs => _now();
