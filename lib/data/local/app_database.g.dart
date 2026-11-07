@@ -4091,6 +4091,473 @@ class PageInkCompanion extends UpdateCompanion<PageInkRow> {
   }
 }
 
+class $ReadPagesTable extends ReadPages
+    with TableInfo<$ReadPagesTable, ReadPageRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReadPagesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _dayMeta = const VerificationMeta('day');
+  @override
+  late final GeneratedColumn<String> day = GeneratedColumn<String>(
+    'day',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bookIdMeta = const VerificationMeta('bookId');
+  @override
+  late final GeneratedColumn<String> bookId = GeneratedColumn<String>(
+    'book_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pageMeta = const VerificationMeta('page');
+  @override
+  late final GeneratedColumn<int> page = GeneratedColumn<int>(
+    'page',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [day, bookId, page];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'read_pages';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReadPageRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('day')) {
+      context.handle(
+        _dayMeta,
+        day.isAcceptableOrUnknown(data['day']!, _dayMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dayMeta);
+    }
+    if (data.containsKey('book_id')) {
+      context.handle(
+        _bookIdMeta,
+        bookId.isAcceptableOrUnknown(data['book_id']!, _bookIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bookIdMeta);
+    }
+    if (data.containsKey('page')) {
+      context.handle(
+        _pageMeta,
+        page.isAcceptableOrUnknown(data['page']!, _pageMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pageMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {day, bookId, page};
+  @override
+  ReadPageRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReadPageRow(
+      day: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}day'],
+      )!,
+      bookId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}book_id'],
+      )!,
+      page: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}page'],
+      )!,
+    );
+  }
+
+  @override
+  $ReadPagesTable createAlias(String alias) {
+    return $ReadPagesTable(attachedDatabase, alias);
+  }
+}
+
+class ReadPageRow extends DataClass implements Insertable<ReadPageRow> {
+  final String day;
+  final String bookId;
+  final int page;
+  const ReadPageRow({
+    required this.day,
+    required this.bookId,
+    required this.page,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['day'] = Variable<String>(day);
+    map['book_id'] = Variable<String>(bookId);
+    map['page'] = Variable<int>(page);
+    return map;
+  }
+
+  ReadPagesCompanion toCompanion(bool nullToAbsent) {
+    return ReadPagesCompanion(
+      day: Value(day),
+      bookId: Value(bookId),
+      page: Value(page),
+    );
+  }
+
+  factory ReadPageRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReadPageRow(
+      day: serializer.fromJson<String>(json['day']),
+      bookId: serializer.fromJson<String>(json['bookId']),
+      page: serializer.fromJson<int>(json['page']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'day': serializer.toJson<String>(day),
+      'bookId': serializer.toJson<String>(bookId),
+      'page': serializer.toJson<int>(page),
+    };
+  }
+
+  ReadPageRow copyWith({String? day, String? bookId, int? page}) => ReadPageRow(
+    day: day ?? this.day,
+    bookId: bookId ?? this.bookId,
+    page: page ?? this.page,
+  );
+  ReadPageRow copyWithCompanion(ReadPagesCompanion data) {
+    return ReadPageRow(
+      day: data.day.present ? data.day.value : this.day,
+      bookId: data.bookId.present ? data.bookId.value : this.bookId,
+      page: data.page.present ? data.page.value : this.page,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReadPageRow(')
+          ..write('day: $day, ')
+          ..write('bookId: $bookId, ')
+          ..write('page: $page')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(day, bookId, page);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReadPageRow &&
+          other.day == this.day &&
+          other.bookId == this.bookId &&
+          other.page == this.page);
+}
+
+class ReadPagesCompanion extends UpdateCompanion<ReadPageRow> {
+  final Value<String> day;
+  final Value<String> bookId;
+  final Value<int> page;
+  final Value<int> rowid;
+  const ReadPagesCompanion({
+    this.day = const Value.absent(),
+    this.bookId = const Value.absent(),
+    this.page = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ReadPagesCompanion.insert({
+    required String day,
+    required String bookId,
+    required int page,
+    this.rowid = const Value.absent(),
+  }) : day = Value(day),
+       bookId = Value(bookId),
+       page = Value(page);
+  static Insertable<ReadPageRow> custom({
+    Expression<String>? day,
+    Expression<String>? bookId,
+    Expression<int>? page,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (day != null) 'day': day,
+      if (bookId != null) 'book_id': bookId,
+      if (page != null) 'page': page,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ReadPagesCompanion copyWith({
+    Value<String>? day,
+    Value<String>? bookId,
+    Value<int>? page,
+    Value<int>? rowid,
+  }) {
+    return ReadPagesCompanion(
+      day: day ?? this.day,
+      bookId: bookId ?? this.bookId,
+      page: page ?? this.page,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (day.present) {
+      map['day'] = Variable<String>(day.value);
+    }
+    if (bookId.present) {
+      map['book_id'] = Variable<String>(bookId.value);
+    }
+    if (page.present) {
+      map['page'] = Variable<int>(page.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReadPagesCompanion(')
+          ..write('day: $day, ')
+          ..write('bookId: $bookId, ')
+          ..write('page: $page, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ReadTimeTable extends ReadTime
+    with TableInfo<$ReadTimeTable, ReadTimeRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReadTimeTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _dayMeta = const VerificationMeta('day');
+  @override
+  late final GeneratedColumn<String> day = GeneratedColumn<String>(
+    'day',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _secondsMeta = const VerificationMeta(
+    'seconds',
+  );
+  @override
+  late final GeneratedColumn<int> seconds = GeneratedColumn<int>(
+    'seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [day, seconds];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'read_time';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReadTimeRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('day')) {
+      context.handle(
+        _dayMeta,
+        day.isAcceptableOrUnknown(data['day']!, _dayMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dayMeta);
+    }
+    if (data.containsKey('seconds')) {
+      context.handle(
+        _secondsMeta,
+        seconds.isAcceptableOrUnknown(data['seconds']!, _secondsMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {day};
+  @override
+  ReadTimeRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReadTimeRow(
+      day: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}day'],
+      )!,
+      seconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}seconds'],
+      )!,
+    );
+  }
+
+  @override
+  $ReadTimeTable createAlias(String alias) {
+    return $ReadTimeTable(attachedDatabase, alias);
+  }
+}
+
+class ReadTimeRow extends DataClass implements Insertable<ReadTimeRow> {
+  final String day;
+  final int seconds;
+  const ReadTimeRow({required this.day, required this.seconds});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['day'] = Variable<String>(day);
+    map['seconds'] = Variable<int>(seconds);
+    return map;
+  }
+
+  ReadTimeCompanion toCompanion(bool nullToAbsent) {
+    return ReadTimeCompanion(day: Value(day), seconds: Value(seconds));
+  }
+
+  factory ReadTimeRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReadTimeRow(
+      day: serializer.fromJson<String>(json['day']),
+      seconds: serializer.fromJson<int>(json['seconds']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'day': serializer.toJson<String>(day),
+      'seconds': serializer.toJson<int>(seconds),
+    };
+  }
+
+  ReadTimeRow copyWith({String? day, int? seconds}) =>
+      ReadTimeRow(day: day ?? this.day, seconds: seconds ?? this.seconds);
+  ReadTimeRow copyWithCompanion(ReadTimeCompanion data) {
+    return ReadTimeRow(
+      day: data.day.present ? data.day.value : this.day,
+      seconds: data.seconds.present ? data.seconds.value : this.seconds,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReadTimeRow(')
+          ..write('day: $day, ')
+          ..write('seconds: $seconds')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(day, seconds);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReadTimeRow &&
+          other.day == this.day &&
+          other.seconds == this.seconds);
+}
+
+class ReadTimeCompanion extends UpdateCompanion<ReadTimeRow> {
+  final Value<String> day;
+  final Value<int> seconds;
+  final Value<int> rowid;
+  const ReadTimeCompanion({
+    this.day = const Value.absent(),
+    this.seconds = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ReadTimeCompanion.insert({
+    required String day,
+    this.seconds = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : day = Value(day);
+  static Insertable<ReadTimeRow> custom({
+    Expression<String>? day,
+    Expression<int>? seconds,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (day != null) 'day': day,
+      if (seconds != null) 'seconds': seconds,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ReadTimeCompanion copyWith({
+    Value<String>? day,
+    Value<int>? seconds,
+    Value<int>? rowid,
+  }) {
+    return ReadTimeCompanion(
+      day: day ?? this.day,
+      seconds: seconds ?? this.seconds,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (day.present) {
+      map['day'] = Variable<String>(day.value);
+    }
+    if (seconds.present) {
+      map['seconds'] = Variable<int>(seconds.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReadTimeCompanion(')
+          ..write('day: $day, ')
+          ..write('seconds: $seconds, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $FieldMetaTable extends FieldMeta
     with TableInfo<$FieldMetaTable, FieldMetaData> {
   @override
@@ -5861,6 +6328,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $HighlightsTable highlights = $HighlightsTable(this);
   late final $PageTextsTable pageTexts = $PageTextsTable(this);
   late final $PageInkTable pageInk = $PageInkTable(this);
+  late final $ReadPagesTable readPages = $ReadPagesTable(this);
+  late final $ReadTimeTable readTime = $ReadTimeTable(this);
   late final $FieldMetaTable fieldMeta = $FieldMetaTable(this);
   late final $SyncOutboxTable syncOutbox = $SyncOutboxTable(this);
   late final $SyncStateTable syncState = $SyncStateTable(this);
@@ -5910,6 +6379,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     highlights,
     pageTexts,
     pageInk,
+    readPages,
+    readTime,
     fieldMeta,
     syncOutbox,
     syncState,
@@ -8058,6 +8529,317 @@ typedef $$PageInkTableProcessedTableManager =
       PageInkRow,
       PrefetchHooks Function()
     >;
+typedef $$ReadPagesTableCreateCompanionBuilder = ReadPagesCompanion Function({
+  required String day,
+  required String bookId,
+  required int page,
+  Value<int> rowid,
+});
+typedef $$ReadPagesTableUpdateCompanionBuilder = ReadPagesCompanion Function({
+  Value<String> day,
+  Value<String> bookId,
+  Value<int> page,
+  Value<int> rowid,
+});
+
+class $$ReadPagesTableFilterComposer
+    extends Composer<_$AppDatabase, $ReadPagesTable> {
+  $$ReadPagesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get day => $composableBuilder(
+    column: $table.day,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bookId => $composableBuilder(
+    column: $table.bookId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get page => $composableBuilder(
+    column: $table.page,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ReadPagesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ReadPagesTable> {
+  $$ReadPagesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get day => $composableBuilder(
+    column: $table.day,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bookId => $composableBuilder(
+    column: $table.bookId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get page => $composableBuilder(
+    column: $table.page,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ReadPagesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ReadPagesTable> {
+  $$ReadPagesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get day =>
+      $composableBuilder(column: $table.day, builder: (column) => column);
+
+  GeneratedColumn<String> get bookId =>
+      $composableBuilder(column: $table.bookId, builder: (column) => column);
+
+  GeneratedColumn<int> get page =>
+      $composableBuilder(column: $table.page, builder: (column) => column);
+}
+
+class $$ReadPagesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ReadPagesTable,
+          ReadPageRow,
+          $$ReadPagesTableFilterComposer,
+          $$ReadPagesTableOrderingComposer,
+          $$ReadPagesTableAnnotationComposer,
+          $$ReadPagesTableCreateCompanionBuilder,
+          $$ReadPagesTableUpdateCompanionBuilder,
+          (
+            ReadPageRow,
+            BaseReferences<_$AppDatabase, $ReadPagesTable, ReadPageRow>,
+          ),
+          ReadPageRow,
+          PrefetchHooks Function()
+        > {
+  $$ReadPagesTableTableManager(_$AppDatabase db, $ReadPagesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ReadPagesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ReadPagesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ReadPagesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> day = const Value.absent(),
+                Value<String> bookId = const Value.absent(),
+                Value<int> page = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ReadPagesCompanion(
+                day: day,
+                bookId: bookId,
+                page: page,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String day,
+                required String bookId,
+                required int page,
+                Value<int> rowid = const Value.absent(),
+              }) => ReadPagesCompanion.insert(
+                day: day,
+                bookId: bookId,
+                page: page,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ReadPagesTable, ReadPageRow>(table),
+                  BaseReferences<_$AppDatabase, $ReadPagesTable, ReadPageRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ReadPagesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ReadPagesTable,
+      ReadPageRow,
+      $$ReadPagesTableFilterComposer,
+      $$ReadPagesTableOrderingComposer,
+      $$ReadPagesTableAnnotationComposer,
+      $$ReadPagesTableCreateCompanionBuilder,
+      $$ReadPagesTableUpdateCompanionBuilder,
+      (
+        ReadPageRow,
+        BaseReferences<_$AppDatabase, $ReadPagesTable, ReadPageRow>,
+      ),
+      ReadPageRow,
+      PrefetchHooks Function()
+    >;
+typedef $$ReadTimeTableCreateCompanionBuilder = ReadTimeCompanion Function({
+  required String day,
+  Value<int> seconds,
+  Value<int> rowid,
+});
+typedef $$ReadTimeTableUpdateCompanionBuilder = ReadTimeCompanion Function({
+  Value<String> day,
+  Value<int> seconds,
+  Value<int> rowid,
+});
+
+class $$ReadTimeTableFilterComposer
+    extends Composer<_$AppDatabase, $ReadTimeTable> {
+  $$ReadTimeTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get day => $composableBuilder(
+    column: $table.day,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get seconds => $composableBuilder(
+    column: $table.seconds,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ReadTimeTableOrderingComposer
+    extends Composer<_$AppDatabase, $ReadTimeTable> {
+  $$ReadTimeTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get day => $composableBuilder(
+    column: $table.day,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get seconds => $composableBuilder(
+    column: $table.seconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ReadTimeTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ReadTimeTable> {
+  $$ReadTimeTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get day =>
+      $composableBuilder(column: $table.day, builder: (column) => column);
+
+  GeneratedColumn<int> get seconds =>
+      $composableBuilder(column: $table.seconds, builder: (column) => column);
+}
+
+class $$ReadTimeTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ReadTimeTable,
+          ReadTimeRow,
+          $$ReadTimeTableFilterComposer,
+          $$ReadTimeTableOrderingComposer,
+          $$ReadTimeTableAnnotationComposer,
+          $$ReadTimeTableCreateCompanionBuilder,
+          $$ReadTimeTableUpdateCompanionBuilder,
+          (
+            ReadTimeRow,
+            BaseReferences<_$AppDatabase, $ReadTimeTable, ReadTimeRow>,
+          ),
+          ReadTimeRow,
+          PrefetchHooks Function()
+        > {
+  $$ReadTimeTableTableManager(_$AppDatabase db, $ReadTimeTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ReadTimeTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ReadTimeTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ReadTimeTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> day = const Value.absent(),
+            Value<int> seconds = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) => ReadTimeCompanion(day: day, seconds: seconds, rowid: rowid),
+          createCompanionCallback:
+              ({
+                required String day,
+                Value<int> seconds = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ReadTimeCompanion.insert(
+                day: day,
+                seconds: seconds,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ReadTimeTable, ReadTimeRow>(table),
+                  BaseReferences<_$AppDatabase, $ReadTimeTable, ReadTimeRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ReadTimeTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ReadTimeTable,
+      ReadTimeRow,
+      $$ReadTimeTableFilterComposer,
+      $$ReadTimeTableOrderingComposer,
+      $$ReadTimeTableAnnotationComposer,
+      $$ReadTimeTableCreateCompanionBuilder,
+      $$ReadTimeTableUpdateCompanionBuilder,
+      (ReadTimeRow, BaseReferences<_$AppDatabase, $ReadTimeTable, ReadTimeRow>),
+      ReadTimeRow,
+      PrefetchHooks Function()
+    >;
 typedef $$FieldMetaTableCreateCompanionBuilder = FieldMetaCompanion Function({
   required String tbl,
   required String rowId,
@@ -9025,6 +9807,10 @@ class $AppDatabaseManager {
       $$PageTextsTableTableManager(_db, _db.pageTexts);
   $$PageInkTableTableManager get pageInk =>
       $$PageInkTableTableManager(_db, _db.pageInk);
+  $$ReadPagesTableTableManager get readPages =>
+      $$ReadPagesTableTableManager(_db, _db.readPages);
+  $$ReadTimeTableTableManager get readTime =>
+      $$ReadTimeTableTableManager(_db, _db.readTime);
   $$FieldMetaTableTableManager get fieldMeta =>
       $$FieldMetaTableTableManager(_db, _db.fieldMeta);
   $$SyncOutboxTableTableManager get syncOutbox =>

@@ -134,6 +134,28 @@ class PageTexts extends Table {
   Set<Column> get primaryKey => {bookId, page};
 }
 
+/// Pages you actually read, one row per (day, book, page): the day is local time as `YYYY-MM-DD`.
+/// Rereading a page on the same day is not counted twice. Device-local.
+@DataClassName('ReadPageRow')
+class ReadPages extends Table {
+  TextColumn get day => text()();
+  TextColumn get bookId => text()();
+  IntColumn get page => integer()();
+
+  @override
+  Set<Column> get primaryKey => {day, bookId, page};
+}
+
+/// Seconds a book was open in the reader, per day (local `YYYY-MM-DD`). Device-local.
+@DataClassName('ReadTimeRow')
+class ReadTime extends Table {
+  TextColumn get day => text()();
+  IntColumn get seconds => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column> get primaryKey => {day};
+}
+
 /// Pen drawings on a page (device-local). [strokes] is JSON: a list of
 /// {"c": colour index, "w": width (fraction of page width), "p": [x1, y1, x2, y2, ...]} with x, y as fractions (0..1)
 /// of the page, so they stay put at any zoom.
@@ -238,6 +260,8 @@ class LocalConflicts extends Table {
     Highlights,
     PageTexts,
     PageInk,
+    ReadPages,
+    ReadTime,
     FieldMeta,
     SyncOutbox,
     SyncState,
@@ -248,7 +272,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -347,6 +371,11 @@ class AppDatabase extends _$AppDatabase {
       from12To13: (m, schema) async {
         // v13: pen drawings on pages.
         await m.createTable(schema.pageInk);
+      },
+      from13To14: (m, schema) async {
+        // v14: reading statistics (pages read per day, time per day).
+        await m.createTable(schema.readPages);
+        await m.createTable(schema.readTime);
       },
     ),
     beforeOpen: (details) async {

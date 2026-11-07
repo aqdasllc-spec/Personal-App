@@ -26,6 +26,76 @@ void main() {
     });
   });
 
+  group('guessLanguage', () {
+    test('scripts', () {
+      expect(guessLanguage('यह एक किताब है जो हिंदी में लिखी गई है और बहुत पुरानी है'), 'hi');
+      expect(guessLanguage('یہ ایک کتاب ہے جو اردو میں لکھی گئی ہے اور بہت پرانی ہے'), 'ur');
+      expect(guessLanguage('هذا كتاب مكتوب باللغة العربية وهو قديم جدا في الواقع'), 'ar');
+      expect(guessLanguage('これは日本語で書かれた古い本です。とても面白いです。'), 'ja');
+      expect(guessLanguage('Это очень старая книга, написанная по-русски для всех'), 'ru');
+    });
+
+    test('Latin languages by common words; English is the fallback; too little text gives none', () {
+      expect(guessLanguage('The book is on the table and it was written for the people of the town.'), 'en');
+      expect(guessLanguage('Le livre est sur la table et il est pour les enfants de la ville dans le jardin.'), 'fr');
+      expect(guessLanguage('Das Buch ist nicht auf dem Tisch und es wird von der Stadt mit dem Garten gelesen.'), 'de');
+      expect(guessLanguage('Zyxwv qrst plmn bvcx asdf ghjk qwer tyui opas dfgh jklz'), 'en', reason: 'no clue: English');
+      expect(guessLanguage('Hi'), isNull);
+      expect(guessLanguage('1234 5678 ----'), isNull);
+    });
+
+    test('voiceFor prefers the one already chosen, then the first with that language', () {
+      const v = [(name: 'a', locale: 'en-US'), (name: 'b', locale: 'hi-IN'), (name: 'c', locale: 'hi-PK')];
+      expect(voiceFor('hi', v)?.name, 'b');
+      expect(voiceFor('hi', v, preferred: v[2])?.name, 'c');
+      expect(voiceFor('fr', v), isNull);
+    });
+  });
+
+  group('auto voice', () {
+    test('reading a Hindi page picks the Hindi voice, once; a language without a voice says so and still reads', () async {
+      final engine = FakeSpeechEngine();
+      final r = ReadAloud(
+        engine: engine,
+        textOf: (p) async => 'यह एक किताब है जो हिंदी में लिखी गई है और बहुत पुरानी है',
+        goTo: (_) {},
+        pageCount: () => 1,
+        autoVoice: () async => true,
+      );
+      await r.start(1);
+      expect(engine.chosen, [const VoiceInfo('hi-in-x-ccc-local', 'hi-IN')]);
+
+      final e2 = FakeSpeechEngine()..installed = const [VoiceInfo('en-us-x-aaa-local', 'en-US')];
+      final r2 = ReadAloud(
+        engine: e2,
+        textOf: (p) async => 'Le livre est sur la table et il est pour les enfants de la ville dans le jardin.',
+        goTo: (_) {},
+        pageCount: () => 1,
+        autoVoice: () async => true,
+      );
+      final seen = <String?>[];
+      r2.state.addListener(() => seen.add(r2.state.value.message));
+      await r2.start(1);
+      expect(e2.chosen, isEmpty);
+      expect(e2.spoken, isNotEmpty);
+      expect(seen.any((m) => m != null && m.contains('French')), isTrue, reason: 'the bar said why the default voice is used');
+    });
+
+    test('with automatic off, the voice picked by hand is used', () async {
+      final engine = FakeSpeechEngine();
+      final r = ReadAloud(
+        engine: engine,
+        textOf: (p) async => 'The book is on the table and it was written for the people of the town.',
+        goTo: (_) {},
+        pageCount: () => 1,
+        voice: () async => const VoiceInfo('hi-in-x-ccc-local', 'hi-IN'),
+        autoVoice: () async => false,
+      );
+      await r.start(1);
+      expect(engine.chosen, [const VoiceInfo('hi-in-x-ccc-local', 'hi-IN')]);
+    });
+  });
+
   group('voices', () {
     test('locale names are readable; unknown codes are shown as they are', () {
       expect(localeLabel('en-US'), 'English (United States)');

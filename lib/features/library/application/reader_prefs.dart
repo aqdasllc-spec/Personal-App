@@ -7,6 +7,30 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../app/providers.dart';
 
+/// "Only a stylus draws" (finger touches scroll and zoom even while the pen is on). Remembered on this device.
+class StylusOnly extends Notifier<bool> {
+  static const key = 'pen_stylus_only';
+  @override
+  bool build() {
+    Future.microtask(() async {
+      try {
+        final v = await ref.read(syncedStoreProvider).state(key);
+        if (v == '1') state = true;
+      } catch (_) {}
+    });
+    return false;
+  }
+
+  void set(bool v) {
+    state = v;
+    try {
+      ref.read(syncedStoreProvider).setState(key, v ? '1' : '0');
+    } catch (_) {}
+  }
+}
+
+final stylusOnlyProvider = NotifierProvider<StylusOnly, bool>(StylusOnly.new);
+
 /// Colour scheme of the page while reading.
 enum ReaderTheme {
   normal('Original'),

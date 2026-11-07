@@ -6,6 +6,7 @@ Everything works offline. Signing in only adds syncing between your devices.
 ---
 
 ## Home
+- **Reading** card: pages read today against your daily goal (tap *Goal* to change it), your streak, the last 7 days and time with a book open. A page counts after a few seconds on it, once per day.
 - **Today** at a glance: tasks due, events, a one-line add box ("Add a task for today…").
 - **Continue reading**: books you have started. The small menu switches between *Recently read first* and *My order* (the Library's order).
 - Tap a book for a preview card; tap again to read.
@@ -15,6 +16,8 @@ Everything works offline. Signing in only adds syncing between your devices.
 - **Shelves**: group books; the pen next to a shelf = *edit shelf* (books wiggle; drag them left/right to reorder).
 - **Tag colours**: Sort and filter → Tags → Manage → tap the circle by a tag to give it one of 8 colours; a coloured dot then shows on the filter chips and the book preview.
 - **Sort and filter** (recent, title, author, status, tags) and **Saved views**: pick a status and tags, tap *Save this view*, give it a name; tap the view later to bring those filters back (long-lived, up to 20).
+- **Search inside all books** (magnifier-with-list button): type a word, see every place it appears in your books (scans too, once made searchable); tap a hit to open the book at that page with the search ready. Its **Highlights** tab shows every highlight you made, filtered by colour; press and hold a colour to say what it means to you (for example yellow = Important).
+- **Add a whole folder** (folder button): choose a folder and every PDF in it and its sub-folders is added after you confirm.
 - **Search**,  **Select several books** (checklist icon) to tag, move, favourite or remove many at once.
 - **Long-press / hover** a book for a preview (first page, progress, tags).
 - Cloud dot on a book: red = only on this device, green = also in your cloud (Sync / Unsync).
@@ -22,7 +25,7 @@ Everything works offline. Signing in only adds syncing between your devices.
 
 ## Reading (open a book)
 **Top bar:** title with the page number, **Search**, **Aa** (reading look), **⋮** (more).
-**Bottom:** the page slider, then four tools: **Contents** (bookmarks and highlights), **Bookmark**, **Draw**, **Listen**.
+**Bottom:** the page slider, then five tools: **Contents** (bookmarks and highlights), **Pages** (a grid of page pictures: tap one to jump; bookmarked and drawn pages are marked), **Bookmark**, **Draw**, **Listen**.
 
 | You want to… | Do this |
 |---|---|
@@ -32,9 +35,10 @@ Everything works offline. Signing in only adds syncing between your devices.
 | Change look | **Aa**: colour scheme (Original, Paper, Sepia, Night, Black), Dim, Warm light, sideways paging, orientation lock, keep screen on |
 | Search the text | **Search** (magnifier) |
 | Bookmark | **Bookmark** tool; highlights: select text → Highlight; **Contents** lists both, with notes and export |
-| Draw or write on a page | **Draw**: the bottom bars give way to one slim pen bar. One finger (or a stylus) draws; **two fingers pinch-zoom** the page. The round button opens colour, thickness and **Pen / Highlighter**; then Eraser (touch a stroke), Undo, Clear page and Done. A stylus wins over a resting palm. One finger does not scroll while the pen is on: use two fingers, or Done |
+| Draw or write on a page | **Draw**: the bottom bars give way to one slim pen bar. One finger (or a stylus) draws; **two fingers pinch-zoom** the page. The round button opens colour, thickness and **Pen / Highlighter**; then Eraser (touch a stroke), Undo, Clear page and Done. A stylus wins over a resting palm. **Stylus only** (in the round button's pop-up) makes fingers scroll and zoom normally while only the stylus draws. One finger does not scroll while the pen is on: use two fingers, or Done |
+| Look up a word | Select text → **Look up** → Meaning (dictionary search) or Translate (into your phone's language); both open your browser and send the selected text to that website |
 | Share your drawings | ⋮ menu → **Export as PDF with my drawings**: this page, pages with drawings, or the whole book (up to 60 pages). The new PDF has the pages as pictures with your drawing on top; the original is not changed |
-| Have it read aloud | **Listen**: reads from this page and turns pages by itself. Pause/Play, speed (0.75x to 2x), close. Uses your phone's voice (the people icon in the voice bar lets you choose the language and voice from what is installed), and keeps reading with the screen off, with Play/Pause, Previous/Next page and Stop on the lock screen and in the notification shade. Scans are read from the recognised text; a scan that is not made searchable yet says so |
+| Have it read aloud | **Listen**: reads from this page and turns pages by itself. Pause/Play, speed (0.75x to 2x), close. Uses your phone's voice (by default it picks an installed voice that matches the language of the page being read; the people icon in the voice bar lets you turn that off and choose the language and voice yourself), and keeps reading with the screen off, with Play/Pause, Previous/Next page and Stop on the lock screen and in the notification shade. Scans are read from the recognised text; a scan that is not made searchable yet says so |
 | Scanned or handwritten PDF | See below |
 
 ### Scanned and handwritten PDFs
@@ -60,4 +64,4 @@ Everything works offline. Signing in only adds syncing between your devices.
 Press and hold the Folio icon: **Continue reading**, **Add a task**, **Planner: today**, **Library**.
 
 ---
-Not built yet: picking the voice automatically from the book's language, a Windows/macOS text-recogniser.
+Not built yet: a Windows/macOS text-recogniser, syncing reading statistics.

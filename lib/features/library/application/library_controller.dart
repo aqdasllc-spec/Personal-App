@@ -12,10 +12,12 @@ import '../data/library_repository.dart';
 import '../domain_highlights.dart';
 import 'reader_prefs.dart';
 import '../domain_ink.dart';
+import '../domain_reading_stats.dart';
 import '../domain_smart_views.dart';
 import '../domain_tag_colors.dart';
 import '../domain_tags.dart';
 import '../data/pdf_inspector.dart';
+import '../presentation/page_thumbs.dart';
 
 /// Where PDFs are stored. Overridden in tests with a temp folder.
 final libraryDirectoryProvider = Provider<Directory>(
@@ -42,6 +44,14 @@ final libraryRepositoryProvider = Provider<LibraryRepository>(
 /// Opens the system file picker and returns chosen PDF paths. Overridden in tests.
 final pdfPickerProvider = Provider<Future<List<String>> Function()>(
   (ref) => pickPdfPaths,
+);
+
+/// Builds the grid of page pictures in the "Pages" sheet. Overridden in tests (the real one needs the PDF engine).
+final pageThumbsBuilderProvider = Provider<PageThumbsBuilder>((ref) => buildPageThumbs);
+
+/// Opens the system folder picker. Overridden in tests.
+final pdfFolderPickerProvider = Provider<Future<String?> Function()>(
+  (ref) => pickPdfFolder,
 );
 
 /// Builds the PDF page view. Overridden in tests (the real one needs the native PDF engine).
@@ -80,21 +90,26 @@ class ReaderControl {
   // highlights: the reader page feeds the saved ones in; the PDF view reports new ones out
   final highlights = ValueNotifier<List<HighlightRow>>(const []);
   Future<void> Function(HighlightDraft draft)? onHighlight;
+
+  /// "Look up" chosen on selected text.
+  Future<void> Function(String text)? onLookUp;
 }
 
 enum TapZone { left, center, right }
 
-/// The pen tool: on/off, colour (index in [penColors]), width (index in [penWidths]), eraser mode and highlighter mode.
+/// The pen tool: on/off, colour (index in [penColors]), width (index in [penWidths]), eraser mode, highlighter mode
+/// and "stylus only" (fingers then scroll and zoom as usual, only a stylus draws).
 class PenState {
-  const PenState({this.on = false, this.color = 0, this.width = 1, this.erase = false, this.highlighter = false});
-  final bool on, erase, highlighter;
+  const PenState({this.on = false, this.color = 0, this.width = 1, this.erase = false, this.highlighter = false, this.stylusOnly = false});
+  final bool on, erase, highlighter, stylusOnly;
   final int color, width;
-  PenState copyWith({bool? on, int? color, int? width, bool? erase, bool? highlighter}) => PenState(
+  PenState copyWith({bool? on, int? color, int? width, bool? erase, bool? highlighter, bool? stylusOnly}) => PenState(
     on: on ?? this.on,
     color: color ?? this.color,
     width: width ?? this.width,
     erase: erase ?? this.erase,
     highlighter: highlighter ?? this.highlighter,
+    stylusOnly: stylusOnly ?? this.stylusOnly,
   );
   @override
   bool operator ==(Object other) =>
@@ -103,9 +118,10 @@ class PenState {
       other.color == color &&
       other.width == width &&
       other.erase == erase &&
-      other.highlighter == highlighter;
+      other.highlighter == highlighter &&
+      other.stylusOnly == stylusOnly;
   @override
-  int get hashCode => Object.hash(on, color, width, erase, highlighter);
+  int get hashCode => Object.hash(on, color, width, erase, highlighter, stylusOnly);
 }
 
 /// One search hit on a scanned page: the page and the line's rectangle as fractions (0..1) of the page.
@@ -133,6 +149,35 @@ class ReaderSearch {
   /// Still scanning pages for more matches.
   final bool searching;
 }
+
+/// Pages and time per day for the Home statistics.
+final readingStatsProvider = StreamProvider<List<DayStat>>(
+  (ref) => ref.watch(libraryRepositoryProvider).watchReadingStats(),
+);
+
+/// Pages per day the user wants to read (Home shows progress towards it). Remembered on this device.
+class ReadGoal extends Notifier<int> {
+  static const key = 'read_goal';
+  @override
+  int build() {
+    Future.microtask(() async {
+      try {
+        final v = int.tryParse(await ref.read(syncedStoreProvider).state(key) ?? '');
+        if (v != null && v >= 1 && v <= maxReadGoal) state = v;
+      } catch (_) {}
+    });
+    return defaultReadGoal;
+  }
+
+  void set(int v) {
+    state = v.clamp(1, maxReadGoal);
+    try {
+      ref.read(syncedStoreProvider).setState(key, '$state');
+    } catch (_) {}
+  }
+}
+
+final readGoalProvider = NotifierProvider<ReadGoal, int>(ReadGoal.new);
 
 final inkProvider = StreamProvider.family<List<PageInkRow>, String>(
   (ref, bookId) => ref.watch(libraryRepositoryProvider).watchInk(bookId),

@@ -10,6 +10,7 @@ import '../domain_highlights.dart';
 import '../domain_tags.dart';
 import '../../../data/sync/synced_store.dart';
 import '../domain_ink.dart';
+import '../domain_reading_stats.dart';
 import '../domain_ocr.dart';
 import 'ocr.dart';
 
@@ -448,6 +449,35 @@ class LibraryRepository {
     await setTextState(bookId, 'scanned');
   }
 
+  // ------------------------------------------------------- reading statistics
+  /// Counts [page] of [bookId] as read today (once per day, however often it is shown).
+  Future<void> markPageRead(String bookId, int page) => _db
+      .into(_db.readPages)
+      .insert(ReadPagesCompanion.insert(day: dayKey(_now()), bookId: bookId, page: page), mode: InsertMode.insertOrIgnore);
+
+  /// Adds [seconds] of reading time to today.
+  Future<void> addReadingSeconds(int seconds) async {
+    if (seconds <= 0) return;
+    final day = dayKey(_now());
+    await _db.customStatement(
+      'INSERT INTO read_time (day, seconds) VALUES (?, ?) ON CONFLICT(day) DO UPDATE SET seconds = seconds + excluded.seconds',
+      [day, seconds],
+    );
+    _db.notifyUpdates({TableUpdate.onTable(_db.readTime, kind: UpdateKind.insert)});
+  }
+
+  /// Pages and time per day (days with any reading), live.
+  Stream<List<DayStat>> watchReadingStats() => _db
+      .customSelect(
+        'SELECT d.day AS day, COALESCE(p.n, 0) AS pages, COALESCE(t.seconds, 0) AS seconds '
+        'FROM (SELECT day FROM read_pages UNION SELECT day FROM read_time) d '
+        'LEFT JOIN (SELECT day, COUNT(*) AS n FROM read_pages GROUP BY day) p ON p.day = d.day '
+        'LEFT JOIN read_time t ON t.day = d.day ORDER BY d.day',
+        readsFrom: {_db.readPages, _db.readTime},
+      )
+      .watch()
+      .map((rows) => [for (final r in rows) DayStat(r.read<String>('day'), r.read<int>('pages'), r.read<int>('seconds'))]);
+
   // ------------------------------------------------------------- pen drawings
   /// Saves the strokes of a page; an empty list removes the row.
   Future<void> saveInk(String bookId, int page, List<Stroke> strokes) async {
@@ -466,6 +496,9 @@ class LibraryRepository {
   Stream<List<PageInkRow>> watchInk(String bookId) => (_db.select(_db.pageInk)..where((t) => t.bookId.equals(bookId))).watch();
 
   // ---------------------------------------------------------------- highlights
+  /// Every highlight in every (not removed) book, newest first.
+  Stream<List<HighlightRow>> watchAllHighlights() => (_db.select(_db.highlights)..orderBy([(h) => OrderingTerm.desc(h.createdAt)])).watch();
+
   Stream<List<HighlightRow>> watchHighlights(String bookId) =>
       (_db.select(_db.highlights)
             ..where((h) => h.bookId.equals(bookId))

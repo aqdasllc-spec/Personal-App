@@ -12,6 +12,7 @@ import 'package:folio/features/library/application/library_controller.dart';
 import 'package:folio/features/library/application/reader_prefs.dart';
 import 'package:folio/features/library/application/ocr_controller.dart';
 import 'package:folio/features/library/data/ocr.dart';
+import 'package:folio/features/library/presentation/page_thumbs.dart';
 import 'package:folio/features/library/application/export_ink.dart';
 import 'package:folio/features/library/data/ink_export.dart';
 import 'package:folio/features/library/data/media_controls.dart';
@@ -272,10 +273,16 @@ class FakePageImager implements PageImager {
 }
 
 class FakePageTexts implements PageTextReader {
-  FakePageTexts(this.pages);
+  FakePageTexts(this.pages, {this.byBook = const {}});
   final Map<int, String> pages;
+
+  /// Texts for particular books (by book id, the file is named `<id>.pdf`); other books use [pages].
+  final Map<String, Map<int, String>> byBook;
   @override
-  Future<String?> textOf(File pdf, int page) async => pages[page];
+  Future<String?> textOf(File pdf, int page) async {
+    final id = pdf.uri.pathSegments.last.replaceAll('.pdf', '');
+    return byBook.containsKey(id) ? byBook[id]![page] : pages[page];
+  }
 }
 
 class FakeQuickActions implements QuickActionsPort {
@@ -321,6 +328,7 @@ class TestEnv {
   /// Library test doubles: a temp folder, a fake page counter, a fake picker and a stub reader.
   late final Directory libraryDir = Directory.systemTemp.createTempSync('folio_lib');
   List<String> picked = [];
+  String? pickedFolder;
 
   /// Set to a [FakeCloudBooks] to give the build a cloud shelf (null = build without cloud sync).
   FakeCloudBooks? cloud;
@@ -332,6 +340,7 @@ class TestEnv {
   final quick = FakeQuickActions();
   final speech = FakeSpeechEngine();
   final media = FakeMediaControls();
+  final opened = <Uri>[];
   final imager = FakePageImager();
 
   /// Files handed to the share sheet: (file name, subject, first bytes).
@@ -339,6 +348,7 @@ class TestEnv {
   late final Directory shareDir = Directory.systemTemp.createTempSync('folio_share');
 
   /// What the voice finds on each page of a book that has real text.
+  final pageTextsByBook = <String, Map<int, String>>{};
   final pageTexts = <int, String>{1: 'First page text.', 2: 'Second page text.', 3: 'Third page text.'};
   final awake = <bool>[];
 
@@ -374,14 +384,27 @@ class TestEnv {
         quickActionsProvider.overrideWithValue(quick),
         speechEngineProvider.overrideWithValue(speech),
         mediaControlsProvider.overrideWithValue(media),
+        pageThumbsBuilderProvider.overrideWithValue((context, {required file, required pageCount, required current, required bookmarked, required drawn, required onPick}) => PageThumbGrid(
+              pageCount: pageCount,
+              current: current,
+              bookmarked: bookmarked,
+              drawn: drawn,
+              onPick: onPick,
+              pictureOf: (p) => Center(child: Text('picture $p')),
+            )),
+        urlOpenerProvider.overrideWithValue((uri) async {
+          opened.add(uri);
+          return true;
+        }),
         pageImagerProvider.overrideWithValue(imager),
 
-        pageTextReaderProvider.overrideWithValue(FakePageTexts(pageTexts)),
+        pageTextReaderProvider.overrideWithValue(FakePageTexts(pageTexts, byBook: pageTextsByBook)),
         textProbeProvider.overrideWithValue(FakeProbe(probeResult)),
         pageRecognizerProvider.overrideWithValue(recognizer),
         screenAwakeProvider.overrideWithValue(awake.add),
         pdfInspectorProvider.overrideWithValue(FakePdfInspector()),
         pdfPickerProvider.overrideWithValue(() async => picked),
+        pdfFolderPickerProvider.overrideWithValue(() async => pickedFolder),
         pdfViewBuilderProvider.overrideWithValue((context, file, initial, onPage, control) {
           control.goTo = (p) {
             jumps.add(p);
@@ -428,6 +451,7 @@ class TestEnv {
               onPressed: () => control.onStroke?.call(2, Stroke(control.pen.value.color, penWidths[control.pen.value.width].$2 * (control.pen.value.highlighter ? highlighterScale : 1), const [0.1, 0.1, 0.5, 0.5], highlighter: control.pen.value.highlighter)),
               child: const Text('draw stroke'),
             ),
+            TextButton(onPressed: () => control.onLookUp?.call('  serendipity\n happy accident  '), child: const Text('look up selection')),
             TextButton(onPressed: () => control.onErase?.call(2, 0.3, 0.3), child: const Text('rub on stroke')),
             TextButton(onPressed: () => control.onErase?.call(2, 0.9, 0.1), child: const Text('rub elsewhere')),
             ValueListenableBuilder(

@@ -57,6 +57,7 @@ dependencies:
   flutter_tts: ^4.2.5
   audio_service: ^0.18.19
   pdf: ^3.13.1
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:

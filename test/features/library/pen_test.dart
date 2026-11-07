@@ -164,6 +164,24 @@ void main() {
       expect(got.length, 1);
     });
 
+    testWidgets('stylus only: fingers never draw, the stylus does', (t) async {
+      final got = <Stroke>[];
+      await t.pumpWidget(MaterialApp(
+        home: Center(child: SizedBox(width: 200, height: 400, child: InkCapture(pen: const PenState(on: true, stylusOnly: true), onStroke: got.add))),
+      ));
+      final origin = t.getTopLeft(find.byKey(const Key('ink-capture')));
+      final finger = await t.startGesture(origin + const Offset(20, 20), pointer: 1);
+      await finger.moveBy(const Offset(80, 80));
+      await finger.up();
+      await t.pump();
+      expect(got, isEmpty);
+      final pen = await t.startGesture(origin + const Offset(30, 30), pointer: 2, kind: PointerDeviceKind.stylus);
+      await pen.moveBy(const Offset(60, 60));
+      await pen.up();
+      await t.pump();
+      expect(got.length, 1);
+    });
+
     testWidgets('a stylus wins over a resting palm', (t) async {
       final got = <Stroke>[];
       await t.pumpWidget(MaterialApp(
@@ -262,6 +280,19 @@ void main() {
       final s = decodeStrokes((await inkRows(t, env)).single.strokes).single;
       expect(s.highlighter, isTrue);
       expect(s.width, greaterThan(0.015));
+    });
+
+    padTest('stylus only is chosen in the style pop-up and remembered', (t) async {
+      final (env, _) = await openBook(t);
+      await startPen(t);
+      await t.tap(find.byKey(const Key('pen-style')));
+      await io(t, rounds: 2);
+      await t.tap(find.byKey(const Key('pen-stylus-only')));
+      await io(t, rounds: 3);
+      expect(await t.runAsync(() => env.store.state('pen_stylus_only')), '1');
+      await t.tap(find.byKey(const Key('pen-style')));
+      await io(t, rounds: 2);
+      expect(t.widget<FilterChip>(find.byKey(const Key('pen-stylus-only'))).selected, isTrue);
     });
 
     padTest('Clear removes the drawings of the page you are on', (t) async {

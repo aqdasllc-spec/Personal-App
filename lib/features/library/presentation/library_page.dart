@@ -14,6 +14,7 @@ import '../application/book_sync.dart';
 import '../application/export_notes.dart';
 import '../application/library_controller.dart';
 import '../data/library_repository.dart';
+import '../data/folder_scan.dart';
 import '../domain_tags.dart';
 import '../domain_tag_colors.dart';
 import 'tag_dot.dart';
@@ -37,9 +38,48 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
 
   Future<void> _import() async {
     if (_importing) return;
+    final paths = await ref.read(pdfPickerProvider)();
+    await _importPaths(paths);
+  }
+
+  /// Adds every PDF in a folder (and its sub-folders), after asking.
+  Future<void> _importFolder() async {
+    if (_importing) return;
+    final dir = await ref.read(pdfFolderPickerProvider)();
+    if (dir == null || !mounted) return;
+    final found = await scanPdfFolder(dir);
+    if (!mounted) return;
+    if (found == null) {
+      _say('Could not read that folder. Try "Add PDFs" and select the files instead.');
+      return;
+    }
+    if (found.isEmpty) {
+      _say('No PDF files in that folder.');
+      return;
+    }
+    final name = dir.split(RegExp(r'[\\/]')).where((p) => p.isNotEmpty).lastOrNull ?? dir;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add this folder?'),
+        content: Text('Found ${found.length} PDF ${found.length == 1 ? 'file' : 'files'} in "$name" and its sub-folders. Copies are added to your library; your files are not changed.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            key: const Key('folder-add-confirm'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Add ${found.length}'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await _importPaths(found);
+  }
+
+  Future<void> _importPaths(List<String> paths) async {
     final repo = ref.read(libraryRepositoryProvider);
     final filter = ref.read(libraryUiProvider).filter;
-    final paths = await ref.read(pdfPickerProvider)();
     if (paths.isEmpty || !mounted) return;
     setState(() => _importing = true);
     var added = 0, dup = 0;
@@ -286,6 +326,18 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                       isScrollControlled: true,
                       builder: (_) => const _FilterSheet(),
                     ),
+                  ),
+                  IconButton.outlined(
+                    key: const Key('library-search-all'),
+                    tooltip: 'Search inside all books, and all highlights',
+                    icon: const Icon(Icons.manage_search),
+                    onPressed: () => context.push('${Routes.library}/search'),
+                  ),
+                  IconButton.outlined(
+                    key: const Key('library-add-folder'),
+                    tooltip: 'Add a whole folder of PDFs',
+                    icon: const Icon(Icons.create_new_folder_outlined),
+                    onPressed: _importing ? null : _importFolder,
                   ),
                   FilledButton.icon(
                     key: const Key('library-add'),

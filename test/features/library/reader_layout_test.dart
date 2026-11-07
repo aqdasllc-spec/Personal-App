@@ -6,12 +6,14 @@ import 'package:folio/data/local/app_database.dart';
 import 'package:folio/features/library/data/library_repository.dart';
 
 import 'package:folio/features/library/data/ocr.dart';
+import 'package:folio/features/library/domain_ink.dart';
+import 'package:folio/features/library/domain_lookup.dart';
 import 'package:folio/features/library/data/speech.dart';
 
 import '../../helpers.dart';
 import 'reader_settings_test.dart' show io;
 
-Future<(TestEnv, BookRow)> openIt(WidgetTester t, {Size size = const Size(411, 890), int pages = 5, String? textState}) async {
+Future<(TestEnv, BookRow)> openIt(WidgetTester t, {Size size = const Size(411, 890), int pages = 5, String? textState, Future<void> Function(LibraryRepository, BookRow)? seed}) async {
   t.view.physicalSize = size;
   t.view.devicePixelRatio = 1;
   addTearDown(t.view.reset);
@@ -22,6 +24,7 @@ Future<(TestEnv, BookRow)> openIt(WidgetTester t, {Size size = const Size(411, 8
     final repo = LibraryRepository(env.db, directory: env.libraryDir, inspector: FakePdfInspector());
     b = (await repo.importPdf(await env.writePdf('x.pdf', pages))).book!;
     if (textState != null) await repo.setTextState(b.id, textState);
+    if (seed != null) await seed(repo, b); // before the app is up: database work while it runs can hang a test
   });
   await t.pumpWidget(env.app);
   await io(t);
@@ -107,6 +110,67 @@ void main() {
     await t.tap(find.byKey(const Key('reader-pen')));
     await io(t, rounds: 3);
     expect(t.takeException(), isNull);
+  });
+
+  group('pages sheet', () {
+    layoutTest('opens at the current page, marks bookmarks and drawings, a tap jumps and closes', (t) async {
+      final (env, _) = await openIt(t, pages: 100, seed: (repo, b) async {
+        await repo.toggleBookmark(b.id, 3);
+        await repo.saveInk(b.id, 4, [const Stroke(0, 0.004, [0.1, 0.1, 0.2, 0.2])]);
+        await repo.saveProgress(b.id, 60);
+      });
+      await t.tap(find.byKey(const Key('reader-pages')));
+      await io(t, rounds: 4);
+      expect(find.text('Pages (100)'), findsOneWidget);
+      expect(find.byKey(const Key('page-grid')), findsOneWidget);
+      expect(find.byKey(const Key('thumb-60')), findsOneWidget, reason: 'the grid opens at the page you are on');
+      expect(find.byKey(const Key('thumb-1')), findsNothing, reason: 'only what is on screen is built');
+      await t.tap(find.byKey(const Key('thumb-60')));
+      await io(t, rounds: 3);
+      expect(find.byKey(const Key('page-grid')), findsNothing, reason: 'closes after a pick');
+      expect(env.jumps.last, 60);
+
+      // markers: open again near the start
+      await t.tap(find.byKey(const Key('reader-pages')));
+      await io(t, rounds: 4);
+      await t.drag(find.byKey(const Key('page-grid')), const Offset(0, 4000));
+      await io(t, rounds: 3);
+      expect(find.byKey(const Key('thumb-mark-3')), findsOneWidget);
+      expect(find.byKey(const Key('thumb-ink-4')), findsOneWidget);
+      expect(find.byKey(const Key('thumb-mark-4')), findsNothing);
+      await t.tap(find.byKey(const Key('thumb-3')));
+      await io(t, rounds: 3);
+      expect(env.jumps.last, 3);
+    });
+  });
+
+  group('look up', () {
+    test('web addresses are built from tidy text', () {
+      expect(cleanLookUp('  two\n  words  '), 'two words');
+      expect(cleanLookUp('x' * 500).length, maxLookUpLength);
+      expect(dictionaryUri('serendipity').toString(), 'https://www.google.com/search?q=define+serendipity');
+      expect(translateUri('hello world', 'ur').toString(), 'https://translate.google.com/?sl=auto&tl=ur&text=hello+world&op=translate');
+      expect(translateUri('x', '').queryParameters['tl'], 'en');
+    });
+
+    layoutTest('selected text opens a sheet; Meaning and Translate open the browser with that text', (t) async {
+      final (env, _) = await openIt(t);
+      await t.tap(find.text('look up selection'));
+      await io(t, rounds: 3);
+      expect(find.byKey(const Key('lookup-text')), findsOneWidget);
+      expect(find.text('serendipity happy accident'), findsOneWidget);
+      expect(find.textContaining('the selected text is sent to that website'), findsOneWidget);
+      await t.tap(find.byKey(const Key('lookup-define')));
+      await io(t, rounds: 3);
+      expect(env.opened.single.queryParameters['q'], 'define serendipity happy accident');
+
+      await t.tap(find.text('look up selection'));
+      await io(t, rounds: 3);
+      await t.tap(find.byKey(const Key('lookup-translate')));
+      await io(t, rounds: 3);
+      expect(env.opened.last.host, 'translate.google.com');
+      expect(env.opened.last.queryParameters['text'], 'serendipity happy accident');
+    });
   });
 
   group('listen (voice reader)', () {

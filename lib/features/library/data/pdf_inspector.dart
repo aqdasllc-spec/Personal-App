@@ -32,6 +32,9 @@ class PdfrxInspector implements PdfInspector {
   }
 }
 
+/// Asks the user for a folder (null = cancelled).
+Future<String?> pickPdfFolder() => FilePicker.getDirectoryPath();
+
 Future<List<String>> pickPdfPaths() async {
   final files = await FilePicker.pickFiles(
     type: FileType.custom,
@@ -261,6 +264,18 @@ class _PdfViewState extends State<_PdfView> {
     items.insert(
       0,
       ContextMenuButtonItem(
+        label: 'Look up',
+        onPressed: () async {
+          final ranges = await params.textSelectionDelegate.getSelectedTextRanges();
+          params.dismissContextMenu();
+          final text = ranges.map((r) => r.text.trim()).where((t) => t.isNotEmpty).join(' ');
+          if (text.isNotEmpty) await widget.control.onLookUp?.call(text);
+        },
+      ),
+    );
+    items.insert(
+      0,
+      ContextMenuButtonItem(
         label: 'Highlight',
         onPressed: () async {
           final ranges = await params.textSelectionDelegate
@@ -306,7 +321,7 @@ class _PdfViewState extends State<_PdfView> {
       ],
       pageOverlaysBuilder: _inkOverlay,
       // while drawing, one finger draws (no scrolling) but two fingers still pinch-zoom the page
-      panEnabled: !widget.control.pen.value.on,
+      panEnabled: !widget.control.pen.value.on || widget.control.pen.value.stylusOnly,
       scaleEnabled: true,
       customizeContextMenuItems: _addHighlightItem,
       onPageChanged: (n) {
@@ -377,7 +392,7 @@ class _InkCaptureState extends State<InkCapture> {
 
   void _down_(PointerDownEvent e) {
     final stylus = e.kind == PointerDeviceKind.stylus;
-    if (!stylus && _stylusDown) return; // a palm resting while writing
+    if (!stylus && (_stylusDown || widget.pen.stylusOnly)) return; // a palm resting while writing, or fingers when only the stylus draws
     _down[e.pointer] = e.kind;
     if (stylus) {
       _drop(); // the pen takes over from any finger stroke

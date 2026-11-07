@@ -9,6 +9,7 @@ import '../../design_system/components.dart';
 import '../../design_system/tokens.dart';
 import '../backup/backup_controller.dart';
 import '../library/application/library_controller.dart';
+import '../library/domain_reading_stats.dart';
 import '../library/presentation/book_peek.dart';
 import '../library/presentation/book_visuals.dart';
 import '../planner/application/planner_controller.dart';
@@ -46,6 +47,7 @@ class HomePage extends ConsumerWidget {
               _TodayCard(agenda: agenda, today: today),
               if (upcoming.isNotEmpty) _UpcomingCard(items: upcoming),
               _ReadingCard(books: books),
+              const _StatsCard(),
             ];
             return ListView(
               padding: const EdgeInsets.all(Space.s16),
@@ -136,6 +138,144 @@ class _Header extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Pages read today against the daily goal, the streak and the last seven days.
+class _StatsCard extends ConsumerWidget {
+  const _StatsCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final stats = ref.watch(readingStatsProvider).value ?? const <DayStat>[];
+    final goal = ref.watch(readGoalProvider);
+    final today = ref.watch(plannerControllerProvider).value?.today ?? DateTime.now();
+    final t = Theme.of(context).textTheme;
+    final c = context.colors;
+    final days = readingDays(stats);
+    final todayPages = stats.where((s) => s.day == dayKey(today)).fold(0, (a, s) => a + s.pages);
+    final streak = currentStreak(days, today);
+    final week = lastDays(stats, today);
+    final weekMax = week.fold(1, (a, b) => b > a ? b : a);
+    final weekTime = secondsInLast(stats, today);
+    return _Card(
+      title: 'Reading',
+      trailing: TextButton(
+        key: const Key('reading-goal-edit'),
+        onPressed: () async {
+          final v = await showDialog<int>(
+            context: context,
+            builder: (_) => _GoalDialog(initial: goal),
+          );
+          if (v != null) ref.read(readGoalProvider.notifier).set(v);
+        },
+        child: Text('Goal: $goal'),
+      ),
+      children: [
+        if (stats.isEmpty)
+          Text('Open a book and read: your pages, streak and daily goal show up here.', key: const Key('stats-empty'), style: t.bodySmall)
+        else ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '$todayPages of $goal pages today',
+                  key: const Key('stats-today'),
+                  style: t.titleSmall,
+                ),
+              ),
+              if (todayPages >= goal) const Icon(Icons.check_circle, color: Color(0xFF30A46C), size: 20),
+            ],
+          ),
+          const SizedBox(height: Space.s8),
+          LinearProgressIndicator(value: (todayPages / goal).clamp(0.0, 1.0), minHeight: 8, borderRadius: BorderRadius.circular(4)),
+          const SizedBox(height: Space.s12),
+          Row(
+            children: [
+              const Icon(Icons.local_fire_department_outlined, size: 20),
+              const SizedBox(width: 4),
+              Text(
+                streak == 0 ? 'No streak yet' : '$streak-day streak',
+                key: const Key('stats-streak'),
+                style: t.bodyMedium,
+              ),
+              const Spacer(),
+              Text('Best: ${bestStreak(days)}', key: const Key('stats-best'), style: t.bodySmall),
+            ],
+          ),
+          const SizedBox(height: Space.s12),
+          SizedBox(
+            height: 48,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (var i = 0; i < week.length; i++)
+                  Expanded(
+                    child: Semantics(
+                      label: '${week[i]} pages, ${week.length - 1 - i == 0 ? 'today' : '${week.length - 1 - i} days ago'}',
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        child: Container(
+                          key: Key('stats-bar-$i'),
+                          height: 4 + 44 * week[i] / weekMax,
+                          decoration: BoxDecoration(
+                            color: i == week.length - 1 ? Theme.of(context).colorScheme.primary : c.border,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: Space.s8),
+          Text(
+            'Last 7 days: ${week.fold(0, (a, b) => a + b)} pages · ${readingTimeLabel(weekTime)} with a book open',
+            key: const Key('stats-week'),
+            style: t.bodySmall,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _GoalDialog extends StatefulWidget {
+  const _GoalDialog({required this.initial});
+  final int initial;
+  @override
+  State<_GoalDialog> createState() => _GoalDialogState();
+}
+
+class _GoalDialogState extends State<_GoalDialog> {
+  late int _v = widget.initial;
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Daily goal'),
+    content: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          key: const Key('goal-minus'),
+          tooltip: 'Fewer pages',
+          icon: const Icon(Icons.remove_circle_outline),
+          onPressed: _v > 1 ? () => setState(() => _v = (_v - (_v > 20 ? 5 : 1)).clamp(1, maxReadGoal)) : null,
+        ),
+        SizedBox(width: 96, child: Text('$_v pages', key: const Key('goal-value'), textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium)),
+        IconButton(
+          key: const Key('goal-plus'),
+          tooltip: 'More pages',
+          icon: const Icon(Icons.add_circle_outline),
+          onPressed: _v < maxReadGoal ? () => setState(() => _v = (_v + (_v >= 20 ? 5 : 1)).clamp(1, maxReadGoal)) : null,
+        ),
+      ],
+    ),
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+      FilledButton(key: const Key('goal-save'), onPressed: () => Navigator.pop(context, _v), child: const Text('Save')),
+    ],
+  );
 }
 
 class _QuickAdd extends ConsumerStatefulWidget {

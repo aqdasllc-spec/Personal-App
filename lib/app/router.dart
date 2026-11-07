@@ -11,6 +11,7 @@ import '../features/planner/presentation/planner_page.dart';
 import 'shell/adaptive_shell.dart';
 import '../features/library/presentation/library_page.dart';
 import '../features/library/presentation/reader_page.dart';
+import '../features/library/presentation/search_all_page.dart';
 import '../features/home/home_page.dart';
 
 abstract final class Routes {
@@ -67,10 +68,18 @@ final routerProvider = Provider<GoRouter>((ref) {
                 builder: (_, _) => const LibraryPage(),
                 routes: [
                   GoRoute(
+                    path: 'search',
+                    parentNavigatorKey: _rootKey,
+                    builder: (_, _) => const SearchAllPage(),
+                  ),
+                  GoRoute(
                     path: 'read/:id',
                     parentNavigatorKey: _rootKey,
-                    builder: (_, s) =>
-                        ReaderPage(bookId: s.pathParameters['id']!),
+                    builder: (_, s) => ReaderPage(
+                      bookId: s.pathParameters['id']!,
+                      startPage: int.tryParse(s.uri.queryParameters['page'] ?? ''),
+                      searchQuery: s.uri.queryParameters['q'],
+                    ),
                   ),
                 ],
               ),

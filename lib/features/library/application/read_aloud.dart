@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/providers.dart';
 import '../data/media_controls.dart';
@@ -38,6 +39,33 @@ class VoiceChoice extends AsyncNotifier<VoiceInfo?> {
 
 final voiceChoiceProvider = AsyncNotifierProvider<VoiceChoice, VoiceInfo?>(VoiceChoice.new);
 
+/// Pick the voice from the book's language automatically (default on). Choosing a voice by hand turns it off.
+class VoiceAuto extends AsyncNotifier<bool> {
+  static const key = 'tts_auto';
+  @override
+  Future<bool> build() async {
+    try {
+      return (await ref.read(syncedStoreProvider).state(key)) != '0';
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<void> set(bool v) async {
+    state = AsyncData(v);
+    try {
+      await ref.read(syncedStoreProvider).setState(key, v ? '1' : '0');
+    } catch (_) {}
+  }
+}
+
+final voiceAutoProvider = AsyncNotifierProvider<VoiceAuto, bool>(VoiceAuto.new);
+
+/// Opens a web address in the browser (true = opened). Overridden in tests.
+final urlOpenerProvider = Provider<Future<bool> Function(Uri uri)>(
+  (ref) => (uri) => launchUrl(uri, mode: LaunchMode.externalApplication),
+);
+
 /// Lock-screen / notification controls for Listen. Overridden in tests.
 final mediaControlsProvider = Provider<MediaControls>((ref) => AudioServiceControls());
 
@@ -64,7 +92,7 @@ class AloudState {
 
 /// Reads a book aloud page after page, turning the page as it goes.
 class ReadAloud {
-  ReadAloud({required this.engine, required this.textOf, required this.goTo, required this.pageCount, this.voice});
+  ReadAloud({required this.engine, required this.textOf, required this.goTo, required this.pageCount, this.voice, this.autoVoice});
   final SpeechEngine engine;
 
   /// The text of a page (1-based); null or blank = nothing to read there.
@@ -74,7 +102,11 @@ class ReadAloud {
 
   /// The voice to use (asked once, when reading starts); null function or result = the phone's default.
   final Future<VoiceInfo?> Function()? voice;
+
+  /// Whether to choose the voice from the language of the text (when true, [voice] is only the fallback preference).
+  final Future<bool> Function()? autoVoice;
   bool _voiceSet = false;
+  String? _voiceNote;
   final state = ValueNotifier<AloudState>(const AloudState());
   int _token = 0;
   bool _disposed = false;
@@ -91,10 +123,32 @@ class ReadAloud {
     if (!_voiceSet) {
       _voiceSet = true;
       final v = await voice?.call();
-      if (v != null) await engine.setVoice(v);
+      if (await autoVoice?.call() ?? false) {
+        // find the language of the first page with text and use a voice that speaks it
+        var lang = guessLanguage(await textOf(page) ?? '');
+        for (var p = page + 1; lang == null && p <= pageCount() && p <= page + 2; p++) {
+          lang = guessLanguage(await textOf(p) ?? '');
+        }
+        if (token != _token) return;
+        if (lang != null) {
+          final all = [for (final x in await engine.voices()) (name: x.name, locale: x.locale)];
+          final pick = voiceFor(lang, all, preferred: v == null ? null : (name: v.name, locale: v.locale));
+          if (pick != null) {
+            await engine.setVoice(VoiceInfo(pick.name, pick.locale));
+          } else if (all.isNotEmpty) {
+            _voiceNote = 'No ${localeLabel(lang)} voice is installed on this phone: using the default.';
+          }
+        }
+      } else if (v != null) {
+        await engine.setVoice(v);
+      }
       if (token != _token) return;
     }
     _set(state.value.copyWith(active: true, playing: true, page: page, clearMessage: true));
+    if (_voiceNote != null) {
+      _set(state.value.copyWith(message: _voiceNote));
+      _voiceNote = null;
+    }
     var blanks = 0;
     var p = page;
     while (p <= pageCount() && token == _token) {

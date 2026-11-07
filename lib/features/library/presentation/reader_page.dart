@@ -14,6 +14,7 @@ import '../application/ocr_controller.dart';
 import '../application/read_aloud.dart';
 import '../data/media_controls.dart';
 import '../data/speech.dart' show SpeechEngine, VoiceInfo;
+import '../domain_lookup.dart';
 import '../domain_speech.dart';
 import '../domain_ink.dart';
 import '../domain_ocr.dart';
@@ -24,8 +25,14 @@ import '../domain_highlights.dart';
 
 /// Full-screen PDF reader. Remembers the page you were on.
 class ReaderPage extends ConsumerStatefulWidget {
-  const ReaderPage({super.key, required this.bookId});
+  const ReaderPage({super.key, required this.bookId, this.startPage, this.searchQuery});
   final String bookId;
+
+  /// Open at this page instead of where you stopped (a search hit, for example).
+  final int? startPage;
+
+  /// Start with this text searched (from the "search in all books" screen).
+  final String? searchQuery;
   @override
   ConsumerState<ReaderPage> createState() => _ReaderPageState();
 }
@@ -54,9 +61,15 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     goTo: (p) => _control.goTo?.call(p),
     pageCount: () => _pageCount,
     voice: () => _container.read(voiceChoiceProvider.future),
+    autoVoice: () => _container.read(voiceAutoProvider.future),
   );
   int _pageCount = 0;
   BookRow? _book;
+  Timer? _dwell; // a page counts as read after a few seconds on it
+  Timer? _clock; // reading time, counted while the app is in front
+  bool _dwellStarted = false;
+  static const _dwellTime = Duration(seconds: 4);
+  static const _tick = Duration(seconds: 15);
   String _textState = 'unknown';
   bool _probed = false;
   List<OcrMatch> _hits = const [];
@@ -70,6 +83,19 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     _control.prefs.value = ref.read(readerPrefsProvider);
     _control.onZoneTap = _onZone;
     _media = ref.read(mediaControlsProvider);
+    _clock = Timer.periodic(_tick, (_) {
+      final s = WidgetsBinding.instance.lifecycleState;
+      if (s == null || s == AppLifecycleState.resumed) _repo.addReadingSeconds(_tick.inSeconds);
+    });
+    _page = widget.startPage;
+    final q = widget.searchQuery?.trim();
+    if (q != null && q.isNotEmpty) {
+      _searching = true;
+      _searchCtl.text = q;
+      // the viewer is not up yet: start the search a moment after the first frames
+      _searchDebounce = Timer(const Duration(milliseconds: 600), () => _startSearch(q));
+    }
+    _control.onLookUp = _lookUp;
     _control.onStroke = _onStroke;
     _control.onErase = _onErase;
     _ocr.progress.addListener(() {
@@ -265,6 +291,12 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       Navigator.pop(menuContext);
     }
 
+    void stylusOnly(bool v) {
+      ref.read(stylusOnlyProvider.notifier).set(v);
+      _setPen(_control.pen.value.copyWith(stylusOnly: v));
+      Navigator.pop(menuContext);
+    }
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -284,6 +316,14 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
               onSelected: (_) => pick(pen.copyWith(highlighter: true)),
             ),
           ],
+        ),
+        const SizedBox(height: 4),
+        FilterChip(
+          key: const Key('pen-stylus-only'),
+          label: const Text('Stylus only'),
+          tooltip: 'Only a stylus draws; fingers scroll and zoom',
+          selected: pen.stylusOnly,
+          onSelected: stylusOnly,
         ),
         const SizedBox(height: 4),
         Wrap(
@@ -470,20 +510,101 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     }
   }
 
+  /// Selected text -> a small sheet to look it up (dictionary / translate, both open the browser) or copy it.
+  Future<void> _lookUp(String raw) async {
+    final text = cleanLookUp(raw);
+    if (text.isEmpty || !mounted) return;
+    final open = ref.read(urlOpenerProvider);
+    final lang = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Look up', style: Theme.of(ctx).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(ctx).colorScheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: SelectableText(text, key: const Key('lookup-text'), maxLines: 6),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton.icon(
+                    key: const Key('lookup-define'),
+                    icon: const Icon(Icons.menu_book_outlined),
+                    label: const Text('Meaning'),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      open(dictionaryUri(text));
+                    },
+                  ),
+                  FilledButton.tonalIcon(
+                    key: const Key('lookup-translate'),
+                    icon: const Icon(Icons.translate),
+                    label: const Text('Translate'),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      open(translateUri(text, lang));
+                    },
+                  ),
+                  TextButton.icon(
+                    key: const Key('lookup-copy'),
+                    icon: const Icon(Icons.copy, size: 18),
+                    label: const Text('Copy'),
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: text));
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Meaning and Translate open your browser; the selected text is sent to that website.',
+                style: Theme.of(ctx).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Pick a language and a voice from what the phone has installed.
   Future<void> _chooseVoice() async {
     final engine = ref.read(speechEngineProvider);
     final voices = await engine.voices();
     if (!mounted) return;
     final current = await _container.read(voiceChoiceProvider.future);
+    final auto = await _container.read(voiceAutoProvider.future);
     if (!mounted) return;
-    final picked = await showModalBottomSheet<({VoiceInfo? voice})>(
+    final picked = await showModalBottomSheet<({VoiceInfo? voice, bool auto})>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (_) => _VoiceSheet(voices: voices, current: current, engine: engine),
+      builder: (_) => _VoiceSheet(voices: voices, current: current, engine: engine, auto: auto),
     );
     if (picked == null) return;
+    await _container.read(voiceAutoProvider.notifier).set(picked.auto);
+    if (picked.auto) {
+      // back to automatic: pick again from the book's language the next time reading starts
+      await _aloud.stop();
+      return;
+    }
     await _container.read(voiceChoiceProvider.notifier).set(picked.voice);
     await _aloud.changeVoice(picked.voice);
   }
@@ -546,6 +667,38 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     );
   }
 
+  /// "Pages": a grid of page pictures to jump to a page.
+  Future<void> _showPages(BookRow book, int current, Set<int> marked, Set<int> drawn) async {
+    final file = _repo.fileOf(book);
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => SizedBox(
+        height: MediaQuery.sizeOf(ctx).height * 0.75,
+        child: Column(
+          children: [
+            Text('Pages (${book.pageCount})', style: Theme.of(ctx).textTheme.titleMedium),
+            Expanded(
+              child: ref.read(pageThumbsBuilderProvider)(
+                ctx,
+                file: file,
+                pageCount: book.pageCount,
+                current: current,
+                bookmarked: marked,
+                drawn: drawn,
+                onPick: (p) {
+                  Navigator.pop(ctx);
+                  _control.goTo?.call(p);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// The row of tools under the page: contents, bookmark, pen, voice.
   Widget _toolRow(BookRow book, int current, List<BookmarkRow> marks, List<HighlightRow> highlights, bool marked) {
     final pen = _control.pen.value.on;
@@ -578,6 +731,17 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                   onJump: (p) => _control.goTo?.call(p),
                 ),
               ),
+            ),
+            _tool(
+              const Key('reader-pages'),
+              'Pages',
+              'Page pictures: jump to a page',
+              const Icon(Icons.grid_view_outlined),
+              false,
+              () => _showPages(book, current, {for (final m in marks) m.page}, {
+                for (final e in _control.ink.value.entries)
+                  if (e.value.isNotEmpty) e.key,
+              }),
             ),
             _tool(
               const Key('reader-bookmark'),
@@ -647,8 +811,17 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     );
   }
 
+  void _scheduleDwell(int page) {
+    _dwell?.cancel();
+    _dwell = Timer(_dwellTime, () {
+      final s = WidgetsBinding.instance.lifecycleState;
+      if (s == null || s == AppLifecycleState.resumed) _repo.markPageRead(widget.bookId, page);
+    });
+  }
+
   void _onPage(int page) {
     setState(() => _page = page);
+    _scheduleDwell(page);
     _aloud.pageChanged(page);
     _debounce?.cancel();
     _debounce = Timer(
@@ -663,6 +836,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     _debounce?.cancel();
     _searchDebounce?.cancel();
     _searchCtl.dispose();
+    _dwell?.cancel();
+    _clock?.cancel();
     _ocr.dispose();
     _aloud.dispose();
     _media.hide();
@@ -1013,6 +1188,9 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   @override
   Widget build(BuildContext context) {
     // reading settings changed: tell the PDF view and the phone
+    ref.listen<bool>(stylusOnlyProvider, (prev, next) {
+      if (_control.pen.value.stylusOnly != next) _control.pen.value = _control.pen.value.copyWith(stylusOnly: next);
+    });
     ref.listen<ReaderPrefs>(readerPrefsProvider, (prev, next) {
       _control.prefs.value = next;
       _applySystem(next);
@@ -1036,6 +1214,10 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     final file = repo.fileOf(book);
     _book = book;
     _pageCount = book.pageCount;
+    if (!_dwellStarted) {
+      _dwellStarted = true;
+      _scheduleDwell(_page ?? (book.lastPage < 1 ? 1 : book.lastPage));
+    }
     _textState = book.textState;
     if (!_probed && _textState == 'unknown' && file.existsSync()) {
       _probed = true;
@@ -1176,7 +1358,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                     ref.read(pdfViewBuilderProvider)(
                       context,
                       file,
-                      book.lastPage,
+                      widget.startPage ?? book.lastPage,
                       _onPage,
                       _control,
                     ),
@@ -1457,7 +1639,8 @@ class _NoteDialogState extends State<_NoteDialog> {
 
 /// Language drop-down and the voices of that language; "Phone default" clears the choice.
 class _VoiceSheet extends StatefulWidget {
-  const _VoiceSheet({required this.voices, required this.current, required this.engine});
+  const _VoiceSheet({required this.voices, required this.current, required this.engine, required this.auto});
+  final bool auto;
   final List<VoiceInfo> voices;
   final VoiceInfo? current;
   final SpeechEngine engine;
@@ -1481,6 +1664,14 @@ class _VoiceSheetState extends State<_VoiceSheet> {
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           children: [
             Text('Voice for reading aloud', style: t.titleMedium),
+            SwitchListTile(
+              key: const Key('voice-auto'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Match the language of the book'),
+              subtitle: const Text('Picks an installed voice that speaks the language of the page being read.'),
+              value: widget.auto,
+              onChanged: (v) => Navigator.pop(context, (voice: widget.current, auto: v)),
+            ),
             const SizedBox(height: 8),
             if (widget.voices.isEmpty)
               const Text(
@@ -1501,7 +1692,7 @@ class _VoiceSheetState extends State<_VoiceSheet> {
             ],
             RadioGroup<VoiceInfo?>(
               groupValue: widget.current,
-              onChanged: (v) => Navigator.pop(context, (voice: v)),
+              onChanged: (v) => Navigator.pop(context, (voice: v, auto: false)),
               child: Column(
                 children: [
                   const RadioListTile<VoiceInfo?>(
