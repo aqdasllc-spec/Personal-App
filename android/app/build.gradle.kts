@@ -1,8 +1,17 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// Release signing key: kept OUT of the repository (it is public). Point to it with
+// android/key.properties (git-ignored) or the FOLIO_KEY_PROPERTIES environment variable.
+// storeFile is relative to the properties file. Without it, release builds use the debug key.
+val keyPropsFile = System.getenv("FOLIO_KEY_PROPERTIES")?.let { file(it) } ?: rootProject.file("key.properties")
+val keyProps = Properties().apply { if (keyPropsFile.exists()) keyPropsFile.inputStream().use { load(it) } }
+val hasReleaseKey = keyProps.getProperty("storeFile") != null
 
 android {
     namespace = "app.folio.folio"
@@ -31,11 +40,20 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                storeFile = keyPropsFile.parentFile.resolve(keyProps.getProperty("storeFile"))
+                storePassword = keyProps.getProperty("storePassword")
+                keyAlias = keyProps.getProperty("keyAlias")
+                keyPassword = keyProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (hasReleaseKey) "release" else "debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

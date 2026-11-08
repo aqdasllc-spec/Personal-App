@@ -69,3 +69,18 @@ Widget tests that pump a screen inside a bare `MaterialApp` can hide navigation 
    `flutter build apk --release --dart-define=SUPABASE_URL=https://<ref>.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=<key>`
    Without these the app runs local-only. The key is deliberately not committed.
 4. Rules in the app: sync runs only when signed in; the first account to sync owns the device database, and a different account is refused rather than mixed in; "Local only" is remembered across restarts and can be left from Settings → Account → Sign in to sync.
+
+
+## Android release APK (signing)
+The repository is public, so the release signing key is **never committed**. The owner keeps `folio-release.jks` + `key.properties` privately; every APK must be signed with that same key, or it will not install over the previous one.
+1. Put both files in a folder **outside** the repo (e.g. `~/folio-signing/`). `key.properties` holds `storePassword`, `keyPassword`, `keyAlias=folio`, `storeFile=folio-release.jks` (relative to the properties file).
+2. Bump the build number in `pubspec.yaml` (`version: 1.0.0+N`); Android refuses to install a lower number over a higher one.
+3. Build one arm64 APK (no `--split-per-abi`, so the version code is just N):
+   ```bash
+   FOLIO_KEY_PROPERTIES=~/folio-signing/key.properties flutter build apk --release --target-platform android-arm64 \
+     --dart-define=SUPABASE_URL=https://<ref>.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=<key>
+   ```
+   (`android/key.properties` also works; it is git-ignored.) Without a key file the release build falls back to the debug key, which will not update an installed copy.
+4. Check: `apksigner verify --print-certs` must show `CN=Folio, O=aqdasllc` and SHA-256 `68:71:B3:11:0E:A3:1D:0B:89:FC:7D:F9:E7:60:AB:DE:F4:21:BF:DA:F9:E6:9C:BC:2C:CD:24:D0:EE:23:B5:74`.
+
+Build machine notes: the Android SDK comes from `dl.google.com` (allowed in the `personal-app` cloud environment). If Maven Central answers 429 (rate limit), a local Gradle init script can rewrite `repo.maven.apache.org` to `https://maven-central.storage-download.googleapis.com/maven2/`.
