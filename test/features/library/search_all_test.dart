@@ -40,8 +40,9 @@ void main() {
       await t.runAsync(() async {
         final repo = LibraryRepository(env.db, directory: env.libraryDir, inspector: FakePdfInspector());
         books = [];
-        for (final title in ['Alpha', 'Beta', 'Gamma']) {
-          final b = (await repo.importPdf(await env.writePdf('$title.pdf', 12))).book!;
+        // Different page counts, so the three files differ (identical files are one book).
+        for (final (title, pages) in [('Alpha', 12), ('Beta', 13), ('Gamma', 14)]) {
+          final b = (await repo.importPdf(await env.writePdf('$title.pdf', pages))).book!;
           await repo.updateDetails(b.id, title: title);
           books.add(b);
         }

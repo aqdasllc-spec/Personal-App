@@ -94,6 +94,8 @@ class _InBooks extends ConsumerWidget {
             child: Text(
               s.query.isEmpty
                   ? 'Type at least two letters and press Search. Books are searched one by one; scanned books only after you chose "Make searchable" in them.'
+                  : s.query.length < 2
+                  ? 'Type at least two letters to search.'
                   : s.running
                   ? 'Searching… ${s.booksDone} of ${s.booksTotal} books, ${s.hits.length} found'
                   : s.hits.isEmpty
@@ -141,25 +143,10 @@ class _HighlightsState extends ConsumerState<_Highlights> {
 
   Future<void> _rename(String color) async {
     final cur = ref.read(highlightMeaningsProvider)[color] ?? '';
-    final c = TextEditingController(text: cur);
     final v = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('What does ${highlightColorNames[color]} mean?'),
-        content: TextField(
-          key: const Key('meaning-field'),
-          controller: c,
-          autofocus: true,
-          maxLength: 30,
-          decoration: const InputDecoration(hintText: 'For example: Important, Quote, To check'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(key: const Key('meaning-save'), onPressed: () => Navigator.pop(ctx, c.text), child: const Text('Save')),
-        ],
-      ),
+      builder: (_) => _MeaningDialog(colorName: highlightColorNames[color] ?? color, initial: cur),
     );
-    c.dispose();
     if (v != null) ref.read(highlightMeaningsProvider.notifier).set(color, v);
   }
 
@@ -250,4 +237,39 @@ class _HighlightsState extends ConsumerState<_Highlights> {
       ],
     );
   }
+}
+
+/// Asks what a highlight colour means. Owns its text controller, so it is only disposed after the dialog has closed.
+class _MeaningDialog extends StatefulWidget {
+  const _MeaningDialog({required this.colorName, required this.initial});
+  final String colorName, initial;
+  @override
+  State<_MeaningDialog> createState() => _MeaningDialogState();
+}
+
+class _MeaningDialogState extends State<_MeaningDialog> {
+  late final _c = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text('What does ${widget.colorName} mean?'),
+    content: TextField(
+      key: const Key('meaning-field'),
+      controller: _c,
+      autofocus: true,
+      maxLength: 30,
+      decoration: const InputDecoration(hintText: 'For example: Important, Quote, To check'),
+      onSubmitted: (v) => Navigator.pop(context, v),
+    ),
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+      FilledButton(key: const Key('meaning-save'), onPressed: () => Navigator.pop(context, _c.text), child: const Text('Save')),
+    ],
+  );
 }
