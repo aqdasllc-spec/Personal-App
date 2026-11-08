@@ -13,6 +13,7 @@ Everything works offline. Signing in only adds syncing between your devices.
 
 ## Library
 - **Add PDFs** (the + button). Same file twice is detected.
+- **Shelf style** (Settings → Library): *Classic* (rows of spines), *Turning books* (tap a spine and the book turns to show its cover, with its progress in a card at the bottom; tap the cover or Read to open it, Put back to return it) or *Glass cabinets* (the Library opens on a wall of small glass cabinets, one per shelf plus *Unsorted*; tap one and its doors swing open onto two rows of books that turn the same way; the phone's Back closes the cabinet). While you search, filter, show favourites or rearrange, Glass cabinets shows the books on open shelves.
 - **Shelves**: group books; the pen next to a shelf = *edit shelf* (books wiggle; drag them left/right to reorder).
 - **Tag colours**: Sort and filter → Tags → Manage → tap the circle by a tag to give it one of 8 colours; a coloured dot then shows on the filter chips and the book preview.
 - **Sort and filter** (recent, title, author, status, tags) and **Saved views**: pick a status and tags, tap *Save this view*, give it a name; tap the view later to bring those filters back (long-lived, up to 20).

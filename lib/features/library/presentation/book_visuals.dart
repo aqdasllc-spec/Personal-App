@@ -184,10 +184,14 @@ class Spine extends StatelessWidget {
     required this.onTap,
     this.onLongPress,
     this.dot,
+    this.scale = 1,
   });
   final BookRow book;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+
+  /// Size factor (the glass cabinets show books a little smaller).
+  final double scale;
 
   /// Optional cloud status dot, drawn in the top-right corner.
   final Widget? dot;
@@ -206,8 +210,8 @@ class Spine extends StatelessWidget {
         onLongPress: onLongPress,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
         child: Container(
-          width: spineWidth(book),
-          height: spineHeight(book),
+          width: spineWidth(book) * scale,
+          height: spineHeight(book) * scale,
           decoration: BoxDecoration(
             color: c,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
@@ -245,7 +249,7 @@ class Spine extends StatelessWidget {
                         style: TextStyle(
                           color: fg,
                           fontFamily: 'serif',
-                          fontSize: 13,
+                          fontSize: 13 * scale.clamp(.85, 1.0),
                           fontWeight: FontWeight.w600,
                         ),
                       ),

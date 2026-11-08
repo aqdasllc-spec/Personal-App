@@ -7,6 +7,7 @@ import '../../app/providers.dart';
 import '../../design_system/components.dart';
 import '../../design_system/tokens.dart';
 import '../auth/auth_repository.dart';
+import '../library/application/library_controller.dart';
 import 'backup_tiles.dart';
 import 'notifications_tiles.dart';
 import '../welcome/welcome_page.dart';
@@ -27,6 +28,7 @@ class SettingsPage extends ConsumerWidget {
     final sync = ref.watch(syncControllerProvider);
     final lock = ref.watch(appLockProvider);
     final rotation = ref.watch(rotationProvider);
+    final shelfStyle = ref.watch(shelfStyleProvider);
     final mobile =
         defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS;
@@ -139,6 +141,24 @@ class SettingsPage extends ConsumerWidget {
               ),
             ),
           ]),
+        _Section('Library', [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Space.s16, Space.s16, Space.s16, Space.s4),
+            child: Text('Shelf style', style: Theme.of(context).textTheme.bodyLarge),
+          ),
+          for (final st in ShelfStyle.values)
+            ListTile(
+              key: Key('shelf-style-${st.name}'),
+              leading: Icon(
+                st == shelfStyle ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                color: st == shelfStyle ? Theme.of(context).colorScheme.primary : null,
+              ),
+              title: Text(st.label),
+              subtitle: Text(st.description),
+              selected: st == shelfStyle,
+              onTap: () => ref.read(shelfStyleProvider.notifier).set(st),
+            ),
+        ]),
         _Section('Notifications', const [NotificationsTiles()]),
         _Section('Backup', const [BackupTiles()]),
         _Section('Storage', const [StorageTiles()]),

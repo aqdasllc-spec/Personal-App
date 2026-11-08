@@ -223,6 +223,15 @@ class Favorites extends LibraryFilter {
   int get hashCode => 2;
 }
 
+/// Books that are on no shelf (the "Unsorted" cabinet).
+class NoShelf extends LibraryFilter {
+  const NoShelf();
+  @override
+  bool operator ==(Object other) => other is NoShelf;
+  @override
+  int get hashCode => 3;
+}
+
 class ShelfFilter extends LibraryFilter {
   const ShelfFilter(this.shelfId);
   final String shelfId;
@@ -534,6 +543,7 @@ List<BookRow> filterBooks(List<BookRow> all, LibraryUi ui) {
     final f = ui.filter;
     if (f is Favorites && b.favorite != 1) return false;
     if (f is ShelfFilter && b.shelfId != f.shelfId) return false;
+    if (f is NoShelf && b.shelfId != null) return false;
     if (ui.status != ReadStatus.all && statusOf(b) != ui.status) return false;
     final tags = decodeTags(b.tags);
     if (wanted.isNotEmpty) {
@@ -600,6 +610,40 @@ class HomeReadingOrder extends Notifier<String> {
 final homeReadingOrderProvider = NotifierProvider<HomeReadingOrder, String>(
   HomeReadingOrder.new,
 );
+
+/// How the Library's Shelf view looks. Chosen in Settings, remembered on this device.
+enum ShelfStyle {
+  classic('Classic', 'Rows of spines on open shelves'),
+  turning('Turning books', 'Tap a spine and the book turns to show its cover'),
+  cabinets('Glass cabinets', 'Each shelf is a glass cabinet; tap one to open its doors');
+
+  const ShelfStyle(this.label, this.description);
+  final String label, description;
+}
+
+class ShelfStyleController extends Notifier<ShelfStyle> {
+  static const key = 'shelf_style';
+  @override
+  ShelfStyle build() {
+    Future.microtask(() async {
+      try {
+        final v = await ref.read(syncedStoreProvider).state(key);
+        final s = ShelfStyle.values.where((x) => x.name == v).firstOrNull;
+        if (s != null) state = s;
+      } catch (_) {}
+    });
+    return ShelfStyle.classic;
+  }
+
+  void set(ShelfStyle s) {
+    state = s;
+    try {
+      ref.read(syncedStoreProvider).setState(key, s.name);
+    } catch (_) {}
+  }
+}
+
+final shelfStyleProvider = NotifierProvider<ShelfStyleController, ShelfStyle>(ShelfStyleController.new);
 
 double readingProgress(BookRow b) =>
     b.pageCount <= 0 ? 0 : (b.lastPage / b.pageCount).clamp(0.0, 1.0);

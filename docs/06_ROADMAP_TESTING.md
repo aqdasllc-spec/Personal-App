@@ -223,3 +223,11 @@ Security review & MASVS walkthrough · RLS tests green · dependency/OSV scan cl
 8. **Look up:** Select text -> Look up -> Meaning / Translate open the browser with the text (sent to Google); Copy. Needs internet; nothing is built in offline.
 
 **Finished 2026-11-08:** the full suite was red when this was left as work in progress (3 failures in `search_all_test`). Fixed: the test made three identical PDF files, which the library rightly treats as one book; a one-letter query said "Nothing found" instead of asking for two letters; the colour-meaning dialog disposed its text field while it was still closing (crash in debug builds). Android now declares the https browser query that Look up needs on Android 11+. `flutter analyze` clean, all tests pass.
+
+## 2b. Shelf styles (2026-11-08)
+
+Settings → Library → **Shelf style** (local setting `shelf_style`, default Classic):
+- **Turning books:** a first tap on a spine turns the book to its cover (the real first page when it has been rendered, otherwise a coloured cover with title and author) and a card floats at the bottom with progress, Put back, More and Read/Continue; a second tap opens it. Selection mode and rearrange mode work as before.
+- **Glass cabinets:** "Continue reading" strip plus a wall of closed cabinets (one per shelf, plus *Unsorted* = new filter `NoShelf`). Tapping a cabinet chooses that shelf; it grows in and the two glass doors swing open (Matrix4 perspective, 620 ms; a fade with Reduce motion). Two rows inside: the top row fills first; if the books need more than two widths they are split evenly and each row scrolls sideways. The phone's Back closes the cabinet (PopScope). Search, status/tag filters, Favourites and rearrange mode fall back to Turning books. The glass is a drawn tint with reflection streaks, not a live blur (cheap on low-end phones).
+- Tests: `test/features/library/shelf_styles_test.dart` (through the real shell: setting, turning, wall → cabinet → back, Unsorted, search fallback, small landscape). **Unverified on a device:** how the door swing and book turn feel, frame rate on a cheap phone, and the look of the cabinet colours.
+- The earlier `CabinetWallView` design study is the "Folio Shelf Concepts" artifact; other ideas listed there are not built.

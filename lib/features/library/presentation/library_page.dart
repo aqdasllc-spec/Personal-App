@@ -21,6 +21,7 @@ import 'tag_dot.dart';
 import 'book_edit.dart';
 import 'book_peek.dart';
 import 'book_visuals.dart';
+import 'shelf_styles.dart';
 
 class LibraryPage extends ConsumerStatefulWidget {
   const LibraryPage({super.key});
@@ -204,6 +205,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     final shelves = ref.watch(shelvesProvider).value ?? const <ShelfRow>[];
     final c = context.colors;
     final editing = ref.watch(shelfEditProvider);
+    final shelfStyle = ref.watch(shelfStyleProvider);
     final moveId = ref.watch(moveSelectionProvider);
     final canReorder = ui.query.trim().isEmpty && ui.activeFilters == 0;
     final selection = ref.watch(selectionProvider);
@@ -609,7 +611,12 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                             );
                           }
                           final list = visible.value ?? const <BookRow>[];
-                          if (list.isEmpty) {
+                          final emptyCabinet = ui.view == LibraryView.shelf &&
+                              shelfStyle == ShelfStyle.cabinets &&
+                              (ui.filter is ShelfFilter || ui.filter is NoShelf) &&
+                              ui.query.trim().isEmpty &&
+                              ui.activeFilters == 0;
+                          if (list.isEmpty && !emptyCabinet) {
                             return PrimaryScrollController.none(
                               child: EmptyState(
                                 icon: Icons.search_off,
@@ -625,13 +632,38 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                             );
                           }
                           return switch (ui.view) {
-                            LibraryView.shelf => _ShelfView(
-                              books: list,
-                              onOpen: openBook,
-                              onMenu: bookMenu,
-                              dotOf: dotOf,
-                              selection: selection,
-                            ),
+                            LibraryView.shelf => switch (shelfStyle) {
+                              ShelfStyle.classic => _ShelfView(
+                                books: list,
+                                onOpen: openBook,
+                                onMenu: bookMenu,
+                                dotOf: dotOf,
+                                selection: selection,
+                              ),
+                              // Cabinets only make sense for whole shelves: while searching, filtering,
+                              // showing favourites or rearranging, the books are shown on open shelves.
+                              ShelfStyle.cabinets when !editing &&
+                                  ui.query.trim().isEmpty &&
+                                  ui.activeFilters == 0 &&
+                                  ui.filter is! Favorites => CabinetWallView(
+                                allBooks: all,
+                                books: list,
+                                shelves: shelves,
+                                filter: ui.filter,
+                                onPick: ref.read(libraryUiProvider.notifier).setFilter,
+                                onOpen: openBook,
+                                onMenu: bookMenu,
+                                dotOf: dotOf,
+                                selection: selection,
+                              ),
+                              _ => TurningShelfView(
+                                books: list,
+                                onOpen: openBook,
+                                onMenu: bookMenu,
+                                dotOf: dotOf,
+                                selection: selection,
+                              ),
+                            },
                             LibraryView.grid => _GridView(
                               books: list,
                               onOpen: openBook,
