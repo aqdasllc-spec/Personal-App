@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+5
+version: 1.0.0+6
 
 environment:
   sdk: ^3.13.7
@@ -58,6 +58,8 @@ dependencies:
   audio_service: ^0.18.19
   pdf: ^3.13.1
   url_launcher: ^6.3.3
+  just_audio: ^0.10.6
+  scrollable_positioned_list: ^0.3.8
 
 dev_dependencies:
   flutter_test:
@@ -77,6 +79,26 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # Quran and hadith texts (built by tool/quran/build_assets.py from published open datasets)
+  assets:
+    - assets/quran/quran.json.gz
+    - assets/quran/hadith.json.gz
+    - assets/fonts/OFL-amiriquran.txt
+    - assets/fonts/OFL-notonastaliqurdu.txt
+    - assets/fonts/OFL-scheherazadenew.txt
+
+  # Quranic script, Urdu Nastaliq, and a Naskh fallback for the few marks Nastaliq lacks (all SIL Open Font License)
+  fonts:
+    - family: AmiriQuran
+      fonts:
+        - asset: assets/fonts/AmiriQuran-Regular.ttf
+    - family: NotoNastaliqUrdu
+      fonts:
+        - asset: assets/fonts/NotoNastaliqUrdu.ttf
+    - family: ScheherazadeNew
+      fonts:
+        - asset: assets/fonts/ScheherazadeNew-Regular.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:

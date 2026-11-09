@@ -11,6 +11,7 @@ import '../features/planner/presentation/planner_page.dart';
 import 'shell/adaptive_shell.dart';
 import '../features/library/presentation/library_page.dart';
 import '../features/library/presentation/reader_page.dart';
+import '../features/quran/presentation/quran_page.dart';
 import '../features/library/presentation/search_all_page.dart';
 import '../features/home/home_page.dart';
 
@@ -21,6 +22,7 @@ abstract final class Routes {
   static const library = '/library';
   static const planner = '/planner';
   static const settings = '/settings';
+  static const quran = '/home/quran';
 }
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -58,7 +60,30 @@ final routerProvider = Provider<GoRouter>((ref) {
         branches: [
           StatefulShellBranch(
             routes: [
-              GoRoute(path: Routes.home, builder: (_, _) => const HomePage()),
+              GoRoute(
+                path: Routes.home,
+                builder: (_, _) => const HomePage(),
+                routes: [
+                  GoRoute(
+                    path: 'quran',
+                    parentNavigatorKey: _rootKey,
+                    builder: (_, _) => const QuranHomePage(),
+                    routes: [
+                      GoRoute(
+                        path: ':surah',
+                        parentNavigatorKey: _rootKey,
+                        builder: (_, s) {
+                          final n = (int.tryParse(s.pathParameters['surah'] ?? '') ?? 1).clamp(1, 114);
+                          return SurahPage(
+                            surah: n,
+                            startAyah: int.tryParse(s.uri.queryParameters['ayah'] ?? '') ?? 1,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ],
           ),
           StatefulShellBranch(

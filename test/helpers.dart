@@ -38,6 +38,7 @@ import 'package:folio/data/sync/synced_store.dart';
 import 'package:folio/data/sync/sync_service.dart';
 import 'package:folio/features/auth/auth_repository.dart';
 import 'package:folio/features/security/app_lock.dart';
+import 'package:folio/features/quran/application/quran_audio.dart';
 import 'package:sync_engine/sync_engine.dart';
 
 /// Reads "pages=N" from the file's text instead of running a PDF engine.
@@ -229,6 +230,64 @@ class FakeSpeechEngine implements SpeechEngine {
   Future<void> setVoice(VoiceInfo? voice) async => chosen.add(voice);
 }
 
+/// Quran recitation without sound: remembers the queue and lets a test move through it.
+class FakeAyahPlayer implements AyahPlayer {
+  List<Uri> queue = const [];
+  int current = 0;
+  bool playing = false;
+  final _index = StreamController<int?>.broadcast();
+  final _phase = StreamController<PlayerPhase>.broadcast();
+
+  @override
+  Future<void> setQueue(List<Uri> urls, {int start = 0}) async {
+    queue = urls;
+    current = start;
+    _index.add(start);
+  }
+
+  @override
+  Future<void> play() async {
+    playing = true;
+    _phase.add(PlayerPhase.playing);
+  }
+
+  @override
+  Future<void> pause() async {
+    playing = false;
+    _phase.add(PlayerPhase.paused);
+  }
+
+  @override
+  Future<void> stop() async {
+    playing = false;
+    _phase.add(PlayerPhase.idle);
+  }
+
+  @override
+  Future<void> seekToIndex(int i) async {
+    current = i;
+    _index.add(i);
+  }
+
+  /// The current file finished: the next one starts (or, after the last, playback ends).
+  void finishCurrent() {
+    if (current + 1 < queue.length) {
+      current++;
+      _index.add(current);
+    } else {
+      playing = false;
+      _phase.add(PlayerPhase.finished);
+    }
+  }
+
+  @override
+  Stream<int?> get index => _index.stream;
+  @override
+  Stream<PlayerPhase> get phase => _phase.stream;
+  @override
+  Future<void> dispose() async {}
+}
+
 class FakeMediaControls implements MediaControls {
   /// One entry per update: "title|subtitle|playing"; "hide" when removed.
   final log = <String>[];
@@ -366,6 +425,9 @@ class TestEnv {
     return f.path;
   }
 
+  /// The Quran recitation player (no sound in tests).
+  final ayahPlayer = FakeAyahPlayer();
+
   /// Replace the sync controller (e.g. to add sign-in gating).
   SyncController Function()? syncControllerFactory;
 
@@ -384,6 +446,7 @@ class TestEnv {
         quickActionsProvider.overrideWithValue(quick),
         speechEngineProvider.overrideWithValue(speech),
         mediaControlsProvider.overrideWithValue(media),
+        ayahPlayerFactoryProvider.overrideWithValue(() => ayahPlayer),
         pageThumbsBuilderProvider.overrideWithValue((context, {required file, required pageCount, required current, required bookmarked, required drawn, required onPick}) => PageThumbGrid(
               pageCount: pageCount,
               current: current,

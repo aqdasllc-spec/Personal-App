@@ -21,6 +21,7 @@ import 'features/planner/application/planner_controller.dart';
 import 'features/planner/data/local_notifications_scheduler.dart';
 import 'features/security/app_lock.dart';
 import 'features/security/key_service.dart';
+import 'features/quran/quran_licenses.dart';
 import 'features/settings/rotation.dart';
 
 /// Supply at build time: --dart-define=SUPABASE_URL=https://xyz.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=...
@@ -31,6 +32,7 @@ const _supabaseKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  registerQuranLicenses();
 
   final key = await DatabaseKeyService(SecureStorageKeyStore()).getOrCreate();
   final db = openEncrypted(await defaultDatabaseFile(), key);

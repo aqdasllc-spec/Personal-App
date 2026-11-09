@@ -7,8 +7,10 @@ import 'tokens.dart';
 /// fallbacks are used. Tracked in docs/06 Phase 1 checklist.
 const _serif = 'Fraunces';
 const _sans = 'Inter';
-const _serifFallback = ['Georgia', 'Times New Roman', 'serif'];
-const _sansFallback = ['Segoe UI', 'Roboto', 'Helvetica Neue', 'sans-serif'];
+// ScheherazadeNew (bundled for the Quran corner) covers Arabic and Urdu letters and signs such as ﷺ wherever they
+// appear in ordinary text, on every device.
+const _serifFallback = ['Georgia', 'Times New Roman', 'ScheherazadeNew', 'serif'];
+const _sansFallback = ['Segoe UI', 'Roboto', 'Helvetica Neue', 'ScheherazadeNew', 'sans-serif'];
 
 ThemeData buildTheme(Brightness b) {
   final c = b == Brightness.light ? FolioColors.light : FolioColors.dark;

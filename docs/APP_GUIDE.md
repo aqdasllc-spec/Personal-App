@@ -6,6 +6,8 @@ Everything works offline. Signing in only adds syncing between your devices.
 ---
 
 ## Home
+- **Quran (the gold cabinet at the top):** tap the Quran in its glass niche: the lamp lights up and the Quran opens. Next to it, **Daily Ayah** and **Daily Hadith** (a new one each day), in **اردو** or **English** (the switch at the top right; remembered). Tap the text to read it in full, with the Arabic, **Listen** (ayah), **Open in Quran** and **Copy**.
+- **In the Quran:** every surah (search by name or number; spellings like "Yasin" or "Fatiha" work) or the 30 juz; Continue reading. Each ayah: Arabic (Uthmani script) with the Urdu (Fateh Muhammad Jalandhry), English (Saheeh International), both, or Arabic only (the translate button). **Listen** recites from any ayah with a choice of 14 reciters, optionally followed by each ayah's Urdu or English translation, and keeps going with the screen off (lock-screen controls); the ayah being recited is highlighted and kept on screen. Text size and reciter: the sliders button. Your place is remembered as you read (or tap the bookmark on an ayah). Everything except the recitation works offline; recitations stream from the internet.
 - **Reading** card: pages read today against your daily goal (tap *Goal* to change it), your streak, the last 7 days and time with a book open. A page counts after a few seconds on it, once per day.
 - **Today** at a glance: tasks due, events, a one-line add box ("Add a task for today…").
 - **Continue reading**: books you have started. The small menu switches between *Recently read first* and *My order* (the Library's order).
@@ -67,4 +69,4 @@ Everything works offline. Signing in only adds syncing between your devices.
 Press and hold the Folio icon: **Continue reading**, **Add a task**, **Planner: today**, **Library**.
 
 ---
-Not built yet: a Windows/macOS text-recogniser, syncing reading statistics.
+Not built yet: a Windows/macOS text-recogniser, syncing reading statistics, downloading recitations for offline listening, Quran bookmarks in sync.

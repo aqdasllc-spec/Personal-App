@@ -16,6 +16,7 @@ import '../planner/application/planner_controller.dart';
 import '../planner/domain/agenda.dart';
 import '../planner/presentation/format.dart';
 import '../planner/presentation/planner_widgets.dart';
+import '../quran/presentation/quran_cabinet.dart';
 import '../welcome/welcome_page.dart';
 
 /// Home: what needs attention today, what is coming up, and where you stopped reading.
@@ -54,6 +55,8 @@ class HomePage extends ConsumerWidget {
               children: [
                 const WelcomeGate(),
                 _Header(today: today),
+                const SizedBox(height: Space.s12),
+                const QuranCabinet(),
                 const SizedBox(height: Space.s16),
                 const _QuickAdd(),
                 const SizedBox(height: Space.s16),

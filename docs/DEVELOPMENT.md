@@ -84,3 +84,6 @@ The repository is public, so the release signing key is **never committed**. The
 4. Check: `apksigner verify --print-certs` must show `CN=Folio, O=aqdasllc` and SHA-256 `68:71:B3:11:0E:A3:1D:0B:89:FC:7D:F9:E7:60:AB:DE:F4:21:BF:DA:F9:E6:9C:BC:2C:CD:24:D0:EE:23:B5:74`.
 
 Build machine notes: the Android SDK comes from `dl.google.com` (allowed in the `personal-app` cloud environment). If Maven Central answers 429 (rate limit), a local Gradle init script can rewrite `repo.maven.apache.org` to `https://maven-central.storage-download.googleapis.com/maven2/`.
+
+## Quran and hadith data
+`assets/quran/*.json.gz` are generated, never edited by hand: `python3 tool/quran/build_assets.py` downloads the published datasets, checks them (counts, alignment, spot checks) and writes the files. The Quran corner's fonts are in `assets/fonts` (OFL, licences alongside and registered in the app's licence page).
