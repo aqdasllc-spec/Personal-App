@@ -17,6 +17,79 @@ import 'book_visuals.dart';
 const _turn = Duration(milliseconds: 320);
 const _curve = Cubic(.2, .8, .2, 1);
 
+/// Spotlight search: [lit] null = no search; true = a match (lifted, glowing); false = not a match (dim, grey).
+class SpotlightBook extends StatelessWidget {
+  const SpotlightBook({super.key, required this.lit, required this.child});
+  final bool? lit;
+  final Widget child;
+
+  static const _grey = ColorFilter.matrix(<double>[
+    .33, .59, .11, 0, 0, //
+    .33, .59, .11, 0, 0, //
+    .33, .59, .11, 0, 0, //
+    0, 0, 0, 1, 0,
+  ]);
+
+  @override
+  Widget build(BuildContext context) {
+    final l = lit;
+    if (l == null) return child;
+    final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final d = reduce ? Duration.zero : const Duration(milliseconds: 260);
+    if (!l) {
+      return AnimatedOpacity(
+        duration: d,
+        opacity: .25,
+        child: ColorFiltered(colorFilter: _grey, child: child),
+      );
+    }
+    final glow = context.colors.brass;
+    return AnimatedContainer(
+      duration: d,
+      curve: _curve,
+      transform: Matrix4.translationValues(0, -8, 0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+        boxShadow: [
+          BoxShadow(color: glow, spreadRadius: 2),
+          BoxShadow(color: glow.withValues(alpha: .55), blurRadius: 18, spreadRadius: 4),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Scrolls the shelf (the primary scroll view) to [offset] whenever [target] changes, e.g. the row of the first match.
+class SpotlightScroll extends StatefulWidget {
+  const SpotlightScroll({super.key, required this.target, required this.offset, required this.child});
+  final Object? target;
+  final double offset;
+  final Widget child;
+  @override
+  State<SpotlightScroll> createState() => _SpotlightScrollState();
+}
+
+class _SpotlightScrollState extends State<SpotlightScroll> {
+  @override
+  void didUpdateWidget(SpotlightScroll old) {
+    super.didUpdateWidget(old);
+    if (widget.target != null && widget.target != old.target) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final c = PrimaryScrollController.maybeOf(context);
+        if (c == null || !c.hasClients) return;
+        final to = widget.offset.clamp(0.0, c.position.maxScrollExtent);
+        final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+        reduce ? c.jumpTo(to) : c.animateTo(to, duration: const Duration(milliseconds: 380), curve: _curve);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
 /// Width of a book seen from the front (its cover), for a spine of height [h].
 double coverWidthFor(double h) => (h * .68).roundToDouble();
 
@@ -81,7 +154,14 @@ class TurnableBook extends ConsumerWidget {
               child: AnimatedOpacity(
                 duration: d,
                 opacity: turned ? 1 : 0,
-                child: _CoverFace(book: book, onTap: onTap, width: cw, height: h),
+                child: BookCover(
+                  book: book,
+                  onTap: onTap,
+                  width: cw,
+                  height: h,
+                  hint: true,
+                  faceKey: Key('cover-face-${book.id}'),
+                ),
               ),
             ),
           ),
@@ -91,11 +171,23 @@ class TurnableBook extends ConsumerWidget {
   }
 }
 
-class _CoverFace extends ConsumerWidget {
-  const _CoverFace({required this.book, required this.onTap, required this.width, required this.height});
+/// A book seen from the front: its real first page when it has been rendered, otherwise a coloured cover with the
+/// title and author. [hint] adds a "Tap to read" strip.
+class BookCover extends ConsumerWidget {
+  const BookCover({
+    super.key,
+    required this.book,
+    required this.width,
+    required this.height,
+    this.onTap,
+    this.hint = false,
+    this.faceKey,
+  });
   final BookRow book;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final double width, height;
+  final bool hint;
+  final Key? faceKey;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -106,7 +198,7 @@ class _CoverFace extends ConsumerWidget {
       button: true,
       label: 'Read ${book.title}',
       child: GestureDetector(
-        key: Key('cover-face-${book.id}'),
+        key: faceKey,
         onTap: onTap,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(3),
@@ -168,6 +260,7 @@ class _CoverFace extends ConsumerWidget {
                 width: 5,
                 child: ColoredBox(color: Colors.black.withValues(alpha: .18)),
               ),
+              if (hint)
               Positioned(
                 left: 0,
                 right: 0,
@@ -352,11 +445,15 @@ class TurningShelfView extends StatefulWidget {
     required this.onMenu,
     required this.dotOf,
     required this.selection,
+    this.lit,
   });
   final List<BookRow> books;
   final void Function(BookRow) onOpen, onMenu;
   final Widget? Function(BookRow) dotOf;
   final Set<String>? selection;
+
+  /// Spotlight search: the ids of the matching books (all books are shown), or null when not searching.
+  final Set<String>? lit;
 
   @override
   State<TurningShelfView> createState() => _TurningShelfViewState();
@@ -380,26 +477,32 @@ class _TurningShelfViewState extends State<TurningShelfView> with _Turning<Turni
           rows.last.add(b);
           used += w;
         }
+        final lit = widget.lit;
+        final firstHit = lit == null || lit.isEmpty ? -1 : rows.indexWhere((r) => r.any((b) => lit.contains(b.id)));
         return _WithFloatingCard(
           card: _cardFor(t),
-          child: ListView.builder(
-            key: const Key('turning-shelf'),
-            padding: EdgeInsets.fromLTRB(Space.s16, Space.s16, Space.s16, t == null ? Space.s16 : _cardRoom),
-            itemCount: rows.length,
-            itemBuilder: (_, i) => Padding(
-              padding: const EdgeInsets.only(bottom: Space.s24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(
-                    height: 206,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [for (final b in rows[i]) _book(b, t)],
+          child: SpotlightScroll(
+            target: firstHit < 0 ? null : '$firstHit ${lit!.length} ${lit.first}',
+            offset: firstHit * 240.0,
+            child: ListView.builder(
+              key: const Key('turning-shelf'),
+              padding: EdgeInsets.fromLTRB(Space.s16, Space.s16, Space.s16, t == null ? Space.s16 : _cardRoom),
+              itemCount: rows.length,
+              itemBuilder: (_, i) => Padding(
+                padding: const EdgeInsets.only(bottom: Space.s24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      height: 206,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [for (final b in rows[i]) _book(b, t)],
+                      ),
                     ),
-                  ),
-                  const ShelfLedge(),
-                ],
+                    const ShelfLedge(),
+                  ],
+                ),
               ),
             ),
           ),
@@ -420,16 +523,19 @@ class _TurningShelfViewState extends State<TurningShelfView> with _Turning<Turni
 
   Widget _book(BookRow b, BookRow? t) => Padding(
     padding: const EdgeInsets.only(right: 3),
-    child: BookPeekTarget(
-      book: b,
-      onOpen: () => widget.onOpen(b),
-      onMore: () => widget.onMenu(b),
-      selected: widget.selection?.contains(b.id),
-      child: TurnableBook(
+    child: SpotlightBook(
+      lit: widget.lit?.contains(b.id),
+      child: BookPeekTarget(
         book: b,
-        turned: widget.selection == null && b.id == t?.id,
-        dot: widget.dotOf(b),
-        onTap: () => tapBook(b, selection: widget.selection, onOpen: widget.onOpen),
+        onOpen: () => widget.onOpen(b),
+        onMore: () => widget.onMenu(b),
+        selected: widget.selection?.contains(b.id),
+        child: TurnableBook(
+          book: b,
+          turned: widget.selection == null && b.id == t?.id,
+          dot: widget.dotOf(b),
+          onTap: () => tapBook(b, selection: widget.selection, onOpen: widget.onOpen),
+        ),
       ),
     ),
   );

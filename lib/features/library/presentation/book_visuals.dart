@@ -176,8 +176,9 @@ class _BadgeText extends StatelessWidget {
   );
 }
 
-/// A book spine for the realistic shelf.
-class Spine extends StatelessWidget {
+/// A book spine for the realistic shelf. With "Ribbons and dust" on (Settings), a ribbon runs down the spine as far as
+/// you have read, books not opened for months gather dust, and finished books get gold bands.
+class Spine extends ConsumerWidget {
   const Spine({
     super.key,
     required this.book,
@@ -190,28 +191,34 @@ class Spine extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
 
-  /// Size factor (the glass cabinets show books a little smaller).
-  final double scale;
-
   /// Optional cloud status dot, drawn in the top-right corner.
   final Widget? dot;
 
+  /// Size factor (the glass cabinets show books a little smaller).
+  final double scale;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = bookColor(book);
     final fg = onBookColor(c);
     final progress = readingProgress(book);
+    final looks = ref.watch(ribbonsProvider);
+    final finished = progress >= .95;
+    final dust = looks ? dustOf(book, DateTime.now()) : 0.0;
+    final w = spineWidth(book) * scale, h = spineHeight(book) * scale;
+    final brass = context.colors.brass;
     return Semantics(
       button: true,
-      label: '${book.title}${book.author.isEmpty ? '' : ' by ${book.author}'}',
+      label: '${book.title}${book.author.isEmpty ? '' : ' by ${book.author}'}'
+          '${finished ? ', finished' : (progress > 0 ? ', ${(progress * 100).round()}% read' : '')}',
       child: InkWell(
         key: Key('book-${book.id}'),
         onTap: onTap,
         onLongPress: onLongPress,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
         child: Container(
-          width: spineWidth(book) * scale,
-          height: spineHeight(book) * scale,
+          width: w,
+          height: h,
           decoration: BoxDecoration(
             color: c,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
@@ -230,11 +237,16 @@ class Spine extends StatelessWidget {
           ),
           child: Stack(
             children: [
+              if (looks && finished) ...[
+                Positioned(key: Key('gold-${book.id}'), top: 6 * scale, left: 3, right: 3, child: _Band(brass)),
+                Positioned(top: 11 * scale, left: 3, right: 3, child: _Band(brass)),
+                Positioned(bottom: 6 * scale, left: 3, right: 3, child: _Band(brass)),
+              ],
               Positioned.fill(
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(
                     4,
-                    dot != null ? cloudBadgeHeight + 8 : 10,
+                    dot != null ? cloudBadgeHeight + 8 : (looks && finished ? 18 * scale : 10),
                     4,
                     10,
                   ),
@@ -257,6 +269,23 @@ class Spine extends StatelessWidget {
                   ),
                 ),
               ),
+              // the ribbon: from the top of the spine down to how far you have read
+              if (looks && progress > 0 && !finished)
+                Positioned(
+                  key: Key('ribbon-${book.id}'),
+                  top: 0,
+                  right: 3,
+                  width: 6,
+                  height: (h * progress).clamp(14.0, h - 4),
+                  child: const CustomPaint(painter: _RibbonPainter()),
+                ),
+              if (dust > 0)
+                Positioned.fill(
+                  key: Key('dust-${book.id}'),
+                  child: IgnorePointer(
+                    child: CustomPaint(painter: _DustPainter(dust, book.id.hashCode)),
+                  ),
+                ),
               if (dot != null)
                 Positioned(top: 0, left: 0, right: 0, child: dot!),
               if (book.favorite == 1)
@@ -270,7 +299,7 @@ class Spine extends StatelessWidget {
                     color: context.colors.brass,
                   ),
                 ),
-              if (progress > 0)
+              if (progress > 0 && !looks)
                 Positioned(
                   left: 0,
                   right: 0,
@@ -288,6 +317,88 @@ class Spine extends StatelessWidget {
       ),
     );
   }
+}
+
+class _Band extends StatelessWidget {
+  const _Band(this.color);
+  final Color color;
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 2,
+    decoration: BoxDecoration(
+      color: color,
+      boxShadow: const [BoxShadow(color: Color(0x55000000), blurRadius: 1, offset: Offset(0, 1))],
+    ),
+  );
+}
+
+/// A silk ribbon with a notched end.
+class _RibbonPainter extends CustomPainter {
+  const _RibbonPainter();
+  @override
+  void paint(Canvas canvas, Size s) {
+    final notch = s.width * .8;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(s.width, 0)
+      ..lineTo(s.width, s.height)
+      ..lineTo(s.width / 2, s.height - notch)
+      ..lineTo(0, s.height)
+      ..close();
+    canvas.drawShadow(path, Colors.black, 1.5, false);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..shader = const LinearGradient(colors: [Color(0xFFB02A2F), Color(0xFF7E1A20)])
+            .createShader(Offset.zero & s),
+    );
+    canvas.drawLine(
+      Offset(s.width * .3, 0),
+      Offset(s.width * .3, s.height - notch),
+      Paint()
+        ..color = const Color(0x44FFFFFF)
+        ..strokeWidth = 1,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_RibbonPainter old) => false;
+}
+
+/// A grey veil, heavier at the top where dust settles, with a few specks (the same specks for a book every time).
+class _DustPainter extends CustomPainter {
+  _DustPainter(this.amount, this.seed);
+  final double amount;
+  final int seed;
+
+  @override
+  void paint(Canvas canvas, Size s) {
+    final r = Offset.zero & s;
+    canvas.drawRect(
+      r,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            const Color(0xFFD9D4C7).withValues(alpha: amount * 1.4),
+            const Color(0xFFBDB7A8).withValues(alpha: amount * .7),
+          ],
+        ).createShader(r),
+    );
+    var x = seed & 0x7fffffff;
+    int next() => x = (x * 1103515245 + 12345) & 0x7fffffff;
+    final speck = Paint()..color = const Color(0xFFEDE8DC).withValues(alpha: (amount * 1.6).clamp(0, 1));
+    final n = (amount * 70).round();
+    for (var i = 0; i < n; i++) {
+      final px = (next() % 1000) / 1000 * s.width;
+      final py = (next() % 1000) / 1000 * s.height;
+      canvas.drawCircle(Offset(px, py), .5 + (next() % 10) / 12, speck);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DustPainter old) => old.amount != amount || old.seed != seed;
 }
 
 /// A small cover-like tile (grid and list use it).

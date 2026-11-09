@@ -21,6 +21,7 @@ import 'tag_dot.dart';
 import 'book_edit.dart';
 import 'book_peek.dart';
 import 'book_visuals.dart';
+import 'cover_carousel.dart';
 import 'shelf_styles.dart';
 
 class LibraryPage extends ConsumerStatefulWidget {
@@ -206,6 +207,7 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     final c = context.colors;
     final editing = ref.watch(shelfEditProvider);
     final shelfStyle = ref.watch(shelfStyleProvider);
+    final spotlightOn = ref.watch(spotlightProvider);
     final moveId = ref.watch(moveSelectionProvider);
     final canReorder = ui.query.trim().isEmpty && ui.activeFilters == 0;
     final selection = ref.watch(selectionProvider);
@@ -631,9 +633,26 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                               ),
                             );
                           }
+                          // Spotlight search: on the shelf, a search keeps every book in place, dims the others and
+                          // lights up the matches (the carousel, grid and list still narrow the list instead).
+                          final spot = spotlightOn &&
+                              ui.view == LibraryView.shelf &&
+                              shelfStyle != ShelfStyle.carousel &&
+                              !editing &&
+                              ui.query.trim().isNotEmpty;
+                          final shelfBooks = spot ? filterBooks(all, ui.copyWith(query: '')) : list;
+                          final lit = spot ? {for (final b in list) b.id} : null;
                           return switch (ui.view) {
                             LibraryView.shelf => switch (shelfStyle) {
                               ShelfStyle.classic => _ShelfView(
+                                books: shelfBooks,
+                                lit: lit,
+                                onOpen: openBook,
+                                onMenu: bookMenu,
+                                dotOf: dotOf,
+                                selection: selection,
+                              ),
+                              ShelfStyle.carousel when !editing => CoverCarouselView(
                                 books: list,
                                 onOpen: openBook,
                                 onMenu: bookMenu,
@@ -657,7 +676,8 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
                                 selection: selection,
                               ),
                               _ => TurningShelfView(
-                                books: list,
+                                books: shelfBooks,
+                                lit: lit,
                                 onOpen: openBook,
                                 onMenu: bookMenu,
                                 dotOf: dotOf,
@@ -1036,12 +1056,16 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
 class _ShelfView extends StatelessWidget {
   final Widget? Function(BookRow) dotOf;
   final Set<String>? selection;
+
+  /// Spotlight search: ids of the matching books (all books are shown), or null when not searching.
+  final Set<String>? lit;
   const _ShelfView({
     required this.dotOf,
     required this.selection,
     required this.books,
     required this.onOpen,
     required this.onMenu,
+    this.lit,
   });
   final List<BookRow> books;
   final void Function(BookRow) onOpen, onMenu;
@@ -1063,7 +1087,12 @@ class _ShelfView extends StatelessWidget {
           rows.last.add(b);
           used += w;
         }
-        return ListView.builder(
+        final hits = lit;
+        final firstHit = hits == null || hits.isEmpty ? -1 : rows.indexWhere((r) => r.any((b) => hits.contains(b.id)));
+        return SpotlightScroll(
+          target: firstHit < 0 ? null : '$firstHit ${hits!.length} ${hits.first}',
+          offset: firstHit * 234.0,
+          child: ListView.builder(
           padding: const EdgeInsets.symmetric(
             horizontal: Space.s16,
             vertical: Space.s16,
@@ -1081,7 +1110,9 @@ class _ShelfView extends StatelessWidget {
                       for (final b in rows[i])
                         Padding(
                           padding: const EdgeInsets.only(right: 3),
-                          child: BookPeekTarget(
+                          child: SpotlightBook(
+                            lit: lit?.contains(b.id),
+                            child: BookPeekTarget(
                             book: b,
                             onOpen: () => onOpen(b),
                             onMore: () => onMenu(b),
@@ -1091,6 +1122,7 @@ class _ShelfView extends StatelessWidget {
                               onTap: () => onOpen(b),
                               dot: dotOf(b),
                             ),
+                          ),
                           ),
                         ),
                     ],
@@ -1115,6 +1147,7 @@ class _ShelfView extends StatelessWidget {
                 ),
               ],
             ),
+          ),
           ),
         );
       },

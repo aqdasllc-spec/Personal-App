@@ -615,7 +615,8 @@ final homeReadingOrderProvider = NotifierProvider<HomeReadingOrder, String>(
 enum ShelfStyle {
   classic('Classic', 'Rows of spines on open shelves'),
   turning('Turning books', 'Tap a spine and the book turns to show its cover'),
-  cabinets('Glass cabinets', 'Each shelf is a glass cabinet; tap one to open its doors');
+  cabinets('Glass cabinets', 'Each shelf is a glass cabinet; tap one to open its doors'),
+  carousel('Cover carousel', 'Covers stand in a 3D row; swipe and the middle one faces you');
 
   const ShelfStyle(this.label, this.description);
   final String label, description;
@@ -644,6 +645,42 @@ class ShelfStyleController extends Notifier<ShelfStyle> {
 }
 
 final shelfStyleProvider = NotifierProvider<ShelfStyleController, ShelfStyle>(ShelfStyleController.new);
+
+/// An on/off choice for the Library's look, remembered on this device (on unless turned off).
+class _LookSwitch extends Notifier<bool> {
+  _LookSwitch(this.key);
+  final String key;
+  @override
+  bool build() {
+    Future.microtask(() async {
+      try {
+        final v = await ref.read(syncedStoreProvider).state(key);
+        if (v == '0') state = false;
+      } catch (_) {}
+    });
+    return true;
+  }
+
+  void set(bool on) {
+    state = on;
+    try {
+      ref.read(syncedStoreProvider).setState(key, on ? '1' : '0');
+    } catch (_) {}
+  }
+}
+
+/// Searching on the shelf dims the other books and lights up the matches where they stand (instead of hiding the rest).
+final spotlightProvider = NotifierProvider<_LookSwitch, bool>(() => _LookSwitch('shelf_spotlight'));
+
+/// Spines show a ribbon at the reading position, dust on books not opened for months, a gold band when finished.
+final ribbonsProvider = NotifierProvider<_LookSwitch, bool>(() => _LookSwitch('shelf_ribbons'));
+
+/// How dusty a book looks: 0 (opened in the last 45 days) up to 0.5 (untouched for about a year).
+double dustOf(BookRow b, DateTime now) {
+  final last = b.lastOpenedAt ?? b.addedAt;
+  final days = (now.millisecondsSinceEpoch - last) / Duration.millisecondsPerDay;
+  return ((days - 45) / 640).clamp(0.0, 0.5);
+}
 
 double readingProgress(BookRow b) =>
     b.pageCount <= 0 ? 0 : (b.lastPage / b.pageCount).clamp(0.0, 1.0);
