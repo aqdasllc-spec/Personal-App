@@ -169,6 +169,9 @@ void main() {
 
   testWidgets('Home: long-press a recent book shows the same card; Read resumes', (t) async {
     final (_, b) = await open(t, home: true);
+    // the reading card is below the Quran cabinet: scroll to it first
+    await t.scrollUntilVisible(find.byKey(Key('home-book-${b.id}')), 200, scrollable: find.byType(Scrollable).first);
+    await io(t);
     await t.longPress(find.byKey(Key('home-book-${b.id}')));
     await io(t);
     expect(find.byKey(Key('peek-${b.id}')), findsOneWidget);
