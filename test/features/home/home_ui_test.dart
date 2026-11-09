@@ -65,7 +65,7 @@ void main() {
       final f = await env.writePdf('Deep_Work.pdf', 200);
       final b = (await lib.importPdf(f)).book!;
       await lib.saveProgress(b.id, 50);
-    });
+    }, h: 1500); // a tall screen: every Home card is laid out (the Quran cabinet sits above them)
     expect(find.text('Pay rent'), findsOneWidget);
     expect(find.text('1 overdue'), findsOneWidget);
     expect(find.text('Old thing'), findsOneWidget);
@@ -93,7 +93,7 @@ void main() {
       final lib = LibraryRepository(env.db, directory: env.libraryDir, inspector: FakePdfInspector());
       final b = (await lib.importPdf(await env.writePdf('Alpha.pdf', 30))).book!;
       await lib.saveProgress(b.id, 3);
-    });
+    }, h: 1500); // a tall screen: every Home card is laid out (the Quran cabinet sits above them)
     final b = (await t.runAsync(() => env.db.select(env.db.books).get()))!.single;
     await t.tap(find.byKey(Key('home-book-${b.id}')));
     await settleH(t);
@@ -135,7 +135,7 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 4));
       }
       await lib.setOrder([ids[0], ids[1], ids[2], ids[3]]); // my order: Alpha, Bravo, Charlie, Unread
-    });
+    }, h: 1500); // a tall screen: every Home card is laid out (the Quran cabinet sits above them)
     List<String> shownOrder() {
       final found = <(int, double)>[];
       for (var i = 0; i < ids.length; i++) {
