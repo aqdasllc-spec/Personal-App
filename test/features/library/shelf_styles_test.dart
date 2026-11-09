@@ -257,4 +257,26 @@ void main() {
     expect(t.takeException(), isNull);
     await endIt(t);
   });
+
+  testWidgets('Cover carousel: full screen opens at the same book, moves on its own, and Close brings the shelf to that book', (t) async {
+    await open(t, style: 'carousel');
+    String title() => t.widget<Text>(find.byKey(const Key('carousel-title')).last).data!;
+    await t.tap(find.byKey(const Key('carousel-next')));
+    await io(t, rounds: 2);
+    final second = title();
+    await t.tap(find.byKey(const Key('carousel-open-full')));
+    await io(t, rounds: 3);
+    expect(find.byKey(const Key('carousel-full')), findsOneWidget);
+    expect(title(), second, reason: 'opens at the book that was in the middle');
+    await t.tap(find.byKey(const Key('carousel-next')).last);
+    await io(t, rounds: 2);
+    final third = title();
+    expect(third, isNot(second));
+    await t.tap(find.byKey(const Key('carousel-close-full')));
+    await io(t, rounds: 3);
+    expect(find.byKey(const Key('carousel-full')), findsNothing);
+    expect(title(), third, reason: 'the shelf moved to where full screen ended');
+    expect(find.textContaining('3 of 5'), findsOneWidget);
+    await endIt(t);
+  });
 }
