@@ -63,9 +63,9 @@ class _TafsirSheet extends ConsumerWidget {
           ),
           const SizedBox(height: Space.s12),
           Text(
-            '${quran.arabic[i]} ${ayahEnd(ayah)}',
+            ayahWithEnd(quran.arabic[i], ayah),
             textDirection: TextDirection.rtl,
-            textAlign: TextAlign.center,
+            textAlign: TextAlign.justify,
             style: quranArabic(22, color: c.text),
           ),
           const SizedBox(height: Space.s12),
@@ -118,13 +118,8 @@ class _TafsirSheet extends ConsumerWidget {
                             style: arabicText(18, color: QuranColors.goldDeep),
                           )
                         : (ed.urdu
-                              ? Text(
-                                  p,
-                                  textDirection: TextDirection.rtl,
-                                  textAlign: TextAlign.right,
-                                  style: urduText(15, color: c.text).copyWith(height: 2.0),
-                                )
-                              : Text(p, style: t.bodyLarge?.copyWith(height: 1.55))),
+                              ? Text.rich(urduSpan(p, urduText(15, color: c.text).copyWith(height: 2.05)), textDirection: TextDirection.rtl, textAlign: TextAlign.justify)
+                              : Text(p, textAlign: TextAlign.justify, style: t.bodyLarge?.copyWith(height: 1.55))),
                   ),
                 const SizedBox(height: Space.s8),
                 Text('${ed.name}, ${ed.author}. Text from quran.com via the open Tafsir API.', style: t.bodySmall),

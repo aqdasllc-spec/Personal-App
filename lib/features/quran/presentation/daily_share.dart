@@ -75,7 +75,7 @@ class _DailyShareSheetState extends ConsumerState<_DailyShareSheet> {
     String? tUr, tEn;
     if (!widget.hadith) {
       final d = dailyAyah(q, now);
-      arabic = [for (var i = 0; i < d.arabic.length; i++) '${d.arabic[i]} ${ayahEnd(d.from + i)}'].join(' ');
+      arabic = [for (var i = 0; i < d.arabic.length; i++) ayahWithEnd(d.arabic[i], d.from + i)].join(' ');
       tUr = d.urdu.join(' ');
       tEn = d.english.join(' ');
       titleEn = 'Ayah of the Day';
@@ -147,7 +147,14 @@ class _DailyShareSheetState extends ConsumerState<_DailyShareSheet> {
                               _Flourish(),
                               if (urdu) ...[
                                 const SizedBox(height: 10),
-                                Text(tUr, key: const Key('daily-share-urdu'), textDirection: TextDirection.rtl, textAlign: TextAlign.center, style: urduText(15 * scale, color: _inkSoft).copyWith(height: 2.0)),
+                                Text.rich(
+                                  widget.hadith || q.urduRtl
+                                      ? urduSpan(tUr, urduText(15 * scale, color: _inkSoft).copyWith(height: 2.0))
+                                      : TextSpan(text: tUr, style: TextStyle(color: _inkSoft, fontSize: 14.5 * scale, height: 1.5)),
+                                  key: const Key('daily-share-urdu'),
+                                  textDirection: widget.hadith || q.urduRtl ? TextDirection.rtl : TextDirection.ltr,
+                                  textAlign: TextAlign.center,
+                                ),
                               ],
                               if (english) ...[
                                 const SizedBox(height: 10),
@@ -197,7 +204,7 @@ class _DailyShareSheetState extends ConsumerState<_DailyShareSheet> {
             ),
             const SizedBox(height: Space.s4),
             Text(
-              widget.hadith ? 'Sahih al-Bukhari; translations as shown in Folio.' : 'Translations: Fateh Muhammad Jalandhry (Urdu), Saheeh International (English).',
+              widget.hadith ? 'Sahih al-Bukhari; translations as shown in Folio.' : 'Translations: ${q.urduName} (Urdu), Saheeh International (English).',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),

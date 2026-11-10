@@ -60,7 +60,7 @@ void main() {
       await t.pumpAndSettle();
       await t.scrollUntilVisible(find.text('App lock'), 200, scrollable: find.byType(Scrollable).first);
       expect(find.text('App lock'), findsOneWidget);
-      expect(find.text('Local only'), findsWidgets);
+      expect(find.text('On this phone only'), findsWidgets);
       await t.pumpWidget(const SizedBox());
       await t.pump(const Duration(seconds: 1));
     });

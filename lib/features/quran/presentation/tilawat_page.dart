@@ -473,32 +473,23 @@ class _MushafPage extends StatelessWidget {
       if (translation) {
         blocks.add(
           Text(
-            '${q.arabic[i]} ${ayahEnd(a)}',
+            ayahWithEnd(q.arabic[i], a),
             textDirection: TextDirection.rtl,
-            textAlign: TextAlign.right,
+            textAlign: TextAlign.justify,
             style: quranArabic(25 * scale, color: ink).copyWith(height: 2.1),
           ),
         );
         blocks.add(
           Padding(
             padding: const EdgeInsets.only(bottom: 14),
-            child: urdu
-                ? Text(
-                    q.urdu[i],
-                    textDirection: TextDirection.rtl,
-                    style: urduText(15 * scale, color: soft).copyWith(height: 2.0),
-                  )
-                : Text(
-                    q.english[i],
-                    style: TextStyle(color: soft, fontSize: 15 * scale, height: 1.5),
-                  ),
+            child: QuranTranslation(urdu ? q.urdu[i] : q.english[i], urdu: urdu, rtl: !urdu || q.urduRtl, size: 15 * scale, color: soft),
           ),
         );
       } else {
-        run.add(TextSpan(text: '${q.arabic[i]} '));
+        run.add(TextSpan(text: q.arabic[i]));
         run.add(
           TextSpan(
-            text: '${ayahEnd(a)} ',
+            text: '\u00A0${ayahEnd(a)} ',
             style: TextStyle(color: QuranColors.goldDeep.withValues(alpha: .95)),
           ),
         );

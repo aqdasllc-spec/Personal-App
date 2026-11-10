@@ -341,10 +341,16 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
                         children: [
                           Text(s.arabic, textDirection: TextDirection.rtl, style: quranArabic(16, color: QuranColors.gold).copyWith(height: 1.4)),
                           const SizedBox(height: 8),
-                          Text('${q.arabic[i]} ${ayahEnd(widget.ayah)}', textDirection: TextDirection.rtl, textAlign: TextAlign.center, style: quranArabic(24, color: QuranColors.goldLight)),
+                          Text(ayahWithEnd(q.arabic[i], widget.ayah), textDirection: TextDirection.rtl, textAlign: TextAlign.center, style: quranArabic(24, color: QuranColors.goldLight)),
                           if (_mode.showUrdu) ...[
                             const SizedBox(height: 10),
-                            Text(q.urdu[i], textDirection: TextDirection.rtl, textAlign: TextAlign.center, style: urduText(15, color: QuranColors.cream)),
+                            Text.rich(
+                              q.urduRtl
+                                  ? urduSpan(q.urdu[i], urduText(15, color: QuranColors.cream))
+                                  : TextSpan(text: q.urdu[i], style: const TextStyle(color: QuranColors.cream, fontSize: 14.5, height: 1.45)),
+                              textDirection: q.urduRtl ? TextDirection.rtl : TextDirection.ltr,
+                              textAlign: TextAlign.center,
+                            ),
                           ],
                           if (_mode.showEnglish) ...[
                             const SizedBox(height: 10),

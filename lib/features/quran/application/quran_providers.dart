@@ -9,13 +9,35 @@ import '../../../app/providers.dart';
 import '../../planner/application/planner_controller.dart' show reminderSchedulerProvider;
 import '../../planner/domain/reminders.dart';
 import '../data/quran_data.dart';
+import '../presentation/quran_style.dart' show activeQuranScript;
 import '../domain/daily.dart';
 import '../domain/khatm.dart';
 import '../domain/quran_search.dart';
 
 /// The bundled Quran (Arabic + English + Urdu). Loaded once, on first use.
 final quranLoaderProvider = Provider<Future<QuranData> Function()>((_) => loadQuranAsset);
-final quranDataProvider = FutureProvider<QuranData>((ref) => ref.watch(quranLoaderProvider)());
+final quranBaseProvider = FutureProvider<QuranData>((ref) => ref.watch(quranLoaderProvider)());
+
+/// Loads one of the other Urdu translations (a function so tests can give their own).
+final urduTranslationLoaderProvider = Provider<Future<List<String>> Function(String id)>((_) => loadUrduTranslation);
+final _urduTextsProvider = FutureProvider.family<List<String>, String>((ref, id) => ref.watch(urduTranslationLoaderProvider)(id));
+
+/// The Quran as chosen to be shown: in the chosen script, with the chosen Urdu translation.
+final quranDataProvider = FutureProvider<QuranData>((ref) async {
+  final base = await ref.watch(quranBaseProvider.future);
+  final script = ref.watch(quranScriptProvider);
+  final tr = ref.watch(urduTranslationProvider);
+  List<String>? urdu;
+  if (tr.id != urduTranslations.first.id) {
+    try {
+      final t = await ref.watch(_urduTextsProvider(tr.id).future);
+      if (t.length == base.ayahCount) urdu = t;
+    } catch (_) {} // unreadable: Jalandhry stays
+  }
+  final q = base.view(script: script, urdu: urdu, urduName: urdu == null ? null : tr.name, urduRtl: urdu == null ? null : tr.rtl);
+  activeQuranScript = q.script;
+  return q;
+});
 
 /// The bundled Sahih al-Bukhari selection (Arabic + English + Urdu).
 final hadithLoaderProvider = Provider<Future<HadithData> Function()>((_) => loadHadithAsset);
@@ -51,6 +73,16 @@ class _Pref<T> extends Notifier<T> {
     } catch (_) {}
   }
 }
+
+/// The script the Arabic is shown in (Indo-Pak to begin with). Synced.
+final quranScriptProvider = NotifierProvider<_Pref<QuranScript>, QuranScript>(
+  () => _Pref('quran_script', QuranScript.indopak, (v) => QuranScript.values.where((s) => s.name == v).firstOrNull, (v) => v.name),
+);
+
+/// The Urdu translation shown (Jalandhry to begin with). Synced.
+final urduTranslationProvider = NotifierProvider<_Pref<UrduTranslation>, UrduTranslation>(
+  () => _Pref('quran_urdu', urduTranslations.first, (v) => urduTranslations.where((t) => t.id == v).firstOrNull, (v) => v.id),
+);
 
 /// Which translation the Home card shows: Urdu or English.
 enum DailyLang { urdu, english }

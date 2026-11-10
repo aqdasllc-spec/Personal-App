@@ -38,8 +38,19 @@ class Surah {
   String get revelationUrdu => revelation == 'Meccan' ? 'مکی' : 'مدنی';
 }
 
-/// The whole Quran: Arabic (Uthmani Hafs), English (Saheeh International) and Urdu (Fateh Muhammad Jalandhry),
-/// aligned ayah by ayah (6236 ayahs). Read only; the texts are shown exactly as published.
+/// How the Arabic is written: the Indo-Pak (South Asian) script most readers in Pakistan and India learnt from, or
+/// the Madinah (Uthmani) script.
+enum QuranScript {
+  indopak('Indo-Pak', 'انڈو پاک'),
+  madinah('Madinah (Uthmani)', 'مدنی');
+
+  const QuranScript(this.label, this.urdu);
+  final String label, urdu;
+}
+
+/// The whole Quran: Arabic (Indo-Pak and Uthmani Hafs), English (Saheeh International) and Urdu (Fateh Muhammad
+/// Jalandhry, or another chosen translation), aligned ayah by ayah (6236 ayahs). Read only; the texts are shown
+/// exactly as published. [arabic] and [urdu] are the ones chosen to be shown (see [view]).
 class QuranData {
   QuranData({
     required this.surahs,
@@ -50,7 +61,44 @@ class QuranData {
     required this.sajdas,
     this.pages = const [],
     this.searchArabic = const [],
-  }) : assert(arabic.length == english.length && english.length == urdu.length);
+    List<String>? uthmani,
+    this.indopak = const [],
+    this.script = QuranScript.madinah,
+    this.urduName = 'Fateh Muhammad Jalandhry',
+    this.urduRtl = true,
+  }) : uthmani = uthmani ?? arabic,
+       assert(arabic.length == english.length && english.length == urdu.length);
+
+  /// The Uthmani (Madinah) text and the Indo-Pak text of every ayah (the Indo-Pak one may be missing in tests).
+  final List<String> uthmani, indopak;
+
+  /// The script [arabic] is in.
+  final QuranScript script;
+
+  /// Who translated [urdu]; false [urduRtl] = written in English letters (Roman Urdu).
+  final String urduName;
+  final bool urduRtl;
+
+  /// The same Quran shown in [script] (Indo-Pak falls back to Uthmani if this data has no Indo-Pak text) and, if
+  /// given, with another Urdu translation.
+  QuranData view({required QuranScript script, List<String>? urdu, String? urduName, bool? urduRtl}) {
+    final s = script == QuranScript.indopak && indopak.length != uthmani.length ? QuranScript.madinah : script;
+    return QuranData(
+      surahs: surahs,
+      arabic: s == QuranScript.indopak ? indopak : uthmani,
+      english: english,
+      urdu: urdu ?? this.urdu,
+      juzStarts: juzStarts,
+      sajdas: sajdas,
+      pages: pages,
+      searchArabic: searchArabic,
+      uthmani: uthmani,
+      indopak: indopak,
+      script: s,
+      urduName: urduName ?? this.urduName,
+      urduRtl: urduRtl ?? this.urduRtl,
+    );
+  }
 
   /// For searching only: the same ayahs in everyday spelling, without vowel marks (never shown).
   final List<String> searchArabic;
@@ -151,6 +199,7 @@ class QuranData {
       sajdas: {for (final p in (j['sajda'] as List)) pair(p)},
       pages: [for (final p in (j['page'] as List? ?? const [])) p as int],
       searchArabic: [for (final t in (j['ars'] as List? ?? const [])) t as String],
+      indopak: j['ip'] == null ? const [] : texts('ip'),
     );
   }
 }
@@ -211,3 +260,29 @@ Future<Map<String, dynamic>> _loadAsset(String path) async {
 
 Future<QuranData> loadQuranAsset() async => QuranData.fromJson(await _loadAsset('assets/quran/quran.json.gz'));
 Future<HadithData> loadHadithAsset() async => HadithData.fromJson(await _loadAsset('assets/quran/hadith.json.gz'));
+
+/// An Urdu translation to choose from. Jalandhry ([urduTranslations].first) is inside the Quran data; the others are
+/// files of their own (built and checked by tool/quran/build_assets.py).
+class UrduTranslation {
+  const UrduTranslation(this.id, this.name, this.urdu, {this.rtl = true});
+  final String id, name, urdu;
+
+  /// False: written in English letters (Roman Urdu).
+  final bool rtl;
+}
+
+const urduTranslations = <UrduTranslation>[
+  UrduTranslation('jalandhry', 'Fateh Muhammad Jalandhry', 'فتح محمد جالندھری'),
+  UrduTranslation('taqiusmani', 'Mufti Muhammad Taqi Usmani', 'مفتی محمد تقی عثمانی'),
+  UrduTranslation('junagarhi', 'Muhammad Junagarhi', 'محمد جوناگڑھی'),
+  UrduTranslation('mahmoodulhassan', 'Shaykh-ul-Hind Mahmood-ul-Hassan', 'شیخ الہند محمود الحسن'),
+  UrduTranslation('maududi', "Abul A'la Maududi", 'ابوالاعلیٰ مودودی'),
+  UrduTranslation('ahmedali', 'Ahmed Ali', 'احمد علی'),
+  UrduTranslation('maududiroman', "Abul A'la Maududi (Roman Urdu)", 'مودودی (رومن اردو)', rtl: false),
+];
+
+/// The texts of one of the other Urdu translations (6236, aligned with the Quran data).
+Future<List<String>> loadUrduTranslation(String id) async {
+  final j = await _loadAsset('assets/quran/ur_$id.json.gz');
+  return [for (final t in (j['ur'] as List)) t as String];
+}

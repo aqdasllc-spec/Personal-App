@@ -383,11 +383,28 @@ class _SurahPageState extends ConsumerState<SurahPage> {
           appBar: AppBar(
             backgroundColor: QuranColors.velvet,
             foregroundColor: QuranColors.goldLight,
+            titleSpacing: 0,
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${s.number}. ${s.name}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-                Text('${s.english} · ${s.revelation} · ${s.ayahCount} ayahs', style: const TextStyle(fontSize: 11.5, color: QuranColors.creamMuted)),
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(text: '${s.number}. ${s.name}  '),
+                      TextSpan(text: s.arabic, style: quranArabic(17, color: QuranColors.goldLight).copyWith(height: 1.2)),
+                    ],
+                  ),
+                  key: const Key('surah-title'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  '${s.english} · ${s.revelation} · ${s.ayahCount} ayahs',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11.5, color: QuranColors.creamMuted),
+                ),
               ],
             ),
             actions: [
@@ -410,30 +427,48 @@ class _SurahPageState extends ConsumerState<SurahPage> {
                 icon: const Icon(Icons.chrome_reader_mode_outlined),
                 onPressed: () => context.push('${Routes.quran}/${s.number}/tilawat?ayah=${_firstVisibleAyah() ?? 1}'),
               ),
-              IconButton(
-                key: const Key('surah-download'),
-                tooltip: 'Listen without internet: download',
-                icon: const Icon(Icons.download_for_offline_outlined),
-                onPressed: () => showDownloadSheet(context, q, s),
-              ),
-              IconButton(
-                key: const Key('hifz-open'),
-                tooltip: 'Memorise (Hifz): repeat and hide',
-                icon: Icon(hifz.hideArabic ? Icons.visibility_off : Icons.school_outlined),
-                onPressed: () => _hifzSheet(q, s),
-              ),
-              PopupMenuButton<TranslationMode>(
-                key: const Key('translation-menu'),
-                tooltip: 'Translation',
-                icon: const Icon(Icons.translate),
-                initialValue: mode,
-                onSelected: ref.read(translationModeProvider.notifier).set,
+              PopupMenuButton<String>(
+                key: const Key('surah-more'),
+                tooltip: 'More',
+                onSelected: (v) {
+                  switch (v) {
+                    case 'download':
+                      showDownloadSheet(context, q, s);
+                    case 'hifz':
+                      _hifzSheet(q, s);
+                    case 'translation':
+                      _chooseTranslation(context, mode);
+                    case 'settings':
+                      showQuranSettings(context);
+                  }
+                },
                 itemBuilder: (_) => [
-                  for (final m in TranslationMode.values)
-                    CheckedPopupMenuItem(key: Key('translation-${m.name}'), value: m, checked: m == mode, child: Text(m.description)),
+                  const PopupMenuItem(
+                    key: Key('surah-download'),
+                    value: 'download',
+                    child: ListTile(leading: Icon(Icons.download_for_offline_outlined), title: Text('Listen without internet'), contentPadding: EdgeInsets.zero),
+                  ),
+                  PopupMenuItem(
+                    key: const Key('hifz-open'),
+                    value: 'hifz',
+                    child: ListTile(
+                      leading: Icon(hifz.hideArabic ? Icons.visibility_off : Icons.school_outlined),
+                      title: const Text('Memorise (Hifz)'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    key: const Key('translation-menu'),
+                    value: 'translation',
+                    child: ListTile(leading: const Icon(Icons.translate), title: Text('Translation: ${mode.label}'), contentPadding: EdgeInsets.zero),
+                  ),
+                  const PopupMenuItem(
+                    key: Key('quran-text-settings'),
+                    value: 'settings',
+                    child: ListTile(leading: Icon(Icons.tune), title: Text('Script, text size, reciter'), contentPadding: EdgeInsets.zero),
+                  ),
                 ],
               ),
-              IconButton(tooltip: 'Text size and reciter', icon: const Icon(Icons.tune), onPressed: () => showQuranSettings(context)),
             ],
           ),
           body: Column(
@@ -457,6 +492,7 @@ class _SurahPageState extends ConsumerState<SurahPage> {
                       arabic: q.arabic[idx],
                       urdu: mode.showUrdu ? q.urdu[idx] : null,
                       english: mode.showEnglish ? q.english[idx] : null,
+                      urduRtl: q.urduRtl,
                       scale: scale,
                       sajda: q.sajdas.contains((s.number, i)),
                       reciting: mine && audio.ayah == i,
@@ -490,6 +526,25 @@ class _SurahPageState extends ConsumerState<SurahPage> {
         );
       },
     );
+  }
+
+  Future<void> _chooseTranslation(BuildContext context, TranslationMode mode) async {
+    final m = await showDialog<TranslationMode>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('Under the Arabic'),
+        children: [
+          for (final x in TranslationMode.values)
+            ListTile(
+              key: Key('translation-${x.name}'),
+              leading: Icon(x == mode ? Icons.radio_button_checked : Icons.radio_button_unchecked),
+              title: Text(x.description),
+              onTap: () => Navigator.pop(dialogContext, x),
+            ),
+        ],
+      ),
+    );
+    if (m != null) ref.read(translationModeProvider.notifier).set(m);
   }
 
   Widget _endOfSurah(QuranData q, Surah s) => Padding(
@@ -567,7 +622,11 @@ class _AyahTile extends StatelessWidget {
     this.onBookmark,
     this.onShare,
     this.onTafsir,
+    this.urduRtl = true,
   });
+
+  /// False when the Urdu translation is in English letters (Roman Urdu).
+  final bool urduRtl;
 
   final bool bookmarked;
   final VoidCallback? onBookmark, onShare, onTafsir;
@@ -688,29 +747,19 @@ class _AyahTile extends StatelessWidget {
             )
           else
             Text(
-              '$arabic ${ayahEnd(ayah)}',
+              ayahWithEnd(arabic, ayah),
               key: Key('arabic-${surah.number}-$ayah'),
               textDirection: TextDirection.rtl,
-              textAlign: TextAlign.right,
+              textAlign: TextAlign.justify,
               style: quranArabic(26 * scale, color: c.text),
             ),
           if (urdu != null) ...[
             const SizedBox(height: Space.s8),
-            Text(
-              urdu!,
-              key: Key('urdu-${surah.number}-$ayah'),
-              textDirection: TextDirection.rtl,
-              textAlign: TextAlign.right,
-              style: urduText(15 * scale.clamp(.9, 1.4), color: c.text),
-            ),
+            QuranTranslation(urdu!, key: Key('urdu-${surah.number}-$ayah'), urdu: true, rtl: urduRtl, size: 15 * scale.clamp(.9, 1.4), color: c.text),
           ],
           if (english != null) ...[
             const SizedBox(height: Space.s8),
-            Text(
-              english!,
-              key: Key('english-${surah.number}-$ayah'),
-              style: t.bodyMedium?.copyWith(fontSize: 15 * scale.clamp(.9, 1.4), height: 1.5, color: c.textMuted),
-            ),
+            QuranTranslation(english!, key: Key('english-${surah.number}-$ayah'), urdu: false, rtl: false, size: 15 * scale.clamp(.9, 1.4), color: c.textMuted),
           ],
         ],
       ),
@@ -815,6 +864,46 @@ class _QuranSettings extends ConsumerWidget {
         controller: scroll,
         padding: const EdgeInsets.fromLTRB(Space.s16, 0, Space.s16, Space.s32),
         children: [
+          Text('Script of the Arabic', style: t.titleMedium),
+          const SizedBox(height: Space.s8),
+          SegmentedButton<QuranScript>(
+            key: const Key('quran-script'),
+            showSelectedIcon: false,
+            segments: [
+              for (final x in QuranScript.values)
+                ButtonSegment(value: x, label: Text(x == QuranScript.indopak ? 'Indo-Pak' : 'Madinah', key: Key('script-${x.name}'))),
+            ],
+            selected: {ref.watch(quranScriptProvider)},
+            onSelectionChanged: (v) => ref.read(quranScriptProvider.notifier).set(v.first),
+          ),
+          const SizedBox(height: Space.s4),
+          Text(
+            ref.watch(quranScriptProvider) == QuranScript.indopak
+                ? 'As in the Qurans printed in Pakistan and India (King Fahd Complex Indo-Pak text).'
+                : 'The script of the Madinah mushaf (King Fahd Complex Uthmani text).',
+            style: t.bodySmall,
+          ),
+          const SizedBox(height: Space.s24),
+          Text('Urdu translation', style: t.titleMedium),
+          const SizedBox(height: Space.s8),
+          DropdownButtonFormField<String>(
+            key: const Key('urdu-translation'),
+            initialValue: ref.watch(urduTranslationProvider).id,
+            isExpanded: true,
+            decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
+            items: [
+              for (final x in urduTranslations)
+                DropdownMenuItem(
+                  value: x.id,
+                  child: Text('${x.name}  ·  ${x.urdu}', overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamilyFallback: ['NotoNastaliqUrdu'])),
+                ),
+            ],
+            onChanged: (id) {
+              final x = urduTranslations.where((x) => x.id == id).firstOrNull;
+              if (x != null) ref.read(urduTranslationProvider.notifier).set(x);
+            },
+          ),
+          const SizedBox(height: Space.s24),
           Text('Translation under each ayah', style: t.titleMedium),
           const SizedBox(height: Space.s8),
           Wrap(
@@ -910,9 +999,10 @@ class _QuranSettings extends ConsumerWidget {
             ),
           const SizedBox(height: Space.s24),
           Text(
-            'Texts: Arabic (Uthmani, Hafs) from the King Fahd Glorious Quran Printing Complex; English: Saheeh International; '
-            'Urdu: Fateh Muhammad Jalandhry (via tanzil.net). Hadith: Sahih al-Bukhari. Audio: cdn.islamic.network. '
-            'Everything except the audio is stored on your phone and works offline.',
+            'Texts: Arabic (Indo-Pak and Uthmani, Hafs) from the King Fahd Glorious Quran Printing Complex; English: Saheeh '
+            'International; Urdu: Jalandhry, Taqi Usmani, Junagarhi, Mahmood-ul-Hassan, Maududi and Ahmed Ali (via tanzil.net and '
+            'the open quran-api). Hadith: Sahih al-Bukhari. Audio: cdn.islamic.network. Everything except the audio and tafsir is '
+            'stored on your phone and works offline.',
             style: t.bodySmall,
           ),
         ],

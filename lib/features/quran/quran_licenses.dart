@@ -12,8 +12,10 @@ void registerQuranLicenses() {
       yield LicenseEntryWithLineBreaks([pkg], await rootBundle.loadString(file));
     }
     yield const LicenseEntryWithLineBreaks(['Quran and hadith texts'], '''
-Arabic Quran text (Uthmani script, Hafs): King Fahd Glorious Quran Printing Complex, Madinah (qurancomplex.gov.sa).
-English translation: Saheeh International. Urdu translation: Fateh Muhammad Jalandhry. Both as published by tanzil.net.
+Arabic Quran text (Uthmani script and Indo-Pak "Nastaleeq" script, Hafs): King Fahd Glorious Quran Printing Complex,
+Madinah (qurancomplex.gov.sa); the Indo-Pak text as converted to Unicode by github.com/fawazahmed0/quran-api.
+English translation: Saheeh International. Urdu translations: Fateh Muhammad Jalandhry, Muhammad Taqi Usmani, Muhammad
+Junagarhi, Mahmood-ul-Hassan, Abul A'la Maududi (also in Roman Urdu), Ahmed Ali; as published by tanzil.net and others.
 Hadith: Sahih al-Bukhari in Arabic, English (Muhammad Muhsin Khan) and Urdu.
 Collected from the open datasets github.com/fawazahmed0/quran-api and github.com/fawazahmed0/hadith-api; the texts are
 used verbatim, without changes. Recitation audio is streamed from cdn.islamic.network (Islamic Network).''');

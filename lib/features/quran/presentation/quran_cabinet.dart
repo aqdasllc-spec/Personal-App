@@ -251,6 +251,7 @@ class _QuranCabinetState extends ConsumerState<QuranCabinet> with SingleTickerPr
           arabicIsQuran: true,
           translation: translation,
           urdu: urdu,
+          translationRtl: !urdu || q.urduRtl,
           reference: urdu ? '${d.surah.arabic} · ${_urduRef(d)}' : '${d.surah.name} ${d.ref}',
         );
       }
@@ -383,14 +384,20 @@ class _DailyText extends StatelessWidget {
     required this.translation,
     required this.urdu,
     required this.reference,
+    this.translationRtl = true,
   });
   final String? arabic;
   final bool arabicIsQuran, urdu;
+
+  /// False when the Urdu translation is Roman Urdu (English letters).
+  final bool translationRtl;
   final String translation, reference;
 
   @override
   Widget build(BuildContext context) {
-    final dir = urdu ? TextDirection.rtl : TextDirection.ltr;
+    // one layout: every line starts on the side its language is read from (Arabic and Urdu right, English left)
+    final roman = urdu && !translationRtl;
+    final dir = urdu && !roman ? TextDirection.rtl : TextDirection.ltr;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -399,7 +406,7 @@ class _DailyText extends StatelessWidget {
             arabic!,
             key: const Key('daily-arabic'),
             textDirection: TextDirection.rtl,
-            textAlign: TextAlign.center,
+            textAlign: TextAlign.right,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: quranArabic(17, color: QuranColors.goldLight).copyWith(height: 1.6),
@@ -407,22 +414,21 @@ class _DailyText extends StatelessWidget {
         Expanded(
           child: Align(
             alignment: Alignment.topCenter,
-            child: Text(
-              translation,
+            child: Text.rich(
+              urdu && !roman
+                  ? urduSpan(translation, urduText(12.5, color: QuranColors.cream).copyWith(height: 1.75))
+                  : TextSpan(text: translation, style: const TextStyle(color: QuranColors.cream, fontSize: 12.5, height: 1.4)),
               key: const Key('daily-translation'),
               textDirection: dir,
-              textAlign: TextAlign.center,
-              maxLines: urdu ? (arabic == null ? 4 : 3) : (arabic == null ? 5 : 3),
+              textAlign: TextAlign.justify,
+              maxLines: urdu && !roman ? (arabic == null ? 4 : 3) : (arabic == null ? 5 : 3),
               overflow: TextOverflow.ellipsis,
-              style: urdu
-                  ? urduText(12.5, color: QuranColors.cream).copyWith(height: 1.75)
-                  : const TextStyle(color: QuranColors.cream, fontSize: 12.5, height: 1.4),
             ),
           ),
         ),
         const SizedBox(height: 4),
         Directionality(
-          textDirection: dir,
+          textDirection: urdu ? TextDirection.rtl : TextDirection.ltr,
           child: Row(
             children: [
               Expanded(

@@ -16,7 +16,9 @@ import '../planner/application/planner_controller.dart';
 import '../planner/domain/agenda.dart';
 import '../planner/presentation/format.dart';
 import '../planner/presentation/planner_widgets.dart';
+import '../quran/application/quran_providers.dart' show DailyLang, dailyLangProvider;
 import '../quran/presentation/quran_cabinet.dart';
+import '../quran/presentation/quran_style.dart' show urduText;
 import '../welcome/welcome_page.dart';
 
 /// Home: what needs attention today, what is coming up, and where you stopped reading.
@@ -121,18 +123,22 @@ String greeting(DateTime now) => now.hour < 12
     ? 'Good morning'
     : (now.hour < 18 ? 'Good afternoon' : 'Good evening');
 
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   const _Header({required this.today});
   final DateTime today;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
+    // with the Quran corner set to Urdu, the greeting is the Islamic one
+    final urdu = ref.watch(dailyLangProvider) == DailyLang.urdu;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          greeting(DateTime.now()),
-          style: t.headlineSmall?.copyWith(fontFamily: 'serif'),
+          urdu ? 'السلام علیکم' : greeting(DateTime.now()),
+          key: const Key('home-greeting'),
+          textDirection: urdu ? TextDirection.rtl : null,
+          style: urdu ? urduText(24, color: t.headlineSmall?.color).copyWith(height: 1.6) : t.headlineSmall?.copyWith(fontFamily: 'serif'),
         ),
         Text(
           '${weekdayLong(today.weekday)} ${today.day} ${monthLong(today.month)}',
@@ -171,7 +177,7 @@ class _StatsCard extends ConsumerWidget {
           );
           if (v != null) ref.read(readGoalProvider.notifier).set(v);
         },
-        child: Text('Goal: $goal'),
+        child: Text('Goal: $goal pages a day'),
       ),
       children: [
         if (stats.isEmpty)

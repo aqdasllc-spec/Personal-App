@@ -92,7 +92,7 @@ void main() {
     testWidgets('no reading yet: an invitation, and the goal can still be set', (t) async {
       final (env, _) = await open(t);
       expect(find.byKey(const Key('stats-empty')), findsOneWidget);
-      expect(find.text('Goal: 10'), findsOneWidget);
+      expect(find.text('Goal: 10 pages a day'), findsOneWidget);
       await t.ensureVisible(find.byKey(const Key('reading-goal-edit')));
       await t.tap(find.byKey(const Key('reading-goal-edit')));
       await io(t, rounds: 3);
@@ -103,7 +103,7 @@ void main() {
       expect(find.text('12 pages'), findsOneWidget);
       await t.tap(find.byKey(const Key('goal-save')));
       await io(t, rounds: 3);
-      expect(find.text('Goal: 12'), findsOneWidget);
+      expect(find.text('Goal: 12 pages a day'), findsOneWidget);
       expect(await t.runAsync(() => env.store.state('read_goal')), '12');
       await endIt(t);
     });

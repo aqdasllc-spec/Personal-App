@@ -124,18 +124,15 @@ class _PrayerStripState extends ConsumerState<PrayerStrip> {
                 children: [
                   const Icon(Icons.schedule, size: 16, color: QuranColors.gold),
                   const SizedBox(width: 6),
-                  Expanded(flex: 3, child: next),
+                  // the date always shows in full; the prayer line gives way if one must
+                  Expanded(child: next),
                   const SizedBox(width: 8),
-                  Flexible(
-                    flex: 2,
-                    child: Text(
-                      hijri,
-                      key: const Key('prayer-strip-hijri'),
-                      style: muted,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: urdu ? TextAlign.left : TextAlign.right,
-                    ),
+                  Text(
+                    hijri,
+                    key: const Key('prayer-strip-hijri'),
+                    style: muted,
+                    maxLines: 1,
+                    textAlign: urdu ? TextAlign.left : TextAlign.right,
                   ),
                 ],
               ),

@@ -91,6 +91,12 @@ flutter:
     - assets/quran/quran.json.gz
     - assets/quran/hadith.json.gz
     - assets/quran/adhkar.json
+    - assets/quran/ur_taqiusmani.json.gz
+    - assets/quran/ur_junagarhi.json.gz
+    - assets/quran/ur_mahmoodulhassan.json.gz
+    - assets/quran/ur_maududi.json.gz
+    - assets/quran/ur_ahmedali.json.gz
+    - assets/quran/ur_maududiroman.json.gz
     - assets/fonts/OFL-amiriquran.txt
     - assets/fonts/OFL-notonastaliqurdu.txt
     - assets/fonts/OFL-scheherazadenew.txt

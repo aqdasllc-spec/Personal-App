@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/router.dart';
 import '../application/quran_audio.dart';
 import '../application/quran_providers.dart';
+import '../data/quran_data.dart' show urduTranslations;
 import '../domain/daily.dart';
 import 'daily_share.dart';
 import 'quran_style.dart';
@@ -37,7 +38,7 @@ class _DailySheet extends ConsumerWidget {
     if (!hadith) {
       final d = ayah = dailyAyah(q, now);
       title = urdu ? 'آج کی آیت' : 'Ayah of the day';
-      arabic = [for (var i = 0; i < d.arabic.length; i++) '${d.arabic[i]} ${ayahEnd(d.from + i)}'].join(' ');
+      arabic = [for (var i = 0; i < d.arabic.length; i++) ayahWithEnd(d.arabic[i], d.from + i)].join(' ');
       translation = (urdu ? d.urdu : d.english).join(' ');
       reference = urdu ? '${d.surah.arabic} (${urduDigits(d.surah.number)})، آیت ${urduDigits(d.from)}${d.to > d.from ? '–${urduDigits(d.to)}' : ''}' : 'Surah ${d.surah.name} (${d.surah.english}) ${d.ref}';
       copyText = '${d.arabic.join(' ')}\n\n$translation\n\n— ${urdu ? reference : 'Quran ${d.ref}'}';
@@ -105,18 +106,19 @@ class _DailySheet extends ConsumerWidget {
               arabic,
               key: const Key('sheet-arabic'),
               textDirection: TextDirection.rtl,
-              textAlign: TextAlign.center,
+              textAlign: TextAlign.justify,
               style: hadith ? arabicText(19, color: QuranColors.goldLight) : quranArabic(24, color: QuranColors.goldLight),
             ),
             const SizedBox(height: 14),
             Container(height: 1, color: QuranColors.gold.withValues(alpha: .35)),
             const SizedBox(height: 14),
-            Text(
-              translation,
+            Text.rich(
+              urdu && (hadith || q.urduRtl)
+                  ? urduSpan(translation, urduText(16, color: QuranColors.cream).copyWith(height: 2.05))
+                  : TextSpan(text: translation, style: const TextStyle(color: QuranColors.cream, fontSize: 16, height: 1.55)),
               key: const Key('sheet-translation'),
-              textDirection: dir,
-              textAlign: urdu ? TextAlign.right : TextAlign.left,
-              style: urdu ? urduText(16, color: QuranColors.cream).copyWith(height: 2.0) : const TextStyle(color: QuranColors.cream, fontSize: 16, height: 1.55),
+              textDirection: urdu && (hadith || q.urduRtl) ? TextDirection.rtl : TextDirection.ltr,
+              textAlign: TextAlign.justify,
             ),
             const SizedBox(height: 12),
             Text(
@@ -186,7 +188,9 @@ class _DailySheet extends ConsumerWidget {
             Text(
               hadith
                   ? (urdu ? 'ماخذ: صحیح بخاری (عربی، اردو ترجمہ)۔' : 'Source: Sahih al-Bukhari, English translation by Muhammad Muhsin Khan.')
-                  : (urdu ? 'ترجمہ: فتح محمد جالندھری۔ عربی متن: شاہ فہد قرآن کمپلیکس۔' : 'Translation: Saheeh International. Arabic text: King Fahd Quran Complex.'),
+                  : (urdu
+                        ? 'ترجمہ: ${urduTranslations.firstWhere((t) => t.name == q.urduName, orElse: () => urduTranslations.first).urdu}۔ عربی متن: شاہ فہد قرآن کمپلیکس۔'
+                        : 'Translation: Saheeh International. Arabic text: King Fahd Quran Complex.'),
               textDirection: dir,
               textAlign: TextAlign.center,
               style: urdu ? urduText(11, color: QuranColors.creamMuted) : const TextStyle(color: QuranColors.creamMuted, fontSize: 11),

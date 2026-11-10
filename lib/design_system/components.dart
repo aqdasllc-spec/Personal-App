@@ -93,7 +93,7 @@ class SyncChip extends StatelessWidget {
         c.warn,
       ),
       SyncPhase.attention => ('Needs attention', c.danger),
-      SyncPhase.localOnly => ('Local only', c.textMuted),
+      SyncPhase.localOnly => ('On this phone only', c.textMuted),
     };
     return Semantics(
       label: 'Sync status: $label${detail != null ? ', $detail' : ''}',

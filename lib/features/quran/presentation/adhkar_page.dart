@@ -168,7 +168,7 @@ class _DhikrCard extends StatelessWidget {
     if (d.quran != null && q != null) {
       final (s, from, to) = d.quran!;
       final idx = [for (var a = from; a <= to; a++) q.indexOf(s, a)];
-      arabic = [for (var k = 0; k < idx.length; k++) '${q.arabic[idx[k]]} ${ayahEnd(from + k)}'].join(' ');
+      arabic = [for (var k = 0; k < idx.length; k++) ayahWithEnd(q.arabic[idx[k]], from + k)].join(' ');
       urduText_ = [for (final i in idx) q.urdu[i]].join(' ');
       english = [for (final i in idx) q.english[i]].join(' ');
       final su = q.surah(s);
@@ -227,7 +227,7 @@ class _DhikrCard extends StatelessWidget {
             arabic,
             key: Key('dhikr-arabic-${d.n}'),
             textDirection: TextDirection.rtl,
-            textAlign: TextAlign.center,
+            textAlign: TextAlign.justify,
             style: d.quran != null ? quranArabic(22, color: c.text) : arabicText(21, color: c.text),
           ),
           if (translit && d.translit.isNotEmpty) ...[
@@ -239,12 +239,7 @@ class _DhikrCard extends StatelessWidget {
           ],
           const SizedBox(height: Space.s8),
           if (urdu && urduText_ != null)
-            Text(
-              urduText_,
-              textDirection: TextDirection.rtl,
-              textAlign: TextAlign.right,
-              style: urduText(15, color: c.text).copyWith(height: 2),
-            )
+            QuranTranslation(urduText_, urdu: true, rtl: q?.urduRtl ?? true, color: c.text)
           else
             Text(english, key: Key('dhikr-english-${d.n}'), style: t.bodyMedium?.copyWith(height: 1.5)),
           if (d.virtue.isNotEmpty || d.source.isNotEmpty)

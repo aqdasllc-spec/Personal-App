@@ -45,7 +45,7 @@ class SettingsPage extends ConsumerWidget {
           ListTile(
             title: Text(switch (session) {
               SignedInSession s => s.email,
-              LocalOnlySession _ => 'Local only (no account)',
+              LocalOnlySession _ => 'On this phone only (no account)',
               SignedOutSession _ => 'Signed out',
             }),
             // the button sits under the text so it never squeezes it (large text sizes)
