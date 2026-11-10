@@ -11,6 +11,7 @@ import '../features/planner/presentation/planner_page.dart';
 import 'shell/adaptive_shell.dart';
 import '../features/library/presentation/library_page.dart';
 import '../features/library/presentation/reader_page.dart';
+import '../features/quran/presentation/quran_extras.dart';
 import '../features/quran/presentation/quran_page.dart';
 import '../features/quran/prayer/prayer_page.dart';
 import '../features/library/presentation/search_all_page.dart';
@@ -76,6 +77,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                     parentNavigatorKey: _rootKey,
                     builder: (_, _) => const QuranHomePage(),
                     routes: [
+                      GoRoute(
+                        path: 'find',
+                        parentNavigatorKey: _rootKey,
+                        builder: (_, _) => const QuranSearchPage(),
+                      ),
                       GoRoute(
                         path: ':surah',
                         parentNavigatorKey: _rootKey,

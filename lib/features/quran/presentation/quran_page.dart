@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -14,6 +13,7 @@ import '../application/quran_providers.dart';
 import '../data/quran_data.dart';
 import '../domain/khatm.dart';
 import 'cabinet_painters.dart';
+import 'quran_extras.dart';
 import 'quran_style.dart';
 
 /// Spellings of surah names vary ("Yaseen", "Yasin", "Ya-Sin"; "Al-Faatiha", "Fatiha"): letters only, doubled vowels
@@ -51,7 +51,7 @@ class _QuranHomePageState extends ConsumerState<QuranHomePage> {
     final data = ref.watch(quranDataProvider);
     final c = context.colors;
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         backgroundColor: c.bg,
         appBar: AppBar(
@@ -78,6 +78,12 @@ class _QuranHomePageState extends ConsumerState<QuranHomePage> {
           ),
           actions: [
             IconButton(
+              key: const Key('quran-find'),
+              tooltip: 'Search the Quran',
+              icon: const Icon(Icons.search),
+              onPressed: () => context.push('${Routes.quran}/find'),
+            ),
+            IconButton(
               key: const Key('quran-settings'),
               tooltip: 'Translation, text size and reciter',
               icon: const Icon(Icons.tune),
@@ -88,7 +94,11 @@ class _QuranHomePageState extends ConsumerState<QuranHomePage> {
             indicatorColor: QuranColors.gold,
             labelColor: QuranColors.goldLight,
             unselectedLabelColor: QuranColors.creamMuted,
-            tabs: [Tab(key: Key('quran-tab-surahs'), text: 'Surahs'), Tab(key: Key('quran-tab-juz'), text: 'Juz (Para)')],
+            tabs: [
+              Tab(key: Key('quran-tab-surahs'), text: 'Surahs'),
+              Tab(key: Key('quran-tab-juz'), text: 'Juz (Para)'),
+              Tab(key: Key('quran-tab-bookmarks'), text: 'Bookmarks'),
+            ],
           ),
         ),
         body: data.when(
@@ -147,6 +157,7 @@ class _QuranHomePageState extends ConsumerState<QuranHomePage> {
                     );
                   },
                 ),
+                QuranBookmarksList(quran: q),
               ],
             );
           },
@@ -342,6 +353,7 @@ class _SurahPageState extends ConsumerState<SurahPage> {
     final scale = ref.watch(quranTextScaleProvider);
     final audio = ref.watch(quranAudioProvider);
     final hifz = ref.watch(hifzProvider);
+    final bookmarks = ref.watch(quranBookmarksProvider);
     ref.listen(quranAudioProvider, (_, a) => _follow(a));
     final c = context.colors;
     return data.when(
@@ -423,6 +435,9 @@ class _SurahPageState extends ConsumerState<SurahPage> {
                       hidden: hifz.hideArabic && !_revealed.contains(i),
                       onReveal: () => setState(() => _revealed.add(i)),
                       onPlay: () => ref.read(quranAudioProvider.notifier).playFrom(q, s.number, i),
+                      bookmarked: bookmarks.any((b) => b.surah == s.number && b.ayah == i),
+                      onBookmark: () => showBookmarkSheet(context, ref, s, i),
+                      onShare: () => showShareAyahSheet(context, ref, q, s.number, i),
                       onMark: () {
                         ref.read(quranLastReadProvider.notifier).set((s.number, i));
                         final m = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
@@ -519,7 +534,13 @@ class _AyahTile extends StatelessWidget {
     required this.onMark,
     this.hidden = false,
     this.onReveal,
+    this.bookmarked = false,
+    this.onBookmark,
+    this.onShare,
   });
+
+  final bool bookmarked;
+  final VoidCallback? onBookmark, onShare;
   final Surah surah;
   final int ayah;
   final String arabic;
@@ -579,19 +600,24 @@ class _AyahTile extends StatelessWidget {
               ),
               IconButton(
                 key: Key('mark-${surah.number}-$ayah'),
-                tooltip: 'Remember this place',
+                tooltip: 'Make this my reading place',
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.bookmark_add_outlined),
+                icon: const Icon(Icons.push_pin_outlined, size: 20),
                 onPressed: onMark,
               ),
               IconButton(
-                tooltip: 'Copy',
+                key: Key('bm-${surah.number}-$ayah'),
+                tooltip: bookmarked ? 'Bookmarked: edit the note' : 'Bookmark with a note',
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.copy, size: 18),
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: [arabic, ?urdu, ?english, 'Quran ${surah.number}:$ayah'].join('\n\n')));
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied')));
-                },
+                icon: Icon(bookmarked ? Icons.bookmark : Icons.bookmark_border, color: bookmarked ? QuranColors.goldDeep : null),
+                onPressed: onBookmark,
+              ),
+              IconButton(
+                key: Key('share-${surah.number}-$ayah'),
+                tooltip: 'Share as a picture, or copy',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.share_outlined, size: 20),
+                onPressed: onShare,
               ),
             ],
           ),

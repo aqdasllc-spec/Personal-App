@@ -49,7 +49,11 @@ class QuranData {
     required this.juzStarts,
     required this.sajdas,
     this.pages = const [],
+    this.searchArabic = const [],
   }) : assert(arabic.length == english.length && english.length == urdu.length);
+
+  /// For searching only: the same ayahs in everyday spelling, without vowel marks (never shown).
+  final List<String> searchArabic;
 
   /// The Madinah mushaf page (1-604) of each ayah, by position.
   final List<int> pages;
@@ -146,6 +150,7 @@ class QuranData {
       juzStarts: [for (final p in (j['juz'] as List)) pair(p)],
       sajdas: {for (final p in (j['sajda'] as List)) pair(p)},
       pages: [for (final p in (j['page'] as List? ?? const [])) p as int],
+      searchArabic: [for (final t in (j['ars'] as List? ?? const [])) t as String],
     );
   }
 }

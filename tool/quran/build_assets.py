@@ -7,7 +7,8 @@ Sources (via the fawazahmed0/quran-api and fawazahmed0/hadith-api repositories o
   Arabic   ara-quranuthmanihaf   Uthmani Hafs text, King Fahd Glorious Quran Printing Complex (qurancomplex.gov.sa)
   English  eng-ummmuhammad       Saheeh International (Umm Muhammad), via tanzil.net
   Urdu     urd-fatehmuhammadja   Fateh Muhammad Jalandhry, via tanzil.net
-  Info     info.json             surah names, juz and sajda positions
+  Search   ara-quransimple       Tanzil "simple" text (everyday spelling), vowel marks removed: for searching only
+  Info     info.json             surah names, juz, sajda and page positions
   Hadith   ara/eng/urd-bukhari   Sahih al-Bukhari in Arabic, English (Muhsin Khan) and Urdu
 
 Checks: 114 surahs, 6236 ayahs in each language, the three languages aligned ayah by ayah, Al-Fatiha 1:1 and
@@ -26,6 +27,7 @@ FILES = {
     'q-ara-quranuthmanihaf.json': f'{Q}/editions/ara-quranuthmanihaf.json',
     'q-eng-ummmuhammad.json': f'{Q}/editions/eng-ummmuhammad.json',
     'q-urd-fatehmuhammadja.json': f'{Q}/editions/urd-fatehmuhammadja.json',
+    'q-ara-quransimple.json': f'{Q}/editions/ara-quransimple.json',
     'q-info.json': f'{Q}/info.json',
     'h-ara-bukhari.json': f'{H}/editions/ara-bukhari.json',
     'h-eng-bukhari.json': f'{H}/editions/eng-bukhari.json',
@@ -104,6 +106,12 @@ def build_quran(src):
     assert ar[k]['text'] and ar[k]['chapter'] == 2 and ar[k]['verse'] == 255
     surahs = [[c['chapter'], c['name'], c['englishname'], c['arabicname'],
                'Meccan' if c['revelation'].lower().startswith('mec') else 'Medinan', len(c['verses'])] for c in chapters]
+    # search only: the same ayahs in everyday ("imlaei") spelling, vowel marks removed (never shown)
+    simple = load(src, 'q-ara-quransimple.json')['quran']
+    assert len(simple) == 6236 and all(x['chapter'] == y['chapter'] and x['verse'] == y['verse'] for x, y in zip(simple, ar))
+    marks = re.compile('[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]')
+    search = [re.sub(r'\s+', ' ', marks.sub('', v['text'])).strip() for v in simple]
+    assert all(search)
     pages = [v['page'] for c in chapters for v in c['verses']]  # Madinah mushaf page of each ayah
     assert len(pages) == 6236 and pages[0] == 1 and pages[-1] == 604 and len(set(pages)) == 604
     assert all(b >= a for a, b in zip(pages, pages[1:]))
@@ -116,7 +124,7 @@ def build_quran(src):
             'english': 'Saheeh International',
             'urdu': 'Fateh Muhammad Jalandhry (tanzil.net)',
         },
-        'surahs': surahs, 'juz': juz, 'sajda': sajda, 'page': pages,
+        'surahs': surahs, 'juz': juz, 'sajda': sajda, 'page': pages, 'ars': search,
         'ar': [v['text'].strip() for v in ar],
         'en': [v['text'].strip() for v in en],
         'ur': [v['text'].strip() for v in ur],

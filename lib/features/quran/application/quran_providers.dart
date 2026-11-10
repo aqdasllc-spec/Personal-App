@@ -1,10 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart' show compute;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
 import '../data/quran_data.dart';
 import '../domain/khatm.dart';
+import '../domain/quran_search.dart';
 
 /// The bundled Quran (Arabic + English + Urdu). Loaded once, on first use.
 final quranLoaderProvider = Provider<Future<QuranData> Function()>((_) => loadQuranAsset);
@@ -228,3 +232,61 @@ class HifzController extends Notifier<HifzSettings> {
 }
 
 final hifzProvider = NotifierProvider<HifzController, HifzSettings>(HifzController.new);
+
+/// A saved ayah with an optional note.
+class QuranBookmark {
+  const QuranBookmark(this.surah, this.ayah, {this.note = '', required this.at});
+  final int surah, ayah;
+  final String note;
+  final DateTime at;
+
+  Map<String, Object> toJson() => {'s': surah, 'a': ayah, 'n': note, 't': at.millisecondsSinceEpoch};
+  static QuranBookmark? fromJson(Object? j) {
+    if (j is! Map) return null;
+    final s = j['s'], a = j['a'];
+    if (s is! int || a is! int) return null;
+    return QuranBookmark(s, a, note: (j['n'] as String?) ?? '', at: DateTime.fromMillisecondsSinceEpoch((j['t'] as int?) ?? 0));
+  }
+}
+
+/// Bookmarked ayahs with notes, newest first. Remembered on this device.
+class QuranBookmarks extends Notifier<List<QuranBookmark>> {
+  static const key = 'quran_bookmarks';
+  @override
+  List<QuranBookmark> build() {
+    Future.microtask(() async {
+      try {
+        final raw = await ref.read(syncedStoreProvider).state(key);
+        if (raw == null || raw.isEmpty) return;
+        state = [for (final j in (jsonDecode(raw) as List)) ?QuranBookmark.fromJson(j)];
+      } catch (_) {}
+    });
+    return const [];
+  }
+
+  QuranBookmark? of(int surah, int ayah) => state.where((b) => b.surah == surah && b.ayah == ayah).firstOrNull;
+
+  void save(int surah, int ayah, String note) {
+    final rest = state.where((b) => !(b.surah == surah && b.ayah == ayah));
+    _set([QuranBookmark(surah, ayah, note: note.trim(), at: DateTime.now()), ...rest]);
+  }
+
+  void remove(int surah, int ayah) => _set(state.where((b) => !(b.surah == surah && b.ayah == ayah)).toList());
+
+  void _set(List<QuranBookmark> v) {
+    state = v;
+    try {
+      ref.read(syncedStoreProvider).setState(key, jsonEncode([for (final b in v) b.toJson()]));
+    } catch (_) {}
+  }
+}
+
+final quranBookmarksProvider = NotifierProvider<QuranBookmarks, List<QuranBookmark>>(QuranBookmarks.new);
+
+QuranSearchIndex _buildIndex(QuranData q) => QuranSearchIndex.of(q);
+
+/// Built once, off the main thread, the first time you search.
+final quranSearchIndexProvider = FutureProvider<QuranSearchIndex>((ref) async {
+  final q = await ref.watch(quranDataProvider.future);
+  return compute(_buildIndex, q);
+});
