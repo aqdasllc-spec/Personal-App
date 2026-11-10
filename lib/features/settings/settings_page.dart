@@ -80,7 +80,8 @@ class SettingsPage extends ConsumerWidget {
         _Section('Sync', [
           ListTile(
             title: const Text('Status'),
-            trailing: SyncChip(phase: sync.phase, pending: sync.pending),
+            // below the title, so a long status (or very large text) never squeezes the row
+            subtitle: Align(alignment: AlignmentDirectional.centerStart, child: SyncChip(phase: sync.phase, pending: sync.pending)),
           ),
           ListTile(
             title: const Text('Last successful sync'),
