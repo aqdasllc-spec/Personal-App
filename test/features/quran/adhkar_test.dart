@@ -58,7 +58,7 @@ void main() {
     await t.tap(find.byKey(const Key('adhkar-morning')));
     await wait(t, 3);
     final q = await t.runAsync(loadQuranAsset);
-    expect(t.widget<Text>(find.byKey(const Key('dhikr-arabic-2'))).data, startsWith(q!.arabic[q.indexOf(2, 255)]));
+    expect(t.widget<Text>(find.byKey(const Key('dhikr-arabic-2'))).data, startsWith(q!.indopak[q.indexOf(2, 255)]));
     expect(find.byKey(const Key('dhikr-3')), findsNothing, reason: 'evening only');
     final list = find.descendant(of: find.byKey(const Key('adhkar-list')), matching: find.byType(Scrollable)).first;
     await t.scrollUntilVisible(find.byKey(const Key('dhikr-count-4')), 300, scrollable: list);

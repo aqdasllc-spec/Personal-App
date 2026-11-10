@@ -86,6 +86,8 @@ void main() {
     await wait(10);
     await t.tap(find.byKey(const Key('surah-1')));
     await wait(8);
+    await t.tap(find.byKey(const Key('surah-more')));
+    await wait(3);
     await t.tap(find.byKey(const Key('hifz-open')));
     await wait(6);
     await t.tap(find.byKey(const Key('hifz-each-5')));

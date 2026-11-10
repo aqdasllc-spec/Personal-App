@@ -40,6 +40,7 @@ import 'package:folio/features/auth/auth_repository.dart';
 import 'package:folio/features/security/app_lock.dart';
 import 'package:folio/features/quran/application/quran_audio.dart';
 import 'package:folio/features/quran/prayer/battery.dart';
+import 'package:folio/features/quran/presentation/quran_style.dart' show QuranTranslation;
 import 'package:folio/features/library/application/open_with.dart';
 import 'package:folio/features/library/data/pdf_outline.dart';
 import 'package:folio/features/library/application/search_all.dart' show BookTextCache, bookTextCacheProvider;
@@ -647,4 +648,12 @@ class MemoryTextCache implements BookTextCache {
   Future<Map<int, String>> load(String bookId) async => {...?kept[bookId]};
   @override
   Future<void> save(String bookId, Map<int, String> pages) async => kept[bookId] = {...pages};
+}
+
+/// The text shown by a [Text] (plain or rich) or a [QuranTranslation] found by [f].
+String textOf(WidgetTester t, Finder f) {
+  final w = t.widget(f);
+  if (w is Text) return w.data ?? w.textSpan!.toPlainText();
+  if (w is QuranTranslation) return w.text;
+  throw ArgumentError('No text in ${w.runtimeType}');
 }

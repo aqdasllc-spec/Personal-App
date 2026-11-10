@@ -193,23 +193,23 @@ void main() {
       expect(cab.height, lessThan(340), reason: 'a band, not the whole page (Home is ${t.view.physicalSize.height} high)');
       expect(find.byKey(const Key('daily-arabic')), findsOneWidget, reason: 'the ayah is shown first');
       // Urdu by default: the translation is in Urdu script
-      expect(RegExp(r'[؀-ۿ]').hasMatch(t.widget<Text>(find.byKey(const Key('daily-translation'))).data!), isTrue);
+      expect(RegExp(r'[؀-ۿ]').hasMatch(textOf(t, find.byKey(const Key('daily-translation')))), isTrue);
 
       await t.tap(find.byKey(const Key('daily-lang-english')));
       await wait(t, 3);
-      expect(t.widget<Text>(find.byKey(const Key('daily-translation'))).data, matches(RegExp(r'^[\x00-\x7F\[\]]')));
+      expect(textOf(t, find.byKey(const Key('daily-translation'))), matches(RegExp(r'^[\x00-\x7F\[\]]')));
       expect(await t.runAsync(() => env.store.state('quran_daily_lang')), 'en');
 
       await t.tap(find.byKey(const Key('daily-tab-hadith')));
       await wait(t, 3);
       expect(find.byKey(const Key('daily-arabic')), findsNothing);
       expect(t.widget<Text>(find.byKey(const Key('daily-reference'))).data, startsWith('Sahih al-Bukhari '));
-      expect(t.widget<Text>(find.byKey(const Key('daily-translation'))).data, startsWith('Narrated '));
+      expect(textOf(t, find.byKey(const Key('daily-translation'))), startsWith('Narrated '));
 
       await t.tap(find.byKey(const Key('daily-lang-urdu')));
       await wait(t, 3);
       expect(t.widget<Text>(find.byKey(const Key('daily-reference'))).data, startsWith('صحیح بخاری'));
-      expect(t.widget<Text>(find.byKey(const Key('daily-translation'))).data, startsWith('…'), reason: 'from the Prophet\'s words, not the chain');
+      expect(textOf(t, find.byKey(const Key('daily-translation'))), startsWith('…'), reason: 'from the Prophet\'s words, not the chain');
       await endIt(t);
     });
 
@@ -235,15 +235,17 @@ void main() {
       await wait(t, 8);
       final q = await t.runAsync(loadQuranAsset);
       expect(find.byKey(const Key('bismillah')), findsNothing, reason: 'Al-Fatiha starts with it as its first ayah');
-      expect(t.widget<Text>(find.byKey(const Key('arabic-1-1'))).data, startsWith(q!.arabic[0]));
-      expect(t.widget<Text>(find.byKey(const Key('urdu-1-1'))).data, q.urdu[0], reason: 'Urdu by default');
+      expect(textOf(t, find.byKey(const Key('arabic-1-1'))), startsWith(q!.indopak[0]), reason: 'the Indo-Pak script by default');
+      expect(textOf(t, find.byKey(const Key('urdu-1-1'))), q.urdu[0], reason: 'Urdu by default');
       expect(find.byKey(const Key('english-1-1')), findsNothing);
 
+      await t.tap(find.byKey(const Key('surah-more')));
+      await wait(t, 3);
       await t.tap(find.byKey(const Key('translation-menu')));
       await wait(t, 5);
       await t.tap(find.byKey(const Key('translation-both')));
       await wait(t, 3);
-      expect(t.widget<Text>(find.byKey(const Key('english-1-1'))).data, q.english[0]);
+      expect(textOf(t, find.byKey(const Key('english-1-1'))), q.english[0]);
       expect(await t.runAsync(() => env.store.state('quran_translation')), 'both');
 
       // remember this place (scroll down to ayah 3 first)
@@ -278,7 +280,7 @@ void main() {
       await t.tap(find.byKey(const Key('surah-2')));
       await wait(t, 8);
       final q = await t.runAsync(loadQuranAsset);
-      expect(t.widget<Text>(find.byKey(const Key('bismillah'))).data, q!.bismillah);
+      expect(t.widget<Text>(find.byKey(const Key('bismillah'))).data, q!.indopak[0]);
       await t.tap(find.byKey(const Key('mark-2-2')));
       await wait(t, 3);
       await t.pageBack();
@@ -300,14 +302,14 @@ void main() {
       final sheet = find.descendant(of: find.byKey(const Key('daily-sheet')), matching: find.byType(Scrollable)).first;
       await t.scrollUntilVisible(find.byKey(const Key('sheet-translation')), 150, scrollable: sheet);
       await wait(t, 2);
-      expect(t.widget<Text>(find.byKey(const Key('sheet-translation'))).data, d.urdu.join(' '));
+      expect(textOf(t, find.byKey(const Key('sheet-translation'))), d.urdu.join(' '));
       await t.scrollUntilVisible(find.byKey(const Key('sheet-lang')), -150, scrollable: sheet);
       await wait(t, 2);
       await t.tap(find.descendant(of: find.byKey(const Key('sheet-lang')), matching: find.text('English')));
       await wait(t, 3);
       await t.scrollUntilVisible(find.byKey(const Key('sheet-translation')), 150, scrollable: sheet);
       await wait(t, 2);
-      expect(t.widget<Text>(find.byKey(const Key('sheet-translation'))).data, d.english.join(' '));
+      expect(textOf(t, find.byKey(const Key('sheet-translation'))), d.english.join(' '));
 
       await t.scrollUntilVisible(find.byKey(const Key('sheet-listen')), 150, scrollable: sheet);
       await wait(t, 2);
