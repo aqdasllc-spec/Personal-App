@@ -33,6 +33,16 @@ class LibraryPage extends ConsumerStatefulWidget {
 class _LibraryPageState extends ConsumerState<LibraryPage> {
   final _search = TextEditingController();
   bool _importing = false;
+  bool _headerShown = true;
+
+  /// Scrolling down the books hides the header; scrolling up (or reaching the top) brings it back.
+  bool _onScroll(ScrollUpdateNotification n) {
+    if (n.metrics.axis != Axis.vertical || n.dragDetails == null) return false; // only the reader's own scrolling
+    final d = n.scrollDelta ?? 0;
+    if (d > 2 && n.metrics.pixels > 48 && _headerShown) setState(() => _headerShown = false);
+    if ((d < -2 || n.metrics.pixels <= n.metrics.minScrollExtent + 8) && !_headerShown) setState(() => _headerShown = true);
+    return false;
+  }
 
   void _say(String m) => ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
@@ -52,21 +62,30 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     final found = await scanPdfFolder(dir);
     if (!mounted) return;
     if (found == null) {
-      _say('Could not read that folder. Try "Add PDFs" and select the files instead.');
+      _say(
+        'Could not read that folder. Try "Add PDFs" and select the files instead.',
+      );
       return;
     }
     if (found.isEmpty) {
       _say('No PDF files in that folder.');
       return;
     }
-    final name = dir.split(RegExp(r'[\\/]')).where((p) => p.isNotEmpty).lastOrNull ?? dir;
+    final name =
+        dir.split(RegExp(r'[\\/]')).where((p) => p.isNotEmpty).lastOrNull ??
+        dir;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Add this folder?'),
-        content: Text('Found ${found.length} PDF ${found.length == 1 ? 'file' : 'files'} in "$name" and its sub-folders. Copies are added to your library; your files are not changed.'),
+        content: Text(
+          'Found ${found.length} PDF ${found.length == 1 ? 'file' : 'files'} in "$name" and its sub-folders. Copies are added to your library; your files are not changed.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             key: const Key('folder-add-confirm'),
             onPressed: () => Navigator.pop(ctx, true),
@@ -234,128 +253,151 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Space.s16,
-                Space.s16,
-                Space.s16,
-                Space.s8,
-              ),
-              child: Wrap(
-                spacing: Space.s12,
-                runSpacing: Space.s8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(
-                    'Library',
-                    style: Theme.of(context).textTheme.headlineSmall
-                        ?.copyWith(fontFamily: 'serif'),
+            // The title, search and buttons slide away while you scroll down through the books and come back as
+            // soon as you scroll up (never while searching, selecting or rearranging).
+            ClipRect(
+              child: AnimatedAlign(
+                key: const Key('library-header'),
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                alignment: Alignment.topCenter,
+                heightFactor:
+                    _headerShown ||
+                        ui.query.isNotEmpty ||
+                        editing ||
+                        selection != null
+                    ? 1
+                    : 0,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    Space.s16,
+                    Space.s16,
+                    Space.s16,
+                    Space.s8,
                   ),
-                  SizedBox(
-                    width: compact ? double.infinity : 280,
-                    child: TextField(
-                      key: const Key('library-search'),
-                      controller: _search,
-                      onChanged: ref.read(libraryUiProvider.notifier).setQuery,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        hintText: 'Search title or author',
-                        prefixIcon: const Icon(Icons.search, size: 20),
-                        suffixIcon: ui.query.isEmpty
-                            ? null
-                            : IconButton(
-                                tooltip: 'Clear search',
-                                icon: const Icon(Icons.close, size: 18),
-                                onPressed: () {
-                                  _search.clear();
-                                  ref
-                                      .read(libraryUiProvider.notifier)
-                                      .setQuery('');
-                                },
-                              ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(Radii.input),
+                  child: Wrap(
+                    spacing: Space.s12,
+                    runSpacing: Space.s8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        'Library',
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontFamily: 'serif'),
+                      ),
+                      SizedBox(
+                        width: compact ? double.infinity : 280,
+                        child: TextField(
+                          key: const Key('library-search'),
+                          controller: _search,
+                          onChanged: ref
+                              .read(libraryUiProvider.notifier)
+                              .setQuery,
+                          decoration: InputDecoration(
+                            isDense: true,
+                            hintText: 'Search title or author',
+                            prefixIcon: const Icon(Icons.search, size: 20),
+                            suffixIcon: ui.query.isEmpty
+                                ? null
+                                : IconButton(
+                                    tooltip: 'Clear search',
+                                    icon: const Icon(Icons.close, size: 18),
+                                    onPressed: () {
+                                      _search.clear();
+                                      ref
+                                          .read(libraryUiProvider.notifier)
+                                          .setQuery('');
+                                    },
+                                  ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(Radii.input),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  SegmentedButton<LibraryView>(
-                    key: const Key('library-views'),
-                    showSelectedIcon: false,
-                    segments: const [
-                      ButtonSegment(
-                        value: LibraryView.shelf,
-                        icon: Icon(Icons.shelves),
-                        tooltip: 'Shelf',
+                      SegmentedButton<LibraryView>(
+                        key: const Key('library-views'),
+                        showSelectedIcon: false,
+                        segments: const [
+                          ButtonSegment(
+                            value: LibraryView.shelf,
+                            icon: Icon(Icons.shelves),
+                            tooltip: 'Shelf',
+                          ),
+                          ButtonSegment(
+                            value: LibraryView.grid,
+                            icon: Icon(Icons.grid_view),
+                            tooltip: 'Grid',
+                          ),
+                          ButtonSegment(
+                            value: LibraryView.list,
+                            icon: Icon(Icons.view_list),
+                            tooltip: 'List',
+                          ),
+                        ],
+                        selected: {ui.view},
+                        onSelectionChanged: (s) => ref
+                            .read(libraryUiProvider.notifier)
+                            .setView(s.first),
                       ),
-                      ButtonSegment(
-                        value: LibraryView.grid,
-                        icon: Icon(Icons.grid_view),
-                        tooltip: 'Grid',
+                      IconButton.outlined(
+                        key: const Key('library-select'),
+                        tooltip: 'Select several books',
+                        icon: const Icon(Icons.checklist),
+                        onPressed: () {
+                          if (selection == null) {
+                            ref.read(shelfEditProvider.notifier).set(false);
+                            selCtl.start();
+                          } else {
+                            selCtl.clear();
+                          }
+                        },
                       ),
-                      ButtonSegment(
-                        value: LibraryView.list,
-                        icon: Icon(Icons.view_list),
-                        tooltip: 'List',
+                      IconButton.outlined(
+                        key: const Key('library-filter'),
+                        tooltip: 'Sort and filter',
+                        icon: Badge(
+                          isLabelVisible: ui.activeFilters > 0,
+                          label: Text('${ui.activeFilters}'),
+                          child: const Icon(Icons.tune),
+                        ),
+                        onPressed: () => showModalBottomSheet<void>(
+                          context: context,
+                          showDragHandle: true,
+                          isScrollControlled: true,
+                          builder: (_) => const _FilterSheet(),
+                        ),
+                      ),
+                      IconButton.outlined(
+                        key: const Key('library-search-all'),
+                        tooltip: 'Search inside all books, and all highlights',
+                        icon: const Icon(Icons.manage_search),
+                        onPressed: () =>
+                            context.push('${Routes.library}/search'),
+                      ),
+                      IconButton.outlined(
+                        key: const Key('library-add-folder'),
+                        tooltip: 'Add a whole folder of PDFs',
+                        icon: const Icon(Icons.create_new_folder_outlined),
+                        onPressed: _importing ? null : _importFolder,
+                      ),
+                      FilledButton.icon(
+                        key: const Key('library-add'),
+                        onPressed: _importing ? null : _import,
+                        icon: _importing
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.add),
+                        label: Text(_importing ? 'Adding…' : 'Add PDFs'),
                       ),
                     ],
-                    selected: {ui.view},
-                    onSelectionChanged: (s) =>
-                        ref.read(libraryUiProvider.notifier).setView(s.first),
                   ),
-                  IconButton.outlined(
-                    key: const Key('library-select'),
-                    tooltip: 'Select several books',
-                    icon: const Icon(Icons.checklist),
-                    onPressed: () {
-                      if (selection == null) {
-                        ref.read(shelfEditProvider.notifier).set(false);
-                        selCtl.start();
-                      } else {
-                        selCtl.clear();
-                      }
-                    },
-                  ),
-                  IconButton.outlined(
-                    key: const Key('library-filter'),
-                    tooltip: 'Sort and filter',
-                    icon: Badge(
-                      isLabelVisible: ui.activeFilters > 0,
-                      label: Text('${ui.activeFilters}'),
-                      child: const Icon(Icons.tune),
-                    ),
-                    onPressed: () => showModalBottomSheet<void>(
-                      context: context,
-                      showDragHandle: true,
-                      isScrollControlled: true,
-                      builder: (_) => const _FilterSheet(),
-                    ),
-                  ),
-                  IconButton.outlined(
-                    key: const Key('library-search-all'),
-                    tooltip: 'Search inside all books, and all highlights',
-                    icon: const Icon(Icons.manage_search),
-                    onPressed: () => context.push('${Routes.library}/search'),
-                  ),
-                  IconButton.outlined(
-                    key: const Key('library-add-folder'),
-                    tooltip: 'Add a whole folder of PDFs',
-                    icon: const Icon(Icons.create_new_folder_outlined),
-                    onPressed: _importing ? null : _importFolder,
-                  ),
-                  FilledButton.icon(
-                    key: const Key('library-add'),
-                    onPressed: _importing ? null : _import,
-                    icon: _importing
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.add),
-                    label: Text(_importing ? 'Adding…' : 'Add PDFs'),
-                  ),
-                ],
+                ),
               ),
             ),
             Builder(
@@ -576,130 +618,145 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
               ),
             const _CloudBanner(),
             Expanded(
-              child: EditScope(
-                editing: editing,
-                canReorder: canReorder,
-                onDrop: _dropOnBook,
-                onNudge: _nudgeBook,
-                selectedId: moveId,
-                onSelect: ref.read(moveSelectionProvider.notifier).toggle,
-                onDragMove: _edgeScroll,
-                onDragEnd: _edgeScrollEnd,
-                child: PrimaryScrollController(
-                  controller: _scroll,
-                  child: KeyedSubtree(
-                    key: _areaKey,
-                    child: SelectDragScope(
-                      onStart: _dragSelectStart,
-                      onMove: _dragSelectMove,
-                      child: books.when(
-                        loading: () =>
-                            const Center(child: CircularProgressIndicator()),
-                        error: (e, _) => EmptyState(
-                          icon: Icons.error_outline,
-                          title: 'Couldn\'t load your library',
-                          message: '$e',
+              child: NotificationListener<ScrollUpdateNotification>(
+                onNotification: _onScroll,
+                child: EditScope(
+                  editing: editing,
+                  canReorder: canReorder,
+                  onDrop: _dropOnBook,
+                  onNudge: _nudgeBook,
+                  selectedId: moveId,
+                  onSelect: ref.read(moveSelectionProvider.notifier).toggle,
+                  onDragMove: _edgeScroll,
+                  onDragEnd: _edgeScrollEnd,
+                  child: PrimaryScrollController(
+                    controller: _scroll,
+                    child: KeyedSubtree(
+                      key: _areaKey,
+                      child: SelectDragScope(
+                        onStart: _dragSelectStart,
+                        onMove: _dragSelectMove,
+                        child: books.when(
+                          loading: () =>
+                              const Center(child: CircularProgressIndicator()),
+                          error: (e, _) => EmptyState(
+                            icon: Icons.error_outline,
+                            title: 'Couldn\'t load your library',
+                            message: '$e',
+                          ),
+                          data: (all) {
+                            if (all.isEmpty) {
+                              return PrimaryScrollController.none(
+                                child: EmptyState(
+                                  icon: Icons.auto_stories_outlined,
+                                  title: 'Your library is empty',
+                                  message: 'Add PDFs from your device. Folio keeps its own copy; your original files are never changed.',
+                                  actionLabel: 'Add PDFs',
+                                  onAction: _import,
+                                ),
+                              );
+                            }
+                            final list = visible.value ?? const <BookRow>[];
+                            final emptyCabinet =
+                                ui.view == LibraryView.shelf &&
+                                shelfStyle == ShelfStyle.cabinets &&
+                                (ui.filter is ShelfFilter ||
+                                    ui.filter is NoShelf) &&
+                                ui.query.trim().isEmpty &&
+                                ui.activeFilters == 0;
+                            if (list.isEmpty && !emptyCabinet) {
+                              return PrimaryScrollController.none(
+                                child: EmptyState(
+                                  icon: Icons.search_off,
+                                  title: 'Nothing here',
+                                  message: ui.query.isNotEmpty
+                                      ? 'No book matches "${ui.query}".'
+                                      : (ui.activeFilters > 0
+                                            ? 'No book matches these filters. Remove one above to see more.'
+                                            : (ui.filter is Favorites
+                                                  ? 'Star a book to find it here.'
+                                                  : 'This shelf is empty. Open a book\'s menu to move it here.')),
+                                ),
+                              );
+                            }
+                            // Spotlight search: on the shelf, a search keeps every book in place, dims the others and
+                            // lights up the matches (the carousel, grid and list still narrow the list instead).
+                            final spot =
+                                spotlightOn &&
+                                ui.view == LibraryView.shelf &&
+                                shelfStyle != ShelfStyle.carousel &&
+                                !editing &&
+                                ui.query.trim().isNotEmpty;
+                            final shelfBooks = spot
+                                ? filterBooks(all, ui.copyWith(query: ''))
+                                : list;
+                            final lit = spot
+                                ? {for (final b in list) b.id}
+                                : null;
+                            return switch (ui.view) {
+                              LibraryView.shelf => switch (shelfStyle) {
+                                ShelfStyle.classic => _ShelfView(
+                                  books: shelfBooks,
+                                  lit: lit,
+                                  onOpen: openBook,
+                                  onMenu: bookMenu,
+                                  dotOf: dotOf,
+                                  selection: selection,
+                                ),
+                                ShelfStyle.carousel when !editing =>
+                                  CoverCarouselView(
+                                    books: list,
+                                    onOpen: openBook,
+                                    onMenu: bookMenu,
+                                    dotOf: dotOf,
+                                    selection: selection,
+                                  ),
+                                // Cabinets only make sense for whole shelves: while searching, filtering,
+                                // showing favourites or rearranging, the books are shown on open shelves.
+                                ShelfStyle.cabinets
+                                    when !editing &&
+                                        ui.query.trim().isEmpty &&
+                                        ui.activeFilters == 0 &&
+                                        ui.filter is! Favorites =>
+                                  CabinetWallView(
+                                    allBooks: all,
+                                    books: list,
+                                    shelves: shelves,
+                                    filter: ui.filter,
+                                    onPick: ref
+                                        .read(libraryUiProvider.notifier)
+                                        .setFilter,
+                                    onOpen: openBook,
+                                    onMenu: bookMenu,
+                                    dotOf: dotOf,
+                                    selection: selection,
+                                  ),
+                                _ => TurningShelfView(
+                                  books: shelfBooks,
+                                  lit: lit,
+                                  onOpen: openBook,
+                                  onMenu: bookMenu,
+                                  dotOf: dotOf,
+                                  selection: selection,
+                                ),
+                              },
+                              LibraryView.grid => _GridView(
+                                books: list,
+                                onOpen: openBook,
+                                onMenu: bookMenu,
+                                dotOf: dotOf,
+                                selection: selection,
+                              ),
+                              LibraryView.list => _ListView(
+                                books: list,
+                                onOpen: openBook,
+                                onMenu: bookMenu,
+                                dotOf: dotOf,
+                                selection: selection,
+                              ),
+                            };
+                          },
                         ),
-                        data: (all) {
-                          if (all.isEmpty) {
-                            return PrimaryScrollController.none(
-                              child: EmptyState(
-                                icon: Icons.auto_stories_outlined,
-                                title: 'Your library is empty',
-                                message: 'Add PDFs from your device. Folio keeps its own copy; your original files are never changed.',
-                                actionLabel: 'Add PDFs',
-                                onAction: _import,
-                              ),
-                            );
-                          }
-                          final list = visible.value ?? const <BookRow>[];
-                          final emptyCabinet = ui.view == LibraryView.shelf &&
-                              shelfStyle == ShelfStyle.cabinets &&
-                              (ui.filter is ShelfFilter || ui.filter is NoShelf) &&
-                              ui.query.trim().isEmpty &&
-                              ui.activeFilters == 0;
-                          if (list.isEmpty && !emptyCabinet) {
-                            return PrimaryScrollController.none(
-                              child: EmptyState(
-                                icon: Icons.search_off,
-                                title: 'Nothing here',
-                                message: ui.query.isNotEmpty
-                                    ? 'No book matches "${ui.query}".'
-                                    : (ui.activeFilters > 0
-                                          ? 'No book matches these filters. Remove one above to see more.'
-                                          : (ui.filter is Favorites
-                                                ? 'Star a book to find it here.'
-                                                : 'This shelf is empty. Open a book\'s menu to move it here.')),
-                              ),
-                            );
-                          }
-                          // Spotlight search: on the shelf, a search keeps every book in place, dims the others and
-                          // lights up the matches (the carousel, grid and list still narrow the list instead).
-                          final spot = spotlightOn &&
-                              ui.view == LibraryView.shelf &&
-                              shelfStyle != ShelfStyle.carousel &&
-                              !editing &&
-                              ui.query.trim().isNotEmpty;
-                          final shelfBooks = spot ? filterBooks(all, ui.copyWith(query: '')) : list;
-                          final lit = spot ? {for (final b in list) b.id} : null;
-                          return switch (ui.view) {
-                            LibraryView.shelf => switch (shelfStyle) {
-                              ShelfStyle.classic => _ShelfView(
-                                books: shelfBooks,
-                                lit: lit,
-                                onOpen: openBook,
-                                onMenu: bookMenu,
-                                dotOf: dotOf,
-                                selection: selection,
-                              ),
-                              ShelfStyle.carousel when !editing => CoverCarouselView(
-                                books: list,
-                                onOpen: openBook,
-                                onMenu: bookMenu,
-                                dotOf: dotOf,
-                                selection: selection,
-                              ),
-                              // Cabinets only make sense for whole shelves: while searching, filtering,
-                              // showing favourites or rearranging, the books are shown on open shelves.
-                              ShelfStyle.cabinets when !editing &&
-                                  ui.query.trim().isEmpty &&
-                                  ui.activeFilters == 0 &&
-                                  ui.filter is! Favorites => CabinetWallView(
-                                allBooks: all,
-                                books: list,
-                                shelves: shelves,
-                                filter: ui.filter,
-                                onPick: ref.read(libraryUiProvider.notifier).setFilter,
-                                onOpen: openBook,
-                                onMenu: bookMenu,
-                                dotOf: dotOf,
-                                selection: selection,
-                              ),
-                              _ => TurningShelfView(
-                                books: shelfBooks,
-                                lit: lit,
-                                onOpen: openBook,
-                                onMenu: bookMenu,
-                                dotOf: dotOf,
-                                selection: selection,
-                              ),
-                            },
-                            LibraryView.grid => _GridView(
-                              books: list,
-                              onOpen: openBook,
-                              onMenu: bookMenu,
-                              dotOf: dotOf,
-                              selection: selection,
-                            ),
-                            LibraryView.list => _ListView(
-                              books: list,
-                              onOpen: openBook,
-                              onMenu: bookMenu,
-                              dotOf: dotOf,
-                              selection: selection,
-                            ),
-                          };
-                        },
                       ),
                     ),
                   ),
@@ -955,15 +1012,15 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
     Key? key,
     Widget? avatar,
   }) => Padding(
-        padding: const EdgeInsets.only(right: Space.s8),
-        child: InputChip(
-          key: key,
-          avatar: avatar,
-          label: Text(label),
-          onDeleted: onRemove,
-          deleteButtonTooltipMessage: 'Remove filter',
-        ),
-      );
+    padding: const EdgeInsets.only(right: Space.s8),
+    child: InputChip(
+      key: key,
+      avatar: avatar,
+      label: Text(label),
+      onDeleted: onRemove,
+      deleteButtonTooltipMessage: 'Remove filter',
+    ),
+  );
 
   Widget _chip(
     String label,
@@ -1088,66 +1145,70 @@ class _ShelfView extends StatelessWidget {
           used += w;
         }
         final hits = lit;
-        final firstHit = hits == null || hits.isEmpty ? -1 : rows.indexWhere((r) => r.any((b) => hits.contains(b.id)));
+        final firstHit = hits == null || hits.isEmpty
+            ? -1
+            : rows.indexWhere((r) => r.any((b) => hits.contains(b.id)));
         return SpotlightScroll(
-          target: firstHit < 0 ? null : '$firstHit ${hits!.length} ${hits.first}',
+          target: firstHit < 0
+              ? null
+              : '$firstHit ${hits!.length} ${hits.first}',
           offset: firstHit * 234.0,
           child: ListView.builder(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Space.s16,
-            vertical: Space.s16,
-          ),
-          itemCount: rows.length,
-          itemBuilder: (_, i) => Padding(
-            padding: const EdgeInsets.only(bottom: Space.s24),
-            child: Column(
-              children: [
-                SizedBox(
-                  height: 200,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      for (final b in rows[i])
-                        Padding(
-                          padding: const EdgeInsets.only(right: 3),
-                          child: SpotlightBook(
-                            lit: lit?.contains(b.id),
-                            child: BookPeekTarget(
-                            book: b,
-                            onOpen: () => onOpen(b),
-                            onMore: () => onMenu(b),
-                            selected: selection?.contains(b.id),
-                            child: Spine(
-                              book: b,
-                              onTap: () => onOpen(b),
-                              dot: dotOf(b),
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.s16,
+              vertical: Space.s16,
+            ),
+            itemCount: rows.length,
+            itemBuilder: (_, i) => Padding(
+              padding: const EdgeInsets.only(bottom: Space.s24),
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: 200,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        for (final b in rows[i])
+                          Padding(
+                            padding: const EdgeInsets.only(right: 3),
+                            child: SpotlightBook(
+                              lit: lit?.contains(b.id),
+                              child: BookPeekTarget(
+                                book: b,
+                                onOpen: () => onOpen(b),
+                                onMore: () => onMenu(b),
+                                selected: selection?.contains(b.id),
+                                child: Spine(
+                                  book: b,
+                                  onTap: () => onOpen(b),
+                                  dot: dotOf(b),
+                                ),
+                              ),
                             ),
                           ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                Container(
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: c.surface2,
-                    border: Border(
-                      top: BorderSide(color: c.border),
-                      bottom: BorderSide(color: c.border),
+                      ],
                     ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x22000000),
-                        blurRadius: 6,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
                   ),
-                ),
-              ],
+                  Container(
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: c.surface2,
+                      border: Border(
+                        top: BorderSide(color: c.border),
+                        bottom: BorderSide(color: c.border),
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x22000000),
+                          blurRadius: 6,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
           ),
         );
       },
@@ -1941,8 +2002,12 @@ class _TagManager extends ConsumerWidget {
                               final target = normalizeTags(to).firstOrNull;
                               if (target == null) return;
                               await repo.renameTag(tag, target);
-                              ref.read(tagColorsProvider.notifier).rename(tag, target);
-                              ref.read(smartViewsProvider.notifier).tagRenamed(tag, target);
+                              ref
+                                  .read(tagColorsProvider.notifier)
+                                  .rename(tag, target);
+                              ref
+                                  .read(smartViewsProvider.notifier)
+                                  .tagRenamed(tag, target);
                               ui.renameFilterTag(tag, target);
                             },
                           ),
@@ -1975,7 +2040,9 @@ class _TagManager extends ConsumerWidget {
                               if (ok != true) return;
                               await repo.deleteTag(tag);
                               ui.dropFilterTag(tag);
-                              ref.read(smartViewsProvider.notifier).tagDeleted(tag);
+                              ref
+                                  .read(smartViewsProvider.notifier)
+                                  .tagDeleted(tag);
                             },
                           ),
                         ],
