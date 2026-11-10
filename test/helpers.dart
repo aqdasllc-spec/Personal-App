@@ -42,6 +42,7 @@ import 'package:folio/features/quran/application/quran_audio.dart';
 import 'package:folio/features/quran/prayer/battery.dart';
 import 'package:folio/features/library/application/open_with.dart';
 import 'package:folio/features/library/data/pdf_outline.dart';
+import 'package:folio/features/library/application/search_all.dart' show BookTextCache, bookTextCacheProvider;
 import 'package:folio/features/quran/prayer/prayer_ringer.dart';
 import 'package:folio/features/planner/domain/reminders.dart';
 import 'package:sync_engine/sync_engine.dart';
@@ -342,8 +343,10 @@ class FakePageTexts implements PageTextReader {
 
   /// Texts for particular books (by book id, the file is named `<id>.pdf`); other books use [pages].
   final Map<String, Map<int, String>> byBook;
+  int reads = 0;
   @override
   Future<String?> textOf(File pdf, int page) async {
+    reads++;
     final id = pdf.uri.pathSegments.last.replaceAll('.pdf', '');
     return byBook.containsKey(id) ? byBook[id]![page] : pages[page];
   }
@@ -432,6 +435,8 @@ class TestEnv {
 
   /// The Quran recitation player (no sound in tests).
   final ayahPlayer = FakeAyahPlayer();
+  late final pageTextReader = FakePageTexts(pageTexts, byBook: pageTextsByBook);
+  final textCache = MemoryTextCache();
   final ringer = FakeRinger();
   final openWith = FakeOpenWith();
 
@@ -476,7 +481,8 @@ class TestEnv {
         }),
         pageImagerProvider.overrideWithValue(imager),
 
-        pageTextReaderProvider.overrideWithValue(FakePageTexts(pageTexts, byBook: pageTextsByBook)),
+        pageTextReaderProvider.overrideWithValue(pageTextReader),
+        bookTextCacheProvider.overrideWithValue(textCache),
         textProbeProvider.overrideWithValue(FakeProbe(probeResult)),
         pageRecognizerProvider.overrideWithValue(recognizer),
         screenAwakeProvider.overrideWithValue(awake.add),
@@ -631,4 +637,12 @@ class FakeOpenWith implements OpenWithPort {
 
   @override
   Stream<String> get opened => _c.stream;
+}
+
+class MemoryTextCache implements BookTextCache {
+  final kept = <String, Map<int, String>>{};
+  @override
+  Future<Map<int, String>> load(String bookId) async => {...?kept[bookId]};
+  @override
+  Future<void> save(String bookId, Map<int, String> pages) async => kept[bookId] = {...pages};
 }

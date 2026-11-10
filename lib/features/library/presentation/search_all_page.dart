@@ -83,6 +83,7 @@ class _InBooks extends ConsumerWidget {
                   : null,
               border: const OutlineInputBorder(),
             ),
+            onChanged: ctl.typed,
             onSubmitted: ctl.start,
           ),
         ),
@@ -93,7 +94,7 @@ class _InBooks extends ConsumerWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               s.query.isEmpty
-                  ? 'Type at least two letters and press Search. Books are searched one by one; scanned books only after you chose "Make searchable" in them.'
+                  ? 'Type at least two letters: results come as you type. The first search reads each book once; after that it is instant. Scanned books are searched after you chose "Make searchable" in them.'
                   : s.query.length < 2
                   ? 'Type at least two letters to search.'
                   : s.running

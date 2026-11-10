@@ -90,6 +90,25 @@ void main() {
       await endIt(t);
     });
 
+    testWidgets('instant: results come while typing; a second search uses the text kept from the first (no PDF reading)', (t) async {
+      final env = await open(t);
+      await t.tap(find.byKey(const Key('library-search-all')));
+      await io(t, rounds: 3);
+      await t.enterText(find.byKey(const Key('search-all-field')), 'permit'); // no Search pressed
+      await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 500)));
+      await io(t, rounds: 6);
+      expect(find.text('3 places in 2 books'), findsOneWidget);
+      final reads = env.pageTextReader.reads;
+      expect(reads, greaterThan(0));
+      expect(env.textCache.kept.keys, containsAll([books[0].id, books[1].id]));
+      await t.enterText(find.byKey(const Key('search-all-field')), 'approved');
+      await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 500)));
+      await io(t, rounds: 6);
+      expect(find.text('1 place in 1 book'), findsOneWidget, reason: 'status: ${t.widget<Text>(find.byKey(const Key('search-all-status'))).data}');
+      expect(env.pageTextReader.reads, reads, reason: 'every page came from the kept text');
+      await endIt(t);
+    });
+
     testWidgets('too short a query, and a query with no hits, are explained', (t) async {
       await open(t);
       await t.tap(find.byKey(const Key('library-search-all')));

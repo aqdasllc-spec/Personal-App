@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../../app/providers.dart';
 import '../../../data/local/app_database.dart';
@@ -28,19 +31,77 @@ class SearchAllState {
   );
 }
 
-/// Searches the text inside every book (and the text recognised on scans), one book at a time, showing hits as they come.
+/// The text of each page of a book, kept once it has been read, so the next search needs no PDF work at all.
+abstract class BookTextCache {
+  Future<Map<int, String>> load(String bookId);
+  Future<void> save(String bookId, Map<int, String> pages);
+}
+
+/// In `app support/text_cache/<book id>.json`. If the folder cannot be used, nothing is kept (search still works).
+class FileBookTextCache implements BookTextCache {
+  Future<Directory?>? _dir;
+  Future<Directory?> _folder() => _dir ??= () async {
+    try {
+      final d = Directory('${(await getApplicationSupportDirectory()).path}/text_cache');
+      await d.create(recursive: true);
+      return d;
+    } catch (_) {
+      return null;
+    }
+  }();
+
+  @override
+  Future<Map<int, String>> load(String bookId) async {
+    final d = await _folder();
+    if (d == null) return {};
+    try {
+      final f = File('${d.path}/$bookId.json');
+      if (!await f.exists()) return {};
+      final j = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
+      return {for (final e in j.entries) int.parse(e.key): e.value as String};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  @override
+  Future<void> save(String bookId, Map<int, String> pages) async {
+    final d = await _folder();
+    if (d == null) return;
+    try {
+      await File('${d.path}/$bookId.json').writeAsString(jsonEncode({for (final e in pages.entries) '${e.key}': e.value}));
+    } catch (_) {}
+  }
+}
+
+final bookTextCacheProvider = Provider<BookTextCache>((_) => FileBookTextCache());
+
+/// Searches the text inside every book (and the text recognised on scans), one book at a time, showing hits as they
+/// come. Page text is kept after the first time, so later searches are instant; [typed] searches as you type.
 class SearchAll extends Notifier<SearchAllState> {
   int _token = 0;
+  Timer? _typing;
 
   @override
   SearchAllState build() {
-    ref.onDispose(() => _token++);
+    ref.onDispose(() {
+      _token++;
+      _typing?.cancel();
+    });
     return const SearchAllState();
   }
 
   void stop() {
     _token++;
+    _typing?.cancel();
     state = state.copyWith(running: false);
+  }
+
+  /// Searches a moment after the typing pauses.
+  void typed(String raw) {
+    _typing?.cancel();
+    if (raw.trim() == state.query && state.query.isNotEmpty) return;
+    _typing = Timer(const Duration(milliseconds: 350), () => start(raw));
   }
 
   Future<void> start(String raw) async {
@@ -54,6 +115,7 @@ class SearchAll extends Notifier<SearchAllState> {
     final books = [...(ref.read(booksProvider).value ?? const <BookRow>[])]..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
     state = SearchAllState(query: query, running: true, booksTotal: books.length);
     final reader = ref.read(pageTextReaderProvider);
+    final cache = ref.read(bookTextCacheProvider);
     final hits = <BookHit>[];
     var truncated = false;
     for (var i = 0; i < books.length; i++) {
@@ -72,16 +134,25 @@ class SearchAll extends Notifier<SearchAllState> {
       }
       if (!scanned) {
         final file = repo.fileOf(b);
+        final kept = await cache.load(b.id);
+        if (token != _token) return;
+        var added = false;
         for (var p = 1; p <= b.pageCount && perBook < maxHitsPerBook; p++) {
-          final text = await reader.textOf(file, p);
-          if (token != _token) return;
-          if (text == null || text.isEmpty) continue;
+          var text = kept[p];
+          if (text == null) {
+            text = await reader.textOf(file, p) ?? '';
+            if (token != _token) return;
+            kept[p] = text;
+            added = true;
+            if (p % 10 == 0) await Future<void>.delayed(Duration.zero); // let the screen breathe
+          }
+          if (text.isEmpty) continue;
           for (final s in snippetsIn(text, query, max: 1)) {
             hits.add(BookHit(bookId: b.id, title: b.title, page: p, snippet: s));
             perBook++;
           }
-          if (p % 10 == 0) await Future<void>.delayed(Duration.zero); // let the screen breathe
         }
+        if (added) unawaited(cache.save(b.id, kept));
       }
       if (hits.length >= maxHitsTotal) {
         truncated = true;
