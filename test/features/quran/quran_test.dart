@@ -8,6 +8,7 @@ import 'package:folio/features/quran/application/quran_audio.dart';
 import 'package:folio/features/quran/application/quran_providers.dart';
 import 'package:folio/features/quran/data/quran_data.dart';
 import 'package:folio/features/quran/domain/daily.dart';
+import 'package:folio/features/quran/presentation/quran_style.dart';
 
 import '../../helpers.dart';
 
@@ -20,6 +21,27 @@ void main() {
     setUpAll(() async {
       q = await loadQuranAsset();
       h = await loadHadithAsset();
+    });
+
+    test('Indo-Pak text for every ayah (Indo-Pak marks, no stray direction marks); a view switches the script and the Urdu', () async {
+      expect(q.indopak.length, 6236);
+      expect(q.indopak.every((t) => t.trim().isNotEmpty && !t.contains('\u200f')), isTrue);
+      expect(q.indopak[0], startsWith('بِسۡمِ'));
+      expect(q.indopak[q.indexOf(1, 7)], contains('\u08E2'), reason: 'the small ۵ over عَلَيْهِمْ, as printed Indo-Pak Qurans have it');
+      final ip = q.view(script: QuranScript.indopak);
+      expect((ip.script, ip.arabic[5], ip.bismillah), (QuranScript.indopak, q.indopak[5], q.indopak[0]));
+      expect(q.view(script: QuranScript.madinah).arabic[5], q.uthmani[5]);
+      for (final tr in urduTranslations.skip(1)) {
+        final texts = await loadUrduTranslation(tr.id);
+        expect(texts.length, 6236, reason: tr.name);
+        expect(texts.every((t) => t.trim().isNotEmpty), isTrue, reason: tr.name);
+        // no old "presentation form" letters (fonts may not draw them), no footnote numbers
+        expect(texts.any((t) => RegExp(r'[\uFB50-\uFD3D\uFD40-\uFDF1\uFDF3-\uFDF9\uFDFB-\uFDFF\uFE70-\uFEFF]|\[[۰-۹0-9]+\]').hasMatch(t)), isFalse, reason: tr.name);
+      }
+      final roman = await loadUrduTranslation('maududiroman');
+      expect(roman[0], startsWith('Allah'));
+      final v = q.view(script: QuranScript.indopak, urdu: roman, urduName: 'x', urduRtl: false);
+      expect((v.urdu[0], v.urduRtl), (roman[0], false));
     });
 
     test('the whole Quran: 114 surahs, 6236 ayahs, three languages aligned, 30 juz, 15 sajdas', () {
@@ -292,13 +314,50 @@ void main() {
       await endIt(t);
     });
 
+    testWidgets('Quran settings: Madinah script instead of Indo-Pak; another Urdu translation (Roman Urdu reads left to right)', (t) async {
+      final env = await open(t);
+      await t.tap(find.byKey(const Key('quran-open')));
+      await wait(t, 10);
+      await t.tap(find.byKey(const Key('surah-1')));
+      await wait(t, 8);
+      final q = (await t.runAsync(loadQuranAsset))!;
+      expect(textOf(t, find.byKey(const Key('arabic-1-2'))), contains('\u00A0﴿۲﴾'), reason: 'Urdu digits, kept on the line of the last word');
+      await t.tap(find.byKey(const Key('surah-more')));
+      await wait(t, 3);
+      await t.tap(find.byKey(const Key('quran-text-settings')));
+      await wait(t, 6);
+      await t.tap(find.byKey(const Key('script-madinah')));
+      await wait(t, 6);
+      final sheet = find.descendant(of: find.byKey(const Key('quran-settings-sheet')), matching: find.byType(Scrollable)).first;
+      await t.scrollUntilVisible(find.byKey(const Key('urdu-translation')), 100, scrollable: sheet);
+      await t.tap(find.byKey(const Key('urdu-translation')));
+      await wait(t, 4);
+      await t.tap(find.textContaining('Taqi Usmani').last);
+      await wait(t, 10);
+      expect(await t.runAsync(() => env.store.state('quran_script')), 'madinah');
+      expect(await t.runAsync(() => env.store.state('quran_urdu')), 'taqiusmani');
+      await t.tapAt(const Offset(200, 30)); // close the sheet
+      await wait(t, 6);
+      expect(textOf(t, find.byKey(const Key('arabic-1-2'))), startsWith(q.uthmani[1]));
+      expect(textOf(t, find.byKey(const Key('arabic-1-2'))), endsWith('﴿٢﴾'));
+      final taqi = (await t.runAsync(() => loadUrduTranslation('taqiusmani')))!;
+      expect(textOf(t, find.byKey(const Key('urdu-1-1'))), taqi[0]);
+      await t.runAsync(() => env.store.setState('quran_urdu', 'maududiroman'));
+      env.store.announcePrefChange('quran_urdu');
+      await wait(t, 10);
+      final w = t.widget<QuranTranslation>(find.byKey(const Key('urdu-1-1')));
+      expect(w.text, startsWith('Allah'));
+      expect(w.rtl, isFalse);
+      await endIt(t);
+    });
+
     testWidgets('the full ayah of the day: both languages a tap apart, Listen plays just those ayahs, Copy copies', (t) async {
       final env = await open(t);
       await t.tap(find.byKey(const Key('daily-open')));
       await wait(t, 4);
       expect(find.byKey(const Key('daily-sheet')), findsOneWidget);
-      final q = await t.runAsync(loadQuranAsset);
-      final d = dailyAyah(q!, DateTime.now());
+      final q = (await t.runAsync(loadQuranAsset))!.view(script: QuranScript.indopak); // shown in the Indo-Pak script
+      final d = dailyAyah(q, DateTime.now());
       final sheet = find.descendant(of: find.byKey(const Key('daily-sheet')), matching: find.byType(Scrollable)).first;
       await t.scrollUntilVisible(find.byKey(const Key('sheet-translation')), 150, scrollable: sheet);
       await wait(t, 2);
