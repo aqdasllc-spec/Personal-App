@@ -52,6 +52,9 @@ abstract interface class ReminderScheduler {
 
   /// The same for the morning ayah-of-the-day notifications (ids from [dailyAyahNotificationIds]).
   Future<void> replaceDailyAyahAlarms(List<Reminder> alarms);
+
+  /// Shows a prayer reminder at [Reminder.at] (a few seconds from now) with its tone, to hear how it sounds.
+  Future<bool> testPrayerAlarm(Reminder r);
 }
 
 /// Used where notifications aren't available (tests, unsupported platforms).
@@ -66,6 +69,8 @@ class NoopReminderScheduler implements ReminderScheduler {
   Future<void> replacePrayerAlarms(List<Reminder> alarms) async {}
   @override
   Future<void> replaceDailyAyahAlarms(List<Reminder> alarms) async {}
+  @override
+  Future<bool> testPrayerAlarm(Reminder r) async => false;
   @override
   Future<ReminderDiagnostics> diagnostics() async =>
       const ReminderDiagnostics();

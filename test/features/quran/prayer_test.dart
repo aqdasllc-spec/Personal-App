@@ -21,6 +21,13 @@ int minutes(DateTime t) => pkt(t).hour * 60 + pkt(t).minute;
 
 class _Scheduler extends NoopReminderScheduler {
   List<Reminder> prayer = [];
+  final tests = <Reminder>[];
+  @override
+  Future<bool> testPrayerAlarm(Reminder r) async {
+    tests.add(r);
+    return true;
+  }
+
   bool asked = false;
   @override
   Future<bool> hasPermission() async => asked;
@@ -90,6 +97,45 @@ void main() {
       expect(prayerAlarms(const PrayerSettings(alerts: {Prayer.fajr}), now), isEmpty, reason: 'no place');
     });
 
+    test('reminders say the prayer\'s name (Salat-ul-Fajr, نمازِ فجر); on Fridays Zuhr is Jumu\'ah', () {
+      final s = lahore.copyWith(alerts: {Prayer.fajr, Prayer.dhuhr});
+      final a = prayerAlarms(s, DateTime(2026, 11, 9), days: 7); // Monday 9 Nov .. Sunday 15 Nov
+      expect(a.first.title, 'Salat-ul-Fajr · نمازِ فجر');
+      expect(a.first.body, contains('It is time for Salat-ul-Fajr'));
+      final friday = a.where((r) => r.at.weekday == DateTime.friday && r.payload == 'prayer:dhuhr').single;
+      expect(friday.title, "Salat-ul-Jumu'ah · نمازِ جمعہ");
+      final monday = a.where((r) => r.at.weekday == DateTime.monday && r.payload == 'prayer:dhuhr').single;
+      expect(monday.title, 'Salat-ul-Zuhr · نمازِ ظہر');
+    });
+
+    test('second reminder: minutes and seconds after the time, Fajr only or every prayer, its own tone, keeps ringing', () {
+      final s = lahore.copyWith(alerts: {Prayer.fajr, Prayer.asr}, secondAfterSeconds: 10 * 60 + 30, tone: PrayerTone.notification, secondTone: PrayerTone.alarm);
+      final now = DateTime(2026, 11, 10);
+      final day = prayerDay(lahore, now);
+      final a = prayerAlarms(s, now, days: 1);
+      expect(a.length, 3, reason: 'Fajr, Fajr again, Asr');
+      final again = a.singleWhere((r) => r.payload == 'prayer-again:fajr');
+      expect(again.at, day.times[Prayer.fajr]!.add(const Duration(minutes: 10, seconds: 30)));
+      expect(again.title, 'Get up for Salat-ul-Fajr · اٹھیں، نمازِ فجر ادا کریں');
+      expect(again.body, contains('10 min 30 s ago'));
+      expect((again.tone, again.insistent), ('alarm', true));
+      final first = a.singleWhere((r) => r.payload == 'prayer:fajr');
+      expect((first.tone, first.insistent), ('notification', false));
+      expect(a.map((r) => r.id).toSet().length, a.length);
+      final all = prayerAlarms(s.copyWith(secondFajrOnly: false, secondKeepRinging: false), now, days: 1);
+      expect(all.length, 4);
+      expect(all.where((r) => r.payload.startsWith('prayer-again')).every((r) => !r.insistent), isTrue);
+      final ids = prayerAlarms(s.copyWith(secondFajrOnly: false), now, days: 7).map((r) => r.id).toList();
+      expect(ids.toSet().length, ids.length, reason: 'unique over a week');
+      expect(ids.every((i) => i >= prayerNotificationIds && i < prayerNotificationIds + 0x10000), isTrue);
+    });
+
+    test('minutes and seconds in words', () {
+      expect(minSec(600), '10 min');
+      expect(minSec(150), '2 min 30 s');
+      expect(minSec(45), '45 s');
+    });
+
     test('planner reminder ids never fall in the prayer range', () {
       for (var i = 0; i < 5000; i++) {
         expect(stableId('task:$i:${i * 7919}'), lessThan(reservedNotificationIds));
@@ -111,8 +157,9 @@ void main() {
     });
 
     test('settings survive saving', () {
-      final s = lahore.copyWith(method: PrayerMethod.mwl, hanafi: false, hijriOffset: -1, alerts: {Prayer.isha});
+      final s = lahore.copyWith(method: PrayerMethod.mwl, hanafi: false, hijriOffset: -1, alerts: {Prayer.isha}, tone: PrayerTone.ringtone, secondAfterSeconds: 95, secondFajrOnly: false, secondTone: PrayerTone.vibrate, secondKeepRinging: false);
       final back = PrayerSettings.decode(s.encode())!;
+      expect((back.tone, back.secondAfterSeconds, back.secondFajrOnly, back.secondTone, back.secondKeepRinging), (PrayerTone.ringtone, 95, false, PrayerTone.vibrate, false));
       expect((back.lat, back.lng, back.place, back.method, back.hanafi, back.hijriOffset), (s.lat, s.lng, s.place, s.method, s.hanafi, s.hijriOffset));
       expect(back.alerts, s.alerts);
       expect(PrayerSettings.decode('not json'), isNull);
@@ -171,6 +218,33 @@ void main() {
       expect(sched.prayer, isNotEmpty);
       expect(sched.prayer.every((r) => r.title.contains('Asr')), isTrue);
 
+      // the second reminder: 2 min 15 s after Fajr, alarm sound, keeps ringing; try it
+      await t.ensureVisible(find.byKey(const Key('prayer-second')));
+      await t.tap(find.byKey(const Key('prayer-second')));
+      await wait(t, 3);
+      await t.ensureVisible(find.byKey(const Key('second-min')));
+      await t.tap(find.byKey(const Key('second-min')));
+      await wait(t, 4);
+      await t.tap(find.text('2').last);
+      await wait(t, 4);
+      await t.tap(find.byKey(const Key('second-sec')));
+      await wait(t, 4);
+      await t.tap(find.text('15').last);
+      await wait(t, 4);
+      expect(t.widget<Text>(find.byKey(const Key('second-summary'))).data, '2 min 15 s after the prayer time.');
+      expect(await t.runAsync(() => env.store.state('prayer_settings')), contains('"second":135'));
+      await t.scrollUntilVisible(find.byKey(const Key('prayer-alert-fajr')), -200, scrollable: find.descendant(of: find.byKey(const Key('prayer-page')), matching: find.byType(Scrollable)).first);
+      await wait(t, 2);
+      await t.tap(find.byKey(const Key('prayer-alert-fajr')));
+      await wait(t, 3);
+      expect(sched.prayer.any((r) => r.payload == 'prayer-again:fajr' && r.tone == 'alarm' && r.insistent), isTrue);
+      await t.ensureVisible(find.byKey(const Key('prayer-test-second')));
+      await t.tap(find.byKey(const Key('prayer-test-second')));
+      await wait(t, 3);
+      expect(sched.tests.single.insistent, isTrue);
+      expect(sched.tests.single.tone, 'alarm');
+      expect(sched.tests.single.at.difference(DateTime.now()).inSeconds, lessThanOrEqualTo(5));
+
       await t.pageBack();
       await wait(t, 6);
       expect(find.byKey(const Key('prayer-strip-next')), findsOneWidget);
@@ -200,10 +274,14 @@ void main() {
 
       // Hijri adjustment
       final before = t.widget<Text>(find.byKey(const Key('prayer-hijri'))).data;
-      await t.ensureVisible(find.byKey(const Key('hijri-minus')));
+      final page = find.descendant(of: find.byKey(const Key('prayer-page')), matching: find.byType(Scrollable)).first;
+      await t.scrollUntilVisible(find.byKey(const Key('hijri-minus')), 200, scrollable: page);
+      await wait(t, 2);
       await t.tap(find.byKey(const Key('hijri-minus')));
       await wait(t, 3);
       expect(t.widget<Text>(find.byKey(const Key('hijri-offset'))).data, '-1');
+      await t.scrollUntilVisible(find.byKey(const Key('prayer-hijri')), -300, scrollable: page);
+      await wait(t, 2);
       expect(t.widget<Text>(find.byKey(const Key('prayer-hijri'))).data, isNot(before));
       await endIt(t);
     });

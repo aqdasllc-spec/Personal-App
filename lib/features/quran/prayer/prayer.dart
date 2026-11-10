@@ -7,16 +7,34 @@ import '../../planner/domain/reminders.dart';
 
 /// The five prayers, and sunrise (shown, never reminded: the time Fajr ends).
 enum Prayer {
-  fajr('Fajr', 'فجر'),
-  sunrise('Sunrise', 'طلوعِ آفتاب'),
-  dhuhr('Dhuhr', 'ظہر'),
-  asr('Asr', 'عصر'),
-  maghrib('Maghrib', 'مغرب'),
-  isha('Isha', 'عشاء');
+  fajr('Fajr', 'فجر', 'Salat-ul-Fajr', 'نمازِ فجر'),
+  sunrise('Sunrise', 'طلوعِ آفتاب', '', ''),
+  dhuhr('Dhuhr', 'ظہر', 'Salat-ul-Zuhr', 'نمازِ ظہر'),
+  asr('Asr', 'عصر', 'Salat-ul-Asr', 'نمازِ عصر'),
+  maghrib('Maghrib', 'مغرب', 'Salat-ul-Maghrib', 'نمازِ مغرب'),
+  isha('Isha', 'عشاء', 'Salat-ul-Isha', 'نمازِ عشاء');
 
-  const Prayer(this.english, this.urdu);
+  const Prayer(this.english, this.urdu, this.salah, this.salahUrdu);
   final String english, urdu;
+
+  /// The prayer's name as said in a reminder ("Salat-ul-Fajr", "نمازِ فجر").
+  final String salah, salahUrdu;
   bool get isPrayer => this != sunrise;
+
+  /// On Fridays the midday prayer is Jumu'ah.
+  String salahOn(DateTime d) => this == dhuhr && d.weekday == DateTime.friday ? "Salat-ul-Jumu'ah" : salah;
+  String salahUrduOn(DateTime d) => this == dhuhr && d.weekday == DateTime.friday ? 'نمازِ جمعہ' : salahUrdu;
+}
+
+/// How a prayer reminder sounds.
+enum PrayerTone {
+  notification('Phone notification sound'),
+  alarm('Phone alarm sound (loud)'),
+  ringtone('Phone ringtone'),
+  vibrate('Vibrate only');
+
+  const PrayerTone(this.label);
+  final String label;
 }
 
 /// Calculation methods (the angles and rules each authority uses). Karachi is the usual choice in Pakistan and India.
@@ -48,7 +66,25 @@ class PrayerSettings {
     this.hanafi = true,
     this.hijriOffset = 0,
     this.alerts = const {},
+    this.tone = PrayerTone.notification,
+    this.secondAfterSeconds = 0,
+    this.secondFajrOnly = true,
+    this.secondTone = PrayerTone.alarm,
+    this.secondKeepRinging = true,
   });
+
+  /// The reminder at the prayer time.
+  final PrayerTone tone;
+
+  /// A second reminder this long after the prayer time ("get up now"); 0 = none.
+  final int secondAfterSeconds;
+
+  /// The second reminder for Fajr only (true) or for every prayer with a bell (false).
+  final bool secondFajrOnly;
+  final PrayerTone secondTone;
+
+  /// The second reminder keeps ringing until you open it.
+  final bool secondKeepRinging;
 
   final double? lat, lng;
 
@@ -75,6 +111,11 @@ class PrayerSettings {
     bool? hanafi,
     int? hijriOffset,
     Set<Prayer>? alerts,
+    PrayerTone? tone,
+    int? secondAfterSeconds,
+    bool? secondFajrOnly,
+    PrayerTone? secondTone,
+    bool? secondKeepRinging,
   }) => PrayerSettings(
     lat: lat ?? this.lat,
     lng: lng ?? this.lng,
@@ -83,6 +124,11 @@ class PrayerSettings {
     hanafi: hanafi ?? this.hanafi,
     hijriOffset: hijriOffset ?? this.hijriOffset,
     alerts: alerts ?? this.alerts,
+    tone: tone ?? this.tone,
+    secondAfterSeconds: secondAfterSeconds ?? this.secondAfterSeconds,
+    secondFajrOnly: secondFajrOnly ?? this.secondFajrOnly,
+    secondTone: secondTone ?? this.secondTone,
+    secondKeepRinging: secondKeepRinging ?? this.secondKeepRinging,
   );
 
   String encode() => jsonEncode({
@@ -93,6 +139,11 @@ class PrayerSettings {
     'hanafi': hanafi,
     'hijri': hijriOffset,
     'alerts': [for (final p in alerts) p.name],
+    'tone': tone.name,
+    'second': secondAfterSeconds,
+    'secondFajr': secondFajrOnly,
+    'secondTone': secondTone.name,
+    'insistent': secondKeepRinging,
   });
 
   static PrayerSettings? decode(String raw) {
@@ -106,6 +157,11 @@ class PrayerSettings {
         hanafi: j['hanafi'] as bool? ?? true,
         hijriOffset: ((j['hijri'] as num?) ?? 0).toInt().clamp(-2, 2),
         alerts: {for (final a in (j['alerts'] as List? ?? const [])) ...Prayer.values.where((p) => p.name == a)},
+        tone: PrayerTone.values.where((t) => t.name == j['tone']).firstOrNull ?? PrayerTone.notification,
+        secondAfterSeconds: ((j['second'] as num?) ?? 0).toInt().clamp(0, 3599),
+        secondFajrOnly: j['secondFajr'] as bool? ?? true,
+        secondTone: PrayerTone.values.where((t) => t.name == j['secondTone']).firstOrNull ?? PrayerTone.alarm,
+        secondKeepRinging: j['insistent'] as bool? ?? true,
       );
     } catch (_) {
       return null;
@@ -152,7 +208,14 @@ PrayerDay prayerDay(PrayerSettings s, DateTime date) {
   return (current: Prayer.isha, next: Prayer.fajr, nextAt: tomorrow.times[Prayer.fajr]!);
 }
 
-/// Reminders for the chosen prayers over the next [days] days (from [now] on).
+/// "10 min", "2 min 30 s", "45 s".
+String minSec(int seconds) {
+  final m = seconds ~/ 60, s = seconds % 60;
+  return [if (m > 0) '$m min', if (s > 0 || m == 0) '$s s'].join(' ');
+}
+
+/// Reminders for the chosen prayers over the next [days] days (from [now] on): one at the prayer time, and, if set,
+/// a second one a little later ("get up now").
 List<Reminder> prayerAlarms(PrayerSettings s, DateTime now, {int days = 7}) {
   if (!s.hasLocation || s.alerts.isEmpty) return const [];
   final out = <Reminder>[];
@@ -160,21 +223,42 @@ List<Reminder> prayerAlarms(PrayerSettings s, DateTime now, {int days = 7}) {
     final date = DateTime(now.year, now.month, now.day + d);
     final day = prayerDay(s, date);
     final dayNo = DateTime.utc(date.year, date.month, date.day).millisecondsSinceEpoch ~/ Duration.millisecondsPerDay;
+    final base = prayerNotificationIds + (dayNo % 4000) * 16; // 16 ids a day: 0-5 at the time, 8-13 the second
     for (final p in Prayer.values) {
       if (!p.isPrayer || !s.alerts.contains(p)) continue;
       final at = day.times[p]!;
-      if (!at.isAfter(now)) continue;
-      out.add(
-        Reminder(
-          id: prayerNotificationIds + (dayNo % 8000) * 8 + p.index,
-          at: at,
-          title: '${p.english} · ${p.urdu}',
-          body: 'It is time for ${p.english}.',
-          payload: 'prayer:${p.name}',
-        ),
-      );
+      final name = p.salahOn(date), nameUrdu = p.salahUrduOn(date);
+      if (at.isAfter(now)) {
+        out.add(
+          Reminder(
+            id: base + p.index,
+            at: at,
+            title: '$name · $nameUrdu',
+            body: 'It is time for $name. · $nameUrdu کا وقت ہو گیا ہے۔',
+            payload: 'prayer:${p.name}',
+            tone: s.tone.name,
+          ),
+        );
+      }
+      if (s.secondAfterSeconds > 0 && (!s.secondFajrOnly || p == Prayer.fajr)) {
+        final later = at.add(Duration(seconds: s.secondAfterSeconds));
+        if (later.isAfter(now)) {
+          out.add(
+            Reminder(
+              id: base + 8 + p.index,
+              at: later,
+              title: 'Get up for $name · اٹھیں، $nameUrdu ادا کریں',
+              body: 'Its time began ${minSec(s.secondAfterSeconds)} ago. Pray now. · وقت شروع ہوئے ${minSec(s.secondAfterSeconds)} ہو گئے، ابھی ادا کریں۔',
+              payload: 'prayer-again:${p.name}',
+              tone: s.secondTone.name,
+              insistent: s.secondKeepRinging,
+            ),
+          );
+        }
+      }
     }
   }
+  out.sort((a, b) => a.at.compareTo(b.at));
   return out;
 }
 

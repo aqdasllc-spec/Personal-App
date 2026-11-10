@@ -8,7 +8,16 @@ class Reminder {
     required this.title,
     required this.body,
     required this.payload,
+    this.tone = 'notification',
+    this.insistent = false,
   });
+
+  /// Sound: 'notification' (the phone's notification sound), 'alarm', 'ringtone' or 'vibrate' (prayer reminders;
+  /// planner reminders keep the default).
+  final String tone;
+
+  /// Keep ringing until the notification is opened or swiped away.
+  final bool insistent;
 
   /// Stable 31-bit notification id derived from what is being reminded.
   final int id;

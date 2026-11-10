@@ -186,16 +186,77 @@ class LocalNotificationsScheduler implements ReminderScheduler {
     macOS: fln.DarwinNotificationDetails(),
   );
 
+  /// Android fixes a channel's sound when it is created, so each tone has its own channel.
+  static fln.NotificationDetails _prayerTone(String tone, {bool insistent = false}) {
+    final (id, name, sound, usage, play) = switch (tone) {
+      'alarm' => (
+        'prayer_alarm',
+        'Prayer times (alarm sound)',
+        const fln.UriAndroidNotificationSound('content://settings/system/alarm_alert') as fln.AndroidNotificationSound?,
+        fln.AudioAttributesUsage.alarm,
+        true,
+      ),
+      'ringtone' => (
+        'prayer_ringtone',
+        'Prayer times (ringtone)',
+        const fln.UriAndroidNotificationSound('content://settings/system/ringtone') as fln.AndroidNotificationSound?,
+        fln.AudioAttributesUsage.notificationRingtone,
+        true,
+      ),
+      'vibrate' => ('prayer_vibrate', 'Prayer times (vibrate)', null, fln.AudioAttributesUsage.notification, false),
+      _ => ('prayer_times', 'Prayer times', null, fln.AudioAttributesUsage.notification, true),
+    };
+    return fln.NotificationDetails(
+      android: fln.AndroidNotificationDetails(
+        id,
+        name,
+        channelDescription: 'A reminder at each prayer time you choose',
+        importance: fln.Importance.max,
+        priority: fln.Priority.max,
+        sound: sound,
+        playSound: play,
+        enableVibration: true,
+        audioAttributesUsage: usage,
+        category: tone == 'alarm' ? fln.AndroidNotificationCategory.alarm : fln.AndroidNotificationCategory.reminder,
+        styleInformation: const fln.BigTextStyleInformation(''),
+        // FLAG_INSISTENT: the sound repeats until the notification is opened or dismissed
+        additionalFlags: insistent ? Int32List.fromList([4]) : null,
+      ),
+      iOS: fln.DarwinNotificationDetails(presentSound: play, interruptionLevel: tone == 'alarm' ? fln.InterruptionLevel.timeSensitive : null),
+      macOS: const fln.DarwinNotificationDetails(),
+    );
+  }
+
   @override
   Future<void> replacePrayerAlarms(List<Reminder> alarms) =>
-      _replaceGroup(prayerNotificationIds, alarms, _prayerDetails, exactWanted: true, what: 'prayer reminders');
+      _replaceGroup(prayerNotificationIds, alarms, _prayerDetails, exactWanted: true, what: 'prayer reminders', detailsOf: (r) => _prayerTone(r.tone, insistent: r.insistent));
+
+  /// Shows [r] (with its tone) in a few seconds: to hear how a prayer reminder will sound.
+  @override
+  Future<bool> testPrayerAlarm(Reminder r) async {
+    if (!await _init()) return false;
+    try {
+      await _scheduleOne(prayerNotificationIds + 0xfff0, r.at, r.title, r.body, r.payload, await _canUseExact(), details: _prayerTone(r.tone, insistent: r.insistent));
+      return true;
+    } catch (e) {
+      _lastError = 'Could not show the test reminder: $e';
+      return false;
+    }
+  }
 
   @override
   Future<void> replaceDailyAyahAlarms(List<Reminder> alarms) =>
       _replaceGroup(dailyAyahNotificationIds, alarms, _dailyDetails, exactWanted: false, what: 'the ayah of the day');
 
   /// Cancels the notifications pending in [base]..[base]+0xffff and schedules [alarms] there.
-  Future<void> _replaceGroup(int base, List<Reminder> alarms, fln.NotificationDetails details, {required bool exactWanted, required String what}) async {
+  Future<void> _replaceGroup(
+    int base,
+    List<Reminder> alarms,
+    fln.NotificationDetails details, {
+    required bool exactWanted,
+    required String what,
+    fln.NotificationDetails Function(Reminder r)? detailsOf,
+  }) async {
     if (!await _init()) return;
     try {
       for (final p in await _plugin.pendingNotificationRequests()) {
@@ -206,7 +267,7 @@ class LocalNotificationsScheduler implements ReminderScheduler {
       // a prayer reminder minutes late is no use: exact when allowed
       final exact = exactWanted && await _canUseExact();
       for (final r in alarms) {
-        await _scheduleOne(r.id, r.at, r.title, r.body, r.payload, exact, details: details);
+        await _scheduleOne(r.id, r.at, r.title, r.body, r.payload, exact, details: detailsOf?.call(r) ?? details);
       }
     } catch (e) {
       _lastError = 'Could not schedule $what: $e';

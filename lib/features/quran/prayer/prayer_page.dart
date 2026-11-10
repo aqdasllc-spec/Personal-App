@@ -10,6 +10,7 @@ import '../../planner/application/planner_controller.dart' show reminderSchedule
 import '../application/quran_providers.dart';
 import '../presentation/cabinet_painters.dart';
 import '../presentation/quran_style.dart';
+import '../../planner/domain/reminders.dart';
 import 'prayer.dart';
 import 'prayer_providers.dart';
 
@@ -314,6 +315,7 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
             )
           else
             _times(context, s, now, urdu),
+          if (s.hasLocation) ...[const SizedBox(height: Space.s24), _reminders(context, s, now)],
           const SizedBox(height: Space.s24),
           Text('Settings', style: t.titleMedium),
           const SizedBox(height: Space.s8),
@@ -419,6 +421,150 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
             style: t.bodySmall,
           ),
         ],
+      ),
+    );
+  }
+
+  /// Sound of the reminders, and the second "get up now" reminder (minutes and seconds after the prayer time).
+  Widget _reminders(BuildContext context, PrayerSettings s, DateTime now) {
+    final t = Theme.of(context).textTheme;
+    PrayerSettings cur() => ref.read(prayerSettingsProvider);
+    void set(PrayerSettings v) => ref.read(prayerSettingsProvider.notifier).set(v);
+    final second = s.secondAfterSeconds > 0;
+    final mins = s.secondAfterSeconds ~/ 60, secs = s.secondAfterSeconds % 60;
+    Widget tone(Key key, String label, PrayerTone value, void Function(PrayerTone) pick) => DropdownButtonFormField<PrayerTone>(
+      key: key,
+      initialValue: value,
+      isExpanded: true,
+      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+      items: [for (final v in PrayerTone.values) DropdownMenuItem(value: v, child: Text(v.label, overflow: TextOverflow.ellipsis))],
+      onChanged: (v) => v == null ? null : pick(v),
+    );
+    Future<void> tryIt(bool again) async {
+      final sched = ref.read(reminderSchedulerProvider);
+      if (!await sched.hasPermission()) await sched.requestPermission();
+      final n = prayerNow(cur(), now);
+      final p = n.next == Prayer.sunrise ? Prayer.dhuhr : n.next;
+      final c = cur();
+      final at = DateTime.now().add(const Duration(seconds: 5));
+      final ok = await sched.testPrayerAlarm(
+        Reminder(
+          id: 0,
+          at: at,
+          title: again ? 'Get up for ${p.salahOn(at)} · اٹھیں، ${p.salahUrduOn(at)} ادا کریں' : '${p.salahOn(at)} · ${p.salahUrduOn(at)}',
+          body: again ? 'This is how the second reminder will sound.' : 'This is how the reminder will sound.',
+          payload: 'prayer-test',
+          tone: (again ? c.secondTone : c.tone).name,
+          insistent: again && c.secondKeepRinging,
+        ),
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ok ? 'It will come in 5 seconds. You can lock the screen to see how it looks.' : 'Notifications are not allowed for Folio. Allow them in the phone\'s settings.')),
+        );
+      }
+    }
+
+    return Card(
+      key: const Key('prayer-reminders'),
+      child: Padding(
+        padding: const EdgeInsets.all(Space.s16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Reminders', style: t.titleMedium),
+            Text(
+              s.alerts.isEmpty ? 'Tap the bell next to a prayer above to be reminded of it.' : 'For: ${[for (final p in Prayer.values) if (s.alerts.contains(p)) p.english].join(', ')}',
+              style: t.bodySmall,
+            ),
+            const SizedBox(height: Space.s12),
+            tone(const Key('prayer-tone'), 'Sound at the prayer time', s.tone, (v) => set(cur().copyWith(tone: v))),
+            const SizedBox(height: Space.s4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(key: const Key('prayer-test'), onPressed: () => tryIt(false), icon: const Icon(Icons.play_circle_outline), label: const Text('Try it')),
+            ),
+            const Divider(),
+            SwitchListTile(
+              key: const Key('prayer-second'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Second reminder: get up and pray'),
+              subtitle: const Text('A little after the prayer time, in case you did not get up'),
+              value: second,
+              onChanged: (on) => set(cur().copyWith(secondAfterSeconds: on ? 10 * 60 : 0)),
+            ),
+            if (second) ...[
+              const SizedBox(height: Space.s8),
+              Row(
+                children: [
+                  const Text('After'),
+                  const SizedBox(width: Space.s8),
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      key: const Key('second-min'),
+                      initialValue: mins,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'minutes', border: OutlineInputBorder()),
+                      items: [for (var m = 0; m <= 59; m++) DropdownMenuItem(value: m, child: Text('$m'))],
+                      onChanged: (m) {
+                        if (m == null) return;
+                        final sec = cur().secondAfterSeconds % 60;
+                        set(cur().copyWith(secondAfterSeconds: (m * 60 + sec).clamp(5, 3599)));
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: Space.s8),
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      key: const Key('second-sec'),
+                      initialValue: secs,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'seconds', border: OutlineInputBorder()),
+                      items: [for (var x = 0; x <= 59; x++) DropdownMenuItem(value: x, child: Text('$x'))],
+                      onChanged: (x) {
+                        if (x == null) return;
+                        final m = cur().secondAfterSeconds ~/ 60;
+                        set(cur().copyWith(secondAfterSeconds: (m * 60 + x).clamp(5, 3599)));
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Space.s4),
+              Text('${minSec(s.secondAfterSeconds)} after the prayer time.', key: const Key('second-summary'), style: t.bodySmall),
+              const SizedBox(height: Space.s12),
+              SegmentedButton<bool>(
+                key: const Key('second-scope'),
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: true, label: Text('Fajr only')),
+                  ButtonSegment(value: false, label: Text('Every prayer with a bell')),
+                ],
+                selected: {s.secondFajrOnly},
+                onSelectionChanged: (v) => set(cur().copyWith(secondFajrOnly: v.first)),
+              ),
+              const SizedBox(height: Space.s12),
+              tone(const Key('second-tone'), 'Sound of the second reminder', s.secondTone, (v) => set(cur().copyWith(secondTone: v))),
+              SwitchListTile(
+                key: const Key('second-insistent'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Keep ringing until I open it'),
+                value: s.secondKeepRinging,
+                onChanged: (v) => set(cur().copyWith(secondKeepRinging: v)),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(key: const Key('prayer-test-second'), onPressed: () => tryIt(true), icon: const Icon(Icons.play_circle_outline), label: const Text('Try the second reminder')),
+              ),
+            ],
+            const SizedBox(height: Space.s4),
+            Text(
+              'Tip: for the alarm sound to come through Do Not Disturb, add Folio to the phone\'s Do Not Disturb exceptions. '
+              'If reminders come late, turn off battery optimisation for Folio.',
+              style: t.bodySmall,
+            ),
+          ],
+        ),
       ),
     );
   }
