@@ -174,21 +174,42 @@ class LocalNotificationsScheduler implements ReminderScheduler {
     macOS: fln.DarwinNotificationDetails(),
   );
 
+  static const _dailyDetails = fln.NotificationDetails(
+    android: fln.AndroidNotificationDetails(
+      'daily_ayah',
+      'Ayah of the day',
+      channelDescription: 'A morning notification with the ayah of the day',
+      importance: fln.Importance.defaultImportance,
+      styleInformation: fln.BigTextStyleInformation(''),
+    ),
+    iOS: fln.DarwinNotificationDetails(),
+    macOS: fln.DarwinNotificationDetails(),
+  );
+
   @override
-  Future<void> replacePrayerAlarms(List<Reminder> alarms) async {
+  Future<void> replacePrayerAlarms(List<Reminder> alarms) =>
+      _replaceGroup(prayerNotificationIds, alarms, _prayerDetails, exactWanted: true, what: 'prayer reminders');
+
+  @override
+  Future<void> replaceDailyAyahAlarms(List<Reminder> alarms) =>
+      _replaceGroup(dailyAyahNotificationIds, alarms, _dailyDetails, exactWanted: false, what: 'the ayah of the day');
+
+  /// Cancels the notifications pending in [base]..[base]+0xffff and schedules [alarms] there.
+  Future<void> _replaceGroup(int base, List<Reminder> alarms, fln.NotificationDetails details, {required bool exactWanted, required String what}) async {
     if (!await _init()) return;
     try {
       for (final p in await _plugin.pendingNotificationRequests()) {
-        if (p.id >= prayerNotificationIds && p.id < prayerNotificationIds + 0x10000) {
+        if (p.id >= base && p.id < base + 0x10000) {
           await _plugin.cancel(id: p.id);
         }
       }
-      final exact = await _canUseExact(); // a prayer reminder minutes late is no use: exact when allowed
+      // a prayer reminder minutes late is no use: exact when allowed
+      final exact = exactWanted && await _canUseExact();
       for (final r in alarms) {
-        await _scheduleOne(r.id, r.at, r.title, r.body, r.payload, exact, details: _prayerDetails);
+        await _scheduleOne(r.id, r.at, r.title, r.body, r.payload, exact, details: details);
       }
     } catch (e) {
-      _lastError = 'Could not schedule prayer reminders: $e';
+      _lastError = 'Could not schedule $what: $e';
     }
   }
 

@@ -11,6 +11,7 @@ import '../../../app/router.dart';
 import '../../../design_system/tokens.dart';
 import '../../backup/backup_controller.dart' show backupTempDirProvider;
 import '../../library/application/export_notes.dart' show shareFileProvider;
+import '../application/quran_downloads.dart';
 import '../application/quran_providers.dart';
 import '../data/quran_data.dart';
 import '../domain/quran_search.dart';
@@ -392,6 +393,136 @@ class _ShareSheetState extends ConsumerState<_ShareSheet> {
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Listening without internet: download this surah or the whole Quran for the chosen reciter; stop; delete.
+Future<void> showDownloadSheet(BuildContext context, QuranData q, Surah s) => showModalBottomSheet<void>(
+  context: context,
+  isScrollControlled: true,
+  showDragHandle: true,
+  builder: (_) => _DownloadSheet(quran: q, surah: s),
+);
+
+class _DownloadSheet extends ConsumerStatefulWidget {
+  const _DownloadSheet({required this.quran, required this.surah});
+  final QuranData quran;
+  final Surah surah;
+  @override
+  ConsumerState<_DownloadSheet> createState() => _DownloadSheetState();
+}
+
+class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
+  int? _surahHere, _allHere, _bytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _count();
+  }
+
+  Future<void> _count() async {
+    final d = ref.read(quranDownloadsProvider.notifier);
+    final r = ref.read(reciterProvider);
+    final s = widget.surah;
+    try {
+      final a = await d.countHere(r, s.firstIndex, s.firstIndex + s.ayahCount - 1);
+      final b = await d.countHere(r, 0, widget.quran.ayahCount - 1);
+      final c = await d.bytesHere(r);
+      if (mounted) {
+        setState(() {
+          _surahHere = a;
+          _allHere = b;
+          _bytes = c;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _surahHere = 0;
+          _allHere = 0;
+          _bytes = 0;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final r = ref.watch(reciterProvider);
+    final job = ref.watch(quranDownloadsProvider);
+    ref.listen(quranDownloadsProvider, (prev, next) {
+      if (next != null && !next.running) _count();
+    });
+    final t = Theme.of(context).textTheme;
+    final s = widget.surah;
+    final ctl = ref.read(quranDownloadsProvider.notifier);
+    final running = job != null && job.running && job.reciterId == r.id;
+    String mb(int b) => b >= 1e9 ? '${(b / 1e9).toStringAsFixed(2)} GB' : '${(b / 1e6).toStringAsFixed(1)} MB';
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(Space.s16, 0, Space.s16, Space.s16),
+        child: Column(
+          key: const Key('download-sheet'),
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Listen without internet', style: t.titleLarge),
+            Text('Recitation by ${r.name}. Downloads use mobile data unless you are on Wi-Fi.', style: t.bodySmall),
+            const SizedBox(height: Space.s16),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(_surahHere == s.ayahCount ? Icons.download_done : Icons.download, color: QuranColors.goldDeep),
+              title: Text('${s.name} (${s.ayahCount} ayahs)'),
+              subtitle: Text(_surahHere == null ? 'Checking…' : (_surahHere == s.ayahCount ? 'On this phone' : '$_surahHere of ${s.ayahCount} on this phone'), key: const Key('download-surah-state')),
+              trailing: FilledButton(
+                key: const Key('download-surah'),
+                onPressed: running || _surahHere == s.ayahCount ? null : () => ctl.downloadSurah(widget.quran, r, s.number),
+                child: const Text('Download'),
+              ),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(_allHere == widget.quran.ayahCount ? Icons.download_done : Icons.cloud_download_outlined, color: QuranColors.goldDeep),
+              title: Text('The whole Quran (${wholeQuranSize(r)})'),
+              subtitle: Text(_allHere == null ? 'Checking…' : '$_allHere of ${widget.quran.ayahCount} ayahs on this phone'),
+              trailing: OutlinedButton(
+                key: const Key('download-all'),
+                onPressed: running || _allHere == widget.quran.ayahCount ? null : () => ctl.downloadAll(widget.quran, r),
+                child: const Text('Download'),
+              ),
+            ),
+            if (job != null && job.reciterId == r.id) ...[
+              const SizedBox(height: Space.s8),
+              Text(
+                job.running ? 'Downloading ${job.label}: ${job.done} of ${job.total}' : (job.error ?? 'Downloaded ${job.label}: ${job.done} of ${job.total}'),
+                key: const Key('download-progress'),
+                style: t.bodyMedium?.copyWith(color: job.error != null ? context.colors.danger : null),
+              ),
+              const SizedBox(height: Space.s4),
+              LinearProgressIndicator(value: job.fraction, color: QuranColors.gold),
+              if (running)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(key: const Key('download-stop'), onPressed: ctl.cancel, child: const Text('Stop (what is downloaded stays)')),
+                ),
+            ],
+            const SizedBox(height: Space.s8),
+            if ((_bytes ?? 0) > 0)
+              TextButton.icon(
+                key: const Key('download-delete'),
+                onPressed: () async {
+                  await ctl.deleteAll(r);
+                  await _count();
+                },
+                icon: const Icon(Icons.delete_outline),
+                label: Text('Delete ${r.name}\'s downloads (${mb(_bytes!)})'),
+              ),
+            Text('Listening uses the downloaded files by itself; anything not downloaded is streamed.', style: t.bodySmall),
           ],
         ),
       ),

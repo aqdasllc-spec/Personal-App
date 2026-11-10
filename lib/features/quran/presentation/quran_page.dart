@@ -389,6 +389,12 @@ class _SurahPageState extends ConsumerState<SurahPage> {
                 },
               ),
               IconButton(
+                key: const Key('surah-download'),
+                tooltip: 'Listen without internet: download',
+                icon: const Icon(Icons.download_for_offline_outlined),
+                onPressed: () => showDownloadSheet(context, q, s),
+              ),
+              IconButton(
                 key: const Key('hifz-open'),
                 tooltip: 'Memorise (Hifz): repeat and hide',
                 icon: Icon(hifz.hideArabic ? Icons.visibility_off : Icons.school_outlined),
@@ -762,6 +768,7 @@ class _QuranSettings extends ConsumerWidget {
     final scale = ref.watch(quranTextScaleProvider);
     final reciter = ref.watch(reciterProvider);
     final spoken = ref.watch(spokenTranslationProvider);
+    final notify = ref.watch(dailyAyahNotifyProvider);
     final t = Theme.of(context).textTheme;
     final q = ref.watch(quranDataProvider).value;
     void restart() {
@@ -844,6 +851,32 @@ class _QuranSettings extends ConsumerWidget {
                 ),
             ],
           ),
+          const SizedBox(height: Space.s16),
+          SwitchListTile(
+            key: const Key('daily-notify'),
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Ayah of the day each morning'),
+            subtitle: Text(
+              notify == null
+                  ? 'A notification with the day\'s ayah, in the language chosen on Home'
+                  : 'At ${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay(hour: notify.hour, minute: notify.minute))} · tap to change the time',
+            ),
+            value: notify != null,
+            onChanged: (on) => ref.read(dailyAyahNotifyProvider.notifier).set(on ? (hour: 7, minute: 0) : null),
+          ),
+          if (notify != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: const Key('daily-notify-time'),
+                icon: const Icon(Icons.schedule),
+                label: const Text('Change the time'),
+                onPressed: () async {
+                  final picked = await showTimePicker(context: context, initialTime: TimeOfDay(hour: notify.hour, minute: notify.minute));
+                  if (picked != null) await ref.read(dailyAyahNotifyProvider.notifier).set((hour: picked.hour, minute: picked.minute));
+                },
+              ),
+            ),
           const SizedBox(height: Space.s24),
           Text(
             'Texts: Arabic (Uthmani, Hafs) from the King Fahd Glorious Quran Printing Complex; English: Saheeh International; '

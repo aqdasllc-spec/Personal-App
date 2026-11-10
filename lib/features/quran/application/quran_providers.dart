@@ -6,7 +6,10 @@ import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
+import '../../planner/application/planner_controller.dart' show reminderSchedulerProvider;
+import '../../planner/domain/reminders.dart';
 import '../data/quran_data.dart';
+import '../domain/daily.dart';
 import '../domain/khatm.dart';
 import '../domain/quran_search.dart';
 
@@ -290,3 +293,66 @@ final quranSearchIndexProvider = FutureProvider<QuranSearchIndex>((ref) async {
   final q = await ref.watch(quranDataProvider.future);
   return compute(_buildIndex, q);
 });
+
+/// The morning "ayah of the day" notification: the time it comes (null = off). Remembered on this device.
+class DailyAyahNotify extends Notifier<({int hour, int minute})?> {
+  static const key = 'quran_daily_notify';
+
+  @override
+  ({int hour, int minute})? build() {
+    Future.microtask(() async {
+      try {
+        final raw = await ref.read(syncedStoreProvider).state(key);
+        final p = (raw ?? '').split(':');
+        final h = p.length == 2 ? int.tryParse(p[0]) : null, m = p.length == 2 ? int.tryParse(p[1]) : null;
+        if (h != null && m != null) state = (hour: h.clamp(0, 23), minute: m.clamp(0, 59));
+        await resync();
+      } catch (_) {}
+    });
+    return null;
+  }
+
+  Future<void> set(({int hour, int minute})? at) async {
+    state = at;
+    try {
+      ref.read(syncedStoreProvider).setState(key, at == null ? '' : '${at.hour}:${at.minute}');
+    } catch (_) {}
+    if (at != null) {
+      final s = ref.read(reminderSchedulerProvider);
+      if (!await s.hasPermission()) await s.requestPermission();
+    }
+    await resync();
+  }
+
+  /// The next week's notifications, each with that day's ayah in the Home card's language.
+  Future<void> resync({DateTime? now}) async {
+    final at = state;
+    final sched = ref.read(reminderSchedulerProvider);
+    if (at == null) {
+      await sched.replaceDailyAyahAlarms(const []).catchError((Object _) {});
+      return;
+    }
+    final q = await ref.read(quranDataProvider.future);
+    final urdu = ref.read(dailyLangProvider) == DailyLang.urdu;
+    final t = now ?? DateTime.now();
+    final out = <Reminder>[];
+    for (var d = 0; d < 7; d++) {
+      final when = DateTime(t.year, t.month, t.day + d, at.hour, at.minute);
+      if (!when.isAfter(t)) continue;
+      final a = dailyAyah(q, when);
+      final text = (urdu ? a.urdu : a.english).join(' ');
+      out.add(
+        Reminder(
+          id: dailyAyahNotificationIds + dayNumber(when) % 8000,
+          at: when,
+          title: urdu ? 'آج کی آیت · ${a.surah.arabic}' : 'Ayah of the day · ${a.surah.name} ${a.ref}',
+          body: text.length > 240 ? '${text.substring(0, 237)}…' : text,
+          payload: 'ayah:${a.surah.number}:${a.from}',
+        ),
+      );
+    }
+    await sched.replaceDailyAyahAlarms(out).catchError((Object _) {});
+  }
+}
+
+final dailyAyahNotifyProvider = NotifierProvider<DailyAyahNotify, ({int hour, int minute})?>(DailyAyahNotify.new);

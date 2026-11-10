@@ -56,6 +56,14 @@ class FakeScheduler implements ReminderScheduler {
     testLater++;
     return true;
   }
+  final dailyAlarms = <Reminder>[];
+  @override
+  Future<void> replaceDailyAyahAlarms(List<Reminder> alarms) async {
+    dailyAlarms
+      ..clear()
+      ..addAll(alarms);
+  }
+
   final prayerAlarms = <Reminder>[];
   @override
   Future<void> replacePrayerAlarms(List<Reminder> alarms) async {

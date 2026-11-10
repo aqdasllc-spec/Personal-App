@@ -58,7 +58,9 @@ class _PrayerStripState extends ConsumerState<PrayerStrip> {
     });
     // keep the reminders rolling forward (a week at a time) whenever Home is shown
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(prayerSettingsProvider.notifier).resync();
+      if (!mounted) return;
+      ref.read(prayerSettingsProvider.notifier).resync();
+      ref.read(dailyAyahNotifyProvider.notifier).resync();
     });
   }
 

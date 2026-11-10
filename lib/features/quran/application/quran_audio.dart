@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart' as ja;
 
 import '../../library/application/read_aloud.dart' show mediaControlsProvider;
 import '../data/quran_data.dart';
+import 'quran_downloads.dart';
 import 'quran_providers.dart';
 
 /// What the player reports. [index] is the position in the queue that is playing.
@@ -75,7 +77,16 @@ class JustAudioAyahPlayer implements AyahPlayer {
 final ayahPlayerFactoryProvider = Provider<AyahPlayer Function()>((_) => JustAudioAyahPlayer.new);
 
 /// Where the recording of ayah [n] (1-6236) by [r] comes from: the internet, or a downloaded file.
-final ayahUriResolverProvider = Provider<Uri Function(Reciter r, int n)>((_) => (r, n) => r.ayahUrl(n));
+final ayahUriResolverProvider = Provider<Uri Function(Reciter r, int n)>((ref) {
+  final dir = ref.watch(quranAudioDirProvider).value;
+  return (r, n) {
+    if (dir != null) {
+      final f = File('${dir.path}/${r.id}/$n.mp3');
+      if (f.existsSync()) return Uri.file(f.path);
+    }
+    return r.ayahUrl(n);
+  };
+});
 
 /// A short silence in the queue (Hifz pauses): `silence:<milliseconds>`.
 Uri silenceUri(Duration d) => Uri(scheme: 'silence', path: '${d.inMilliseconds}');

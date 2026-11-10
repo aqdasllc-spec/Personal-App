@@ -49,6 +49,9 @@ abstract interface class ReminderScheduler {
   /// Cancels the prayer-time reminders scheduled before and schedules [alarms] (ids from [prayerNotificationIds]).
   /// Planner reminders are not touched, and [replaceAll] does not touch these.
   Future<void> replacePrayerAlarms(List<Reminder> alarms);
+
+  /// The same for the morning ayah-of-the-day notifications (ids from [dailyAyahNotificationIds]).
+  Future<void> replaceDailyAyahAlarms(List<Reminder> alarms);
 }
 
 /// Used where notifications aren't available (tests, unsupported platforms).
@@ -61,6 +64,8 @@ class NoopReminderScheduler implements ReminderScheduler {
   Future<void> replaceAll(List<Reminder> reminders) async {}
   @override
   Future<void> replacePrayerAlarms(List<Reminder> alarms) async {}
+  @override
+  Future<void> replaceDailyAyahAlarms(List<Reminder> alarms) async {}
   @override
   Future<ReminderDiagnostics> diagnostics() async =>
       const ReminderDiagnostics();

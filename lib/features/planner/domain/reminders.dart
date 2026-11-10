@@ -44,6 +44,9 @@ const reservedNotificationIds = 0x7f000000;
 /// Prayer-time reminders use ids from here (up to 0x7f00ffff).
 const prayerNotificationIds = 0x7f000000;
 
+/// The morning "ayah of the day" notification uses ids from here (up to 0x7f01ffff).
+const dailyAyahNotificationIds = 0x7f010000;
+
 String _two(int v) => v.toString().padLeft(2, '0');
 String _clock(DateTime d) => '${_two(d.hour)}:${_two(d.minute)}';
 
