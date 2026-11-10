@@ -9,6 +9,7 @@ import '../features/library/application/book_sync.dart';
 import 'providers.dart';
 import '../features/quran/prayer/prayer_ringer.dart';
 import '../features/quran/prayer/ringing_overlay.dart';
+import '../features/library/application/open_with.dart';
 import 'notification_taps.dart';
 import 'quick_actions.dart';
 import 'router.dart';
@@ -33,6 +34,7 @@ class _FolioAppState extends ConsumerState<FolioApp>
             .read(quickActionsProvider)
             .start(QuickAction.values, (t) => handleQuickAction(ref, t));
         followNotificationTaps(ref);
+        followOpenWith(ref);
         unawaited(ref.read(prayerRingerProvider).start());
       },
     );

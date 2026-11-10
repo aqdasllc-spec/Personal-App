@@ -40,6 +40,7 @@ import 'package:folio/features/auth/auth_repository.dart';
 import 'package:folio/features/security/app_lock.dart';
 import 'package:folio/features/quran/application/quran_audio.dart';
 import 'package:folio/features/quran/prayer/battery.dart';
+import 'package:folio/features/library/application/open_with.dart';
 import 'package:folio/features/quran/prayer/prayer_ringer.dart';
 import 'package:folio/features/planner/domain/reminders.dart';
 import 'package:sync_engine/sync_engine.dart';
@@ -431,6 +432,7 @@ class TestEnv {
   /// The Quran recitation player (no sound in tests).
   final ayahPlayer = FakeAyahPlayer();
   final ringer = FakeRinger();
+  final openWith = FakeOpenWith();
   final battery = FakeBattery();
 
   /// Replace the sync controller (e.g. to add sign-in gating).
@@ -453,6 +455,7 @@ class TestEnv {
         mediaControlsProvider.overrideWithValue(media),
         ayahPlayerFactoryProvider.overrideWithValue(() => ayahPlayer),
         prayerRingerProvider.overrideWithValue(ringer),
+        openWithPortProvider.overrideWithValue(openWith),
         batteryPortProvider.overrideWithValue(battery),
         pageThumbsBuilderProvider.overrideWithValue((context, {required file, required pageCount, required current, required bookmarked, required drawn, required onPick}) => PageThumbGrid(
               pageCount: pageCount,
@@ -607,4 +610,20 @@ class FakeBattery implements BatteryPort {
     opened++;
     return true;
   }
+}
+
+/// PDFs "handed over by another app" in tests.
+class FakeOpenWith implements OpenWithPort {
+  String? first;
+  final _c = StreamController<String>.broadcast();
+  void hand(String path) => _c.add(path);
+  @override
+  Future<String?> initial() async {
+    final f = first;
+    first = null;
+    return f;
+  }
+
+  @override
+  Stream<String> get opened => _c.stream;
 }
