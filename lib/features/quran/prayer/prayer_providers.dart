@@ -13,14 +13,17 @@ class PrayerSettingsController extends Notifier<PrayerSettings> {
   static const key = 'prayer_settings';
   @override
   PrayerSettings build() {
-    Future.microtask(() async {
+    Future<void> load() async {
       try {
         final raw = await ref.read(syncedStoreProvider).state(key);
         final s = raw == null ? null : PrayerSettings.decode(raw);
         if (s != null) state = s;
         resync();
       } catch (_) {}
-    });
+    }
+
+    Future.microtask(load);
+    reloadOnRemote(ref, key, load);
     return const PrayerSettings();
   }
 

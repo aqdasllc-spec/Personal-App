@@ -63,7 +63,7 @@ Widget tests that pump a screen inside a bare `MaterialApp` can hide navigation 
 
 
 ## Cloud sync (Supabase)
-1. In the Supabase dashboard → SQL Editor, run `supabase/migrations/20261106000000_sync_core.sql` once (creates the sync tables, row-level security and `apply_changes`).
+1. In the Supabase dashboard → SQL Editor, run each file in `supabase/migrations/` once, oldest first: `20261106000000_sync_core.sql` (creates the sync tables, row-level security and `apply_changes`), then `…07_cloud_books`, `…08_sync_more_tables`, `…09_sync_marks` and `…10_sync_prefs` (each later one only widens what syncs). If `sync_prefs` has not run yet, Quran and prayer settings simply wait on the phone (tried again once a day) while everything else syncs.
 2. Auth → Providers → Email: enabled. For a personal app, turn **Confirm email** off (otherwise sign-up needs a link that opens in a browser).
 3. Build with the project URL and the *publishable* key (never the secret/service-role key):
    `flutter build apk --release --dart-define=SUPABASE_URL=https://<ref>.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=<key>`

@@ -43,12 +43,12 @@ class SyncService {
   AppDatabase get _db => store.db;
 
   /// Number of local edits waiting to be uploaded (for the sync status chip).
-  Future<int> pendingCount() async =>
-      (await (_db.selectOnly(
-        _db.syncOutbox,
-      )..addColumns([_db.syncOutbox.id.count()])).getSingle()).read(
-        _db.syncOutbox.id.count(),
-      )!;
+  Future<int> pendingCount() async {
+    final hold = await _prefsHeldBack();
+    final q = _db.selectOnly(_db.syncOutbox)..addColumns([_db.syncOutbox.id.count()]);
+    if (hold) q.where(_db.syncOutbox.tbl.equals('prefs').not());
+    return (await q.getSingle()).read(_db.syncOutbox.id.count())!;
+  }
 
   Future<DateTime?> lastSuccessfulSync() async {
     final v = await store.state('last_sync_at');
@@ -61,6 +61,7 @@ class SyncService {
   Future<SyncReport> _run() async {
     await store.backfillExtras();
     await store.backfillMarks();
+    await store.backfillPrefs();
     final pushed = await _push();
     final pulled = await _pull();
     final conflicts = await _pullConflicts();
@@ -71,11 +72,20 @@ class SyncService {
     return SyncReport(pushed: pushed, pulled: pulled, newConflicts: conflicts);
   }
 
+  /// Settings sync needs `20261110000000_sync_prefs.sql` on the server. Until it has run there, the settings wait in
+  /// the outbox (checked again once a day) and everything else still syncs.
+  Future<bool> _prefsHeldBack() async {
+    final until = int.tryParse(await store.state('prefs_unsupported_until') ?? '');
+    return until != null && DateTime.now().millisecondsSinceEpoch < until;
+  }
+
   Future<int> _push() async {
     var total = 0;
     while (true) {
+      final holdPrefs = await _prefsHeldBack();
       final rows =
           await (_db.select(_db.syncOutbox)
+                ..where((o) => holdPrefs ? o.tbl.equals('prefs').not() : const Constant(true))
                 ..orderBy([(o) => OrderingTerm.asc(o.id)])
                 ..limit(batchSize))
               .get();
@@ -94,6 +104,10 @@ class SyncService {
       try {
         await transport.push(changes);
       } on SyncTransportException catch (e) {
+        if (!holdPrefs && e.message.contains('invalid table: prefs')) {
+          await store.setState('prefs_unsupported_until', '${DateTime.now().add(const Duration(days: 1)).millisecondsSinceEpoch}');
+          continue; // try again without the settings
+        }
         await (_db.update(
           _db.syncOutbox,
         )..where((o) => o.id.isIn(rows.map((r) => r.id)))).write(

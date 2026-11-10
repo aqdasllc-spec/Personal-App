@@ -39,3 +39,11 @@ final appLockProvider = NotifierProvider<AppLockController, LockState>(
 final syncControllerProvider = NotifierProvider<SyncController, SyncStatus>(
   () => throw UnimplementedError('syncControllerProvider must be overridden'),
 );
+
+/// Calls [reload] whenever another device changed the synced setting [key] (see `syncedPrefKeys`).
+void reloadOnRemote(Ref ref, String key, void Function() reload) {
+  try {
+    final sub = ref.read(syncedStoreProvider).remotePrefChanges.where((k) => k == key).listen((_) => reload());
+    ref.onDispose(sub.cancel);
+  } catch (_) {}
+}

@@ -121,6 +121,28 @@ void main() {
     expect(await b.env.store.state('tag_colors'), '{"work":6,"safety":5}', reason: 'own colour for "work" kept, new one added');
   });
 
+  test('Quran and prayer settings travel with the backup: saved ayahs are combined, own choices kept', () async {
+    await a.env.store.setState('quran_bookmarks', '[{"s":2,"a":255,"n":"Kursi","t":1}]');
+    await a.env.store.setState('quran_khatm', 'plan-a');
+    await a.env.store.setState('prayer_settings', '{"lat":31.5}');
+    await a.env.store.setState('quran_text_scale', '1.40');
+    final file = await a.backup.create(work);
+
+    final b = await Device.create();
+    addTearDown(b.close);
+    await b.env.store.setState('quran_bookmarks', '[{"s":1,"a":1,"n":"","t":2}]');
+    await b.env.store.setState('quran_khatm', 'plan-b');
+    final heard = <String>[];
+    b.env.store.remotePrefChanges.listen(heard.add);
+    await b.backup.restore(file.path);
+    await pumpEventQueue();
+    expect(await b.env.store.state('quran_bookmarks'), '[{"s":1,"a":1,"n":"","t":2},{"s":2,"a":255,"n":"Kursi","t":1}]');
+    expect(await b.env.store.state('quran_khatm'), 'plan-b', reason: 'this device already had a plan');
+    expect(await b.env.store.state('prayer_settings'), '{"lat":31.5}');
+    expect(await b.env.store.state('quran_text_scale'), isNull, reason: 'screen size choices stay on each device');
+    expect(heard, containsAll(['quran_bookmarks', 'prayer_settings']));
+  });
+
   test('restoring again, or onto a device that already has the data, adds nothing and changes nothing', () async {
     await seed();
     final file = await a.backup.create(work);

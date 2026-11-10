@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
@@ -51,7 +52,28 @@ class SyncedStore {
       );
 
   Future<String?> state(String key) => _getState(db, key);
-  Future<void> setState(String key, String value) => _setState(db, key, value);
+
+  /// Saves a setting. The ones in [syncedPrefKeys] also go to your other devices.
+  Future<void> setState(String key, String value) =>
+      syncedPrefKeys.contains(key) ? setFields('prefs', key, {'value': value}) : _setState(db, key, value);
+
+  final _remotePrefs = StreamController<String>.broadcast();
+
+  /// The key of each synced setting another device changed (after it was saved here).
+  Stream<String> get remotePrefChanges => _remotePrefs.stream;
+
+  /// Tells the open screens that a synced setting changed underneath them (e.g. restored from a backup).
+  void announcePrefChange(String key) => _remotePrefs.add(key);
+
+  /// Settings saved before they could sync: queue them once.
+  Future<void> backfillPrefs() async {
+    if (await _getState(db, 'prefs_backfilled') == '1') return;
+    for (final k in syncedPrefKeys) {
+      final v = await _getState(db, k);
+      if (v != null && await _metaHlc('prefs', k, 'value') == null) await setFields('prefs', k, {'value': v});
+    }
+    await _setState(db, 'prefs_backfilled', '1');
+  }
 
   /// Drawings, tag colours and saved views made before they could sync have no sync record: queue them once
   /// (the first time this device syncs), so they reach the other devices too.
@@ -173,6 +195,9 @@ class SyncedStore {
       await _putMeta(c.key.table, c.key.rowId, c.key.field, c.hlc);
       await _setState(db, 'last_hlc', clock.latest.toString());
       return true;
+    }).then((changed) {
+      if (changed && c.key.table == 'prefs') _remotePrefs.add(c.key.rowId);
+      return changed;
     });
   }
 

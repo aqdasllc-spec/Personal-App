@@ -184,7 +184,29 @@ Future<void> _writeHighlight(AppDatabase db, String id, String field, Object? va
   }
 }
 
+/// Settings that follow you to your other devices (and into backups): one synced row per setting
+/// (row id = the setting's key), field `value` = its text. Everything else in `sync_state` stays on this device.
+const syncedPrefKeys = {
+  'quran_daily_lang',
+  'quran_translation',
+  'quran_last_read',
+  'quran_reciter',
+  'quran_spoken_translation',
+  'quran_khatm',
+  'quran_hifz',
+  'quran_bookmarks',
+  'quran_daily_notify',
+  'prayer_settings',
+  'prayer_log',
+};
+
+Future<void> _writePref(AppDatabase db, String key, String field, Object? value, int wallMs) async {
+  if (!syncedPrefKeys.contains(key)) return; // never let a remote change touch device-only state
+  await _putState(db, key, value is String ? value : '');
+}
+
 final Map<String, SyncedTable> _more = {
+  'prefs': const SyncedTable('prefs', {'value': 'value'}, custom: _writePref),
   'highlights': const SyncedTable('highlights', {'body': 'body', 'color': 'color', 'note': 'note', 'gone': 'gone'}, custom: _writeHighlight),
   'bookmarks': const SyncedTable('bookmarks', {'mark': 'mark'}, custom: _writeBookmark),
   'tag_colors': const SyncedTable('tag_colors', {'color': 'color'}, custom: _writeTagColor),

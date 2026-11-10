@@ -31,13 +31,16 @@ class _Pref<T> extends Notifier<T> {
 
   @override
   T build() {
-    Future.microtask(() async {
+    Future<void> load() async {
       try {
         final v = await ref.read(syncedStoreProvider).state(key);
         final d = v == null ? null : decode(v);
         if (d != null) state = d;
       } catch (_) {}
-    });
+    }
+
+    Future.microtask(load);
+    reloadOnRemote(ref, key, load);
     return initial;
   }
 
@@ -158,13 +161,15 @@ class KhatmController extends Notifier<KhatmPlan?> {
 
   @override
   KhatmPlan? build() {
-    Future.microtask(() async {
+    Future<void> load() async {
       try {
         final raw = await ref.read(syncedStoreProvider).state(key);
-        final p = raw == null || raw.isEmpty ? null : KhatmPlan.decode(raw);
-        if (p != null) state = p;
+        state = raw == null || raw.isEmpty ? null : KhatmPlan.decode(raw);
       } catch (_) {}
-    });
+    }
+
+    Future.microtask(load);
+    reloadOnRemote(ref, key, load);
     // reading moves the plan forward: a page counts as read once the next ayah you reach is on a later page
     ref.listen<(int, int)?>(quranLastReadProvider, (_, last) {
       final q = ref.read(quranDataProvider).value;
@@ -213,7 +218,7 @@ class HifzController extends Notifier<HifzSettings> {
   static const key = 'quran_hifz';
   @override
   HifzSettings build() {
-    Future.microtask(() async {
+    Future<void> load() async {
       try {
         final raw = await ref.read(syncedStoreProvider).state(key);
         if (raw == null) return;
@@ -222,7 +227,10 @@ class HifzController extends Notifier<HifzSettings> {
           state = HifzSettings(eachAyah: p[0]!.clamp(1, 10), rounds: p[1]!.clamp(1, 10), pauseSeconds: p[2]!.clamp(0, 10), hideArabic: p[3] == 1);
         }
       } catch (_) {}
-    });
+    }
+
+    Future.microtask(load);
+    reloadOnRemote(ref, key, load);
     return const HifzSettings();
   }
 
@@ -257,13 +265,16 @@ class QuranBookmarks extends Notifier<List<QuranBookmark>> {
   static const key = 'quran_bookmarks';
   @override
   List<QuranBookmark> build() {
-    Future.microtask(() async {
+    Future<void> load() async {
       try {
         final raw = await ref.read(syncedStoreProvider).state(key);
-        if (raw == null || raw.isEmpty) return;
-        state = [for (final j in (jsonDecode(raw) as List)) ?QuranBookmark.fromJson(j)];
+        if (raw == null) return;
+        state = raw.isEmpty ? const [] : [for (final j in (jsonDecode(raw) as List)) ?QuranBookmark.fromJson(j)];
       } catch (_) {}
-    });
+    }
+
+    Future.microtask(load);
+    reloadOnRemote(ref, key, load);
     return const [];
   }
 
@@ -300,15 +311,18 @@ class DailyAyahNotify extends Notifier<({int hour, int minute})?> {
 
   @override
   ({int hour, int minute})? build() {
-    Future.microtask(() async {
+    Future<void> load() async {
       try {
         final raw = await ref.read(syncedStoreProvider).state(key);
         final p = (raw ?? '').split(':');
         final h = p.length == 2 ? int.tryParse(p[0]) : null, m = p.length == 2 ? int.tryParse(p[1]) : null;
-        if (h != null && m != null) state = (hour: h.clamp(0, 23), minute: m.clamp(0, 59));
+        state = h != null && m != null ? (hour: h.clamp(0, 23), minute: m.clamp(0, 59)) : null;
         await resync();
       } catch (_) {}
-    });
+    }
+
+    Future.microtask(load);
+    reloadOnRemote(ref, key, load);
     return null;
   }
 

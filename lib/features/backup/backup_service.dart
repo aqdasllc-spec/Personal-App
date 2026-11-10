@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 
 import '../../data/local/app_database.dart';
 import '../../data/sync/synced_store.dart';
+import '../../data/sync/synced_tables.dart' show syncedPrefKeys;
 import '../library/domain_tag_colors.dart';
 import 'backup_crypto.dart';
 
@@ -135,8 +136,13 @@ class BackupService {
     final pageTexts = await _db.select(_db.pageTexts).get();
     final ink = await _db.select(_db.pageInk).get();
     final tagColors = await _store.state('tag_colors');
+    final prefs = {
+      for (final k in syncedPrefKeys)
+        if (await _store.state(k) case final v? when v.isNotEmpty) k: v,
+    };
     final data = jsonEncode({
       'tagColors': tagColors ?? '{}',
+      'prefs': prefs,
       'pageInk': [for (final t in ink) t.toJson()],
       'pageTexts': [for (final t in pageTexts) t.toJson()],
       'highlights': [for (final h in highlights) h.toJson()],
@@ -459,6 +465,20 @@ class BackupService {
         encodeTagColors({...restoredColors, ...mine}),
       );
     }
+    // Quran and prayer settings, bookmarks, khatm, prayer log: merged with what this device already has
+    final restoredPrefs = data['prefs'];
+    if (restoredPrefs is Map) {
+      for (final e in restoredPrefs.entries) {
+        final key = e.key, theirs = e.value;
+        if (key is! String || theirs is! String || !syncedPrefKeys.contains(key)) continue;
+        final mine = await _store.state(key);
+        final merged = mergePref(mine, theirs);
+        if (merged != mine) {
+          await _store.setState(key, merged);
+          _store.announcePrefChange(key);
+        }
+      }
+    }
     for (final j in list('pageInk')) {
       final t = PageInkRow.fromJson(j);
       if (!restoredIds.contains(t.bookId)) continue;
@@ -494,4 +514,21 @@ class BackupService {
       problems: problems,
     );
   }
+}
+
+/// A setting from a backup joined with this device's: lists of saved ayahs are combined, maps (like the prayer log)
+/// are combined with this device's entries kept, and anything else is taken from the backup only when this device
+/// has nothing yet.
+String mergePref(String? mine, String theirs) {
+  if (mine == null || mine.isEmpty) return theirs;
+  try {
+    final a = jsonDecode(mine), b = jsonDecode(theirs);
+    if (a is Map && b is Map) return jsonEncode({...b, ...a});
+    if (a is List && b is List) {
+      String id(Object? x) => x is Map ? '${x['s']}:${x['a']}' : jsonEncode(x);
+      final seen = {for (final x in a) id(x)};
+      return jsonEncode([...a, for (final x in b) if (!seen.contains(id(x))) x]);
+    }
+  } catch (_) {}
+  return mine;
 }
