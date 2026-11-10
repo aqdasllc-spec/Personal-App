@@ -12,6 +12,7 @@ import '../application/library_controller.dart';
 import '../application/export_ink.dart';
 import '../application/ocr_controller.dart';
 import '../application/read_aloud.dart';
+import '../data/pdf_outline.dart';
 import '../data/media_controls.dart';
 import '../data/speech.dart' show SpeechEngine, VoiceInfo;
 import '../domain_lookup.dart';
@@ -1212,6 +1213,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       );
     }
     final file = repo.fileOf(book);
+    ref.watch(pdfChaptersProvider(file.path)); // read the table of contents now, so Contents opens on it
     _book = book;
     _pageCount = book.pageCount;
     if (!_dwellStarted) {
@@ -1396,15 +1398,23 @@ class _MarksSheet extends ConsumerWidget {
     final highlights =
         ref.watch(highlightsProvider(bookId)).value ?? const <HighlightRow>[];
     final height = MediaQuery.sizeOf(context).height * 0.6;
+    final chapters = ref.watch(pdfChaptersProvider(repo.fileOf(book).path));
+    final list = chapters.value ?? const <PdfChapter>[];
+    // the chapter you are in: the last one that starts on or before this page
+    final here = list.lastIndexWhere((c) => c.page <= current);
     return SafeArea(
       child: SizedBox(
         height: height,
         child: DefaultTabController(
-          length: 2,
+          length: 3,
+          initialIndex: list.isEmpty ? 1 : 0,
           child: Column(
             children: [
               TabBar(
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
                 tabs: [
+                  Tab(key: const Key('tab-chapters'), text: list.isEmpty ? 'Chapters' : 'Chapters (${list.length})'),
                   Tab(
                     key: const Key('tab-bookmarks'),
                     text: 'Bookmarks (${marks.length})',
@@ -1464,6 +1474,34 @@ class _MarksSheet extends ConsumerWidget {
               Expanded(
                 child: TabBarView(
                   children: [
+                    chapters.isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : list.isEmpty
+                        ? const _Empty('This PDF has no table of contents of its own. Use Pages to jump, or add bookmarks.')
+                        : ListView.builder(
+                            key: const Key('chapter-list'),
+                            itemCount: list.length,
+                            itemBuilder: (context, k) {
+                              final ch = list[k];
+                              return ListTile(
+                                key: Key('chapter-$k'),
+                                dense: ch.depth > 0,
+                                contentPadding: EdgeInsets.only(left: 16.0 + ch.depth * 18, right: 16),
+                                leading: k == here ? Icon(Icons.play_arrow, color: Theme.of(context).colorScheme.primary) : null,
+                                title: Text(
+                                  ch.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontWeight: ch.depth == 0 ? FontWeight.w600 : null),
+                                ),
+                                trailing: Text('p. ${ch.page}'),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  onJump(ch.page);
+                                },
+                              );
+                            },
+                          ),
                     marks.isEmpty
                         ? const _Empty(
                             'No bookmarks yet. Tap the bookmark icon at the top to mark the page you are on.',
