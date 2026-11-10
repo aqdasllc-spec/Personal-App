@@ -34,8 +34,15 @@ int stableId(String key) {
     h ^= u;
     h = (h * 0x01000193) & 0xffffffff;
   }
-  return h & 0x7fffffff;
+  return (h & 0x7fffffff) % reservedNotificationIds; // the top of the range belongs to prayer reminders and tests
 }
+
+/// Notification ids from here up are not the planner's (prayer-time reminders, test notifications); the planner
+/// never uses or cancels them.
+const reservedNotificationIds = 0x7f000000;
+
+/// Prayer-time reminders use ids from here (up to 0x7f00ffff).
+const prayerNotificationIds = 0x7f000000;
 
 String _two(int v) => v.toString().padLeft(2, '0');
 String _clock(DateTime d) => '${_two(d.hour)}:${_two(d.minute)}';

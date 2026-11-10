@@ -188,7 +188,8 @@ void main() {
       final env = await open(t);
       final cab = t.getRect(find.byKey(const Key('quran-cabinet')));
       expect(cab.width, closeTo(411 - 32, 1), reason: 'full width');
-      expect(cab.height, lessThan(300), reason: 'a band, not the whole page (Home is ${t.view.physicalSize.height} high)');
+      // with real fonts about 250 px of 890 (the test font is wider, so lines wrap more): a band, not the page
+      expect(cab.height, lessThan(340), reason: 'a band, not the whole page (Home is ${t.view.physicalSize.height} high)');
       expect(find.byKey(const Key('daily-arabic')), findsOneWidget, reason: 'the ayah is shown first');
       // Urdu by default: the translation is in Urdu script
       expect(RegExp(r'[؀-ۿ]').hasMatch(t.widget<Text>(find.byKey(const Key('daily-translation'))).data!), isTrue);
@@ -295,12 +296,18 @@ void main() {
       expect(find.byKey(const Key('daily-sheet')), findsOneWidget);
       final q = await t.runAsync(loadQuranAsset);
       final d = dailyAyah(q!, DateTime.now());
+      final sheet = find.descendant(of: find.byKey(const Key('daily-sheet')), matching: find.byType(Scrollable)).first;
+      await t.scrollUntilVisible(find.byKey(const Key('sheet-translation')), 150, scrollable: sheet);
+      await wait(t, 2);
       expect(t.widget<Text>(find.byKey(const Key('sheet-translation'))).data, d.urdu.join(' '));
-      await t.tap(find.text('English').last);
+      await t.scrollUntilVisible(find.byKey(const Key('sheet-lang')), -150, scrollable: sheet);
+      await wait(t, 2);
+      await t.tap(find.descendant(of: find.byKey(const Key('sheet-lang')), matching: find.text('English')));
       await wait(t, 3);
+      await t.scrollUntilVisible(find.byKey(const Key('sheet-translation')), 150, scrollable: sheet);
+      await wait(t, 2);
       expect(t.widget<Text>(find.byKey(const Key('sheet-translation'))).data, d.english.join(' '));
 
-      final sheet = find.descendant(of: find.byKey(const Key('daily-sheet')), matching: find.byType(Scrollable)).first;
       await t.scrollUntilVisible(find.byKey(const Key('sheet-listen')), 150, scrollable: sheet);
       await wait(t, 2);
       await t.tap(find.byKey(const Key('sheet-listen')));

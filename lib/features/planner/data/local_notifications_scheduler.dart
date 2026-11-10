@@ -162,21 +162,52 @@ class LocalNotificationsScheduler implements ReminderScheduler {
     }
   }
 
+  static const _prayerDetails = fln.NotificationDetails(
+    android: fln.AndroidNotificationDetails(
+      'prayer_times',
+      'Prayer times',
+      channelDescription: 'A reminder at each prayer time you choose',
+      importance: fln.Importance.high,
+      priority: fln.Priority.high,
+    ),
+    iOS: fln.DarwinNotificationDetails(),
+    macOS: fln.DarwinNotificationDetails(),
+  );
+
+  @override
+  Future<void> replacePrayerAlarms(List<Reminder> alarms) async {
+    if (!await _init()) return;
+    try {
+      for (final p in await _plugin.pendingNotificationRequests()) {
+        if (p.id >= prayerNotificationIds && p.id < prayerNotificationIds + 0x10000) {
+          await _plugin.cancel(id: p.id);
+        }
+      }
+      final exact = await _canUseExact(); // a prayer reminder minutes late is no use: exact when allowed
+      for (final r in alarms) {
+        await _scheduleOne(r.id, r.at, r.title, r.body, r.payload, exact, details: _prayerDetails);
+      }
+    } catch (e) {
+      _lastError = 'Could not schedule prayer reminders: $e';
+    }
+  }
+
   Future<void> _scheduleOne(
     int id,
     DateTime at,
     String title,
     String body,
     String? payload,
-    bool exact,
-  ) async {
+    bool exact, {
+    fln.NotificationDetails details = _details,
+  }) async {
     Future<void> go(fln.AndroidScheduleMode mode) => _plugin.zonedSchedule(
       id: id,
       title: title,
       body: body,
       // an absolute instant: computed from local wall-clock time already, so UTC is just a container
       scheduledDate: tz.TZDateTime.from(at, tz.UTC),
-      notificationDetails: _details,
+      notificationDetails: details,
       androidScheduleMode: mode,
       payload: payload,
     );
@@ -206,9 +237,9 @@ class LocalNotificationsScheduler implements ReminderScheduler {
       return;
     }
     try {
-      // cancel what we scheduled before, but keep the diagnostic test notifications alive
+      // cancel what we scheduled before, but keep the test notifications and the prayer reminders
       for (final p in await _plugin.pendingNotificationRequests()) {
-        if (p.id != _testNowId && p.id != _testLaterId) {
+        if (p.id < reservedNotificationIds) {
           await _plugin.cancel(id: p.id);
         }
       }
@@ -229,7 +260,7 @@ class LocalNotificationsScheduler implements ReminderScheduler {
     var pending = 0;
     try {
       pending = (await _plugin.pendingNotificationRequests())
-          .where((p) => p.id != _testNowId && p.id != _testLaterId)
+          .where((p) => p.id < reservedNotificationIds)
           .length;
     } catch (_) {}
     return ReminderDiagnostics(

@@ -60,6 +60,9 @@ dependencies:
   url_launcher: ^6.3.3
   just_audio: ^0.10.6
   scrollable_positioned_list: ^0.3.8
+  adhan: ^2.0.0+1
+  hijri: ^3.0.1
+  geolocator: ^14.0.1
 
 dev_dependencies:
   flutter_test:

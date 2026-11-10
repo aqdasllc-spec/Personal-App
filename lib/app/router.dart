@@ -12,6 +12,7 @@ import 'shell/adaptive_shell.dart';
 import '../features/library/presentation/library_page.dart';
 import '../features/library/presentation/reader_page.dart';
 import '../features/quran/presentation/quran_page.dart';
+import '../features/quran/prayer/prayer_page.dart';
 import '../features/library/presentation/search_all_page.dart';
 import '../features/home/home_page.dart';
 
@@ -23,6 +24,7 @@ abstract final class Routes {
   static const planner = '/planner';
   static const settings = '/settings';
   static const quran = '/home/quran';
+  static const prayer = '/home/prayer';
 }
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -64,6 +66,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: Routes.home,
                 builder: (_, _) => const HomePage(),
                 routes: [
+                  GoRoute(
+                    path: 'prayer',
+                    parentNavigatorKey: _rootKey,
+                    builder: (_, _) => const PrayerPage(),
+                  ),
                   GoRoute(
                     path: 'quran',
                     parentNavigatorKey: _rootKey,

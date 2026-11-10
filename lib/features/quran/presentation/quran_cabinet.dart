@@ -10,6 +10,7 @@ import '../domain/daily.dart';
 import 'cabinet_painters.dart';
 import 'daily_sheet.dart';
 import 'quran_style.dart';
+import '../prayer/prayer_page.dart';
 
 /// Home's Quran corner: a gold-framed cabinet, full width and low, with the Quran in a lit glass niche on the left
 /// (tap it: the lamp comes on and the Quran opens) and the ayah or hadith of the day on the right, in Urdu or English.
@@ -90,7 +91,7 @@ class _QuranCabinetState extends ConsumerState<QuranCabinet> with SingleTickerPr
             child: CustomPaint(
               painter: const StarLatticePainter(),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 2, 10, 12),
+                padding: const EdgeInsets.fromLTRB(10, 2, 10, 2),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -106,6 +107,9 @@ class _QuranCabinetState extends ConsumerState<QuranCabinet> with SingleTickerPr
                         ],
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    Container(height: 1, color: QuranColors.gold.withValues(alpha: .35)),
+                    PrayerStrip(urdu: urdu, now: widget.now == null ? null : () => widget.now!),
                   ],
                 ),
               ),
@@ -174,20 +178,20 @@ class _QuranCabinetState extends ConsumerState<QuranCabinet> with SingleTickerPr
         key: const Key('quran-open'),
         onTap: _openQuran,
         child: SizedBox(
-          width: 108,
+          width: 100,
           child: Column(
             children: [
               SizedBox(
-                height: 128,
+                height: 114,
                 child: AnimatedBuilder(
                   animation: _light,
                   builder: (_, _) => CustomPaint(
-                    size: const Size(108, 128),
+                    size: const Size(100, 114),
                     painter: NichePainter(light: _light.value, lift: _light.value),
                   ),
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
                 urdu ? 'قرآن پڑھیں' : 'Read Quran',
                 textAlign: TextAlign.center,

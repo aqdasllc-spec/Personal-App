@@ -45,6 +45,10 @@ abstract interface class ReminderScheduler {
 
   /// Schedules a notification [after] from now - proves scheduled delivery works with the app closed.
   Future<bool> scheduleTest(Duration after);
+
+  /// Cancels the prayer-time reminders scheduled before and schedules [alarms] (ids from [prayerNotificationIds]).
+  /// Planner reminders are not touched, and [replaceAll] does not touch these.
+  Future<void> replacePrayerAlarms(List<Reminder> alarms);
 }
 
 /// Used where notifications aren't available (tests, unsupported platforms).
@@ -55,6 +59,8 @@ class NoopReminderScheduler implements ReminderScheduler {
   Future<bool> requestPermission() async => false;
   @override
   Future<void> replaceAll(List<Reminder> reminders) async {}
+  @override
+  Future<void> replacePrayerAlarms(List<Reminder> alarms) async {}
   @override
   Future<ReminderDiagnostics> diagnostics() async =>
       const ReminderDiagnostics();
