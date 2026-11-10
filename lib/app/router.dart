@@ -15,6 +15,7 @@ import '../features/quran/presentation/quran_extras.dart';
 import '../features/quran/presentation/quran_page.dart';
 import '../features/quran/prayer/prayer_page.dart';
 import '../features/quran/prayer/qibla_page.dart';
+import '../features/quran/presentation/tilawat_page.dart';
 import '../features/library/presentation/search_all_page.dart';
 import '../features/home/home_page.dart';
 
@@ -97,6 +98,16 @@ final routerProvider = Provider<GoRouter>((ref) {
                             startAyah: int.tryParse(s.uri.queryParameters['ayah'] ?? '') ?? 1,
                           );
                         },
+                        routes: [
+                          GoRoute(
+                            path: 'tilawat',
+                            parentNavigatorKey: _rootKey,
+                            builder: (_, s) => TilawatPage(
+                              surah: (int.tryParse(s.pathParameters['surah'] ?? '') ?? 1).clamp(1, 114),
+                              ayah: int.tryParse(s.uri.queryParameters['ayah'] ?? '') ?? 1,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

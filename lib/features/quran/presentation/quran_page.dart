@@ -78,6 +78,15 @@ class _QuranHomePageState extends ConsumerState<QuranHomePage> {
           ),
           actions: [
             IconButton(
+              key: const Key('quran-tilawat'),
+              tooltip: 'Tilawat mode (from where you stopped)',
+              icon: const Icon(Icons.chrome_reader_mode_outlined),
+              onPressed: () {
+                final last = ref.read(quranLastReadProvider);
+                context.push('${Routes.quran}/${last?.$1 ?? 1}/tilawat?ayah=${last?.$2 ?? 1}');
+              },
+            ),
+            IconButton(
               key: const Key('quran-find'),
               tooltip: 'Search the Quran',
               icon: const Icon(Icons.search),
@@ -387,6 +396,12 @@ class _SurahPageState extends ConsumerState<SurahPage> {
                     a.playFrom(q, s.number, _firstVisibleAyah() ?? 1);
                   }
                 },
+              ),
+              IconButton(
+                key: const Key('tilawat-open'),
+                tooltip: 'Tilawat mode: full screen, scrolls by itself',
+                icon: const Icon(Icons.chrome_reader_mode_outlined),
+                onPressed: () => context.push('${Routes.quran}/${s.number}/tilawat?ayah=${_firstVisibleAyah() ?? 1}'),
               ),
               IconButton(
                 key: const Key('surah-download'),
