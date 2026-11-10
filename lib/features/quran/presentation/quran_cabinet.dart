@@ -7,6 +7,7 @@ import '../../../app/router.dart';
 import '../application/quran_providers.dart';
 import '../data/quran_data.dart';
 import '../domain/daily.dart';
+import '../domain/khatm.dart';
 import 'cabinet_painters.dart';
 import 'daily_sheet.dart';
 import 'quran_style.dart';
@@ -169,7 +170,15 @@ class _QuranCabinetState extends ConsumerState<QuranCabinet> with SingleTickerPr
     ],
   );
 
+  static String _khatmLine(KhatmPlan p, bool urdu) {
+    final t = khatmToday(p, DateTime.now());
+    if (t.status == KhatmStatus.finished) return urdu ? 'ختم مکمل، ماشاء اللہ' : 'Khatm complete';
+    if (t.status == KhatmStatus.doneToday) return urdu ? 'آج کا حصہ مکمل ✓' : "Today's portion done ✓";
+    return urdu ? 'آج: صفحہ ${urduDigits(t.from)}–${urduDigits(t.to)}' : 'Today: p. ${t.from}–${t.to}';
+  }
+
   Widget _niche(bool urdu, QuranData? q, (int, int)? last) {
+    final khatm = ref.watch(khatmProvider);
     final lastName = q != null && last != null && q.valid(last.$1, last.$2) ? q.surah(last.$1) : null;
     return Semantics(
       button: true,
@@ -199,7 +208,18 @@ class _QuranCabinetState extends ConsumerState<QuranCabinet> with SingleTickerPr
                     ? urduText(12, color: QuranColors.goldLight, weight: FontWeight.w600).copyWith(height: 1.3)
                     : const TextStyle(color: QuranColors.goldLight, fontSize: 12.5, fontWeight: FontWeight.w600),
               ),
-              if (lastName != null)
+              if (khatm != null)
+                Text(
+                  _khatmLine(khatm, urdu),
+                  key: const Key('khatm-label'),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: urdu
+                      ? urduText(10, color: QuranColors.goldLight).copyWith(height: 1.3)
+                      : const TextStyle(color: QuranColors.goldLight, fontSize: 10.5),
+                )
+              else if (lastName != null)
                 Text(
                   urdu ? 'جاری: ${lastName.arabic.replaceAll('سُوْرَةُ ', '')} ${urduDigits(last!.$2)}' : 'Continue ${last!.$1}:${last.$2}',
                   key: const Key('quran-continue-label'),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
 import '../data/quran_data.dart';
+import '../domain/khatm.dart';
 
 /// The bundled Quran (Arabic + English + Urdu). Loaded once, on first use.
 final quranLoaderProvider = Provider<Future<QuranData> Function()>((_) => loadQuranAsset);
@@ -143,3 +144,46 @@ final spokenTranslationProvider = NotifierProvider<_Pref<SpokenTranslation>, Spo
     (v) => v.name,
   ),
 );
+
+/// The khatm goal (null = none). Remembered on this device; follows your reading place forward by itself.
+class KhatmController extends Notifier<KhatmPlan?> {
+  static const key = 'quran_khatm';
+
+  @override
+  KhatmPlan? build() {
+    Future.microtask(() async {
+      try {
+        final raw = await ref.read(syncedStoreProvider).state(key);
+        final p = raw == null || raw.isEmpty ? null : KhatmPlan.decode(raw);
+        if (p != null) state = p;
+      } catch (_) {}
+    });
+    // reading moves the plan forward: a page counts as read once the next ayah you reach is on a later page
+    ref.listen<(int, int)?>(quranLastReadProvider, (_, last) {
+      final q = ref.read(quranDataProvider).value;
+      final p = state;
+      if (q == null || p == null || last == null || !q.valid(last.$1, last.$2)) return;
+      final i = q.indexOf(last.$1, last.$2);
+      final done = i + 1 >= q.ayahCount ? QuranData.pageCount : q.pageOf(i + 1) - 1;
+      if (done > p.donePage) _save(p.withDone(done));
+    });
+    return null;
+  }
+
+  void _save(KhatmPlan? p) {
+    state = p;
+    try {
+      ref.read(syncedStoreProvider).setState(key, p?.encode() ?? '');
+    } catch (_) {}
+  }
+
+  /// A new goal: [days] days, from the beginning or from the page you are on.
+  void start({required int days, required int fromPage, DateTime? today}) {
+    final t = today ?? DateTime.now();
+    _save(KhatmPlan(start: DateTime(t.year, t.month, t.day), days: days, startPage: fromPage, donePage: fromPage - 1));
+  }
+
+  void stop() => _save(null);
+}
+
+final khatmProvider = NotifierProvider<KhatmController, KhatmPlan?>(KhatmController.new);

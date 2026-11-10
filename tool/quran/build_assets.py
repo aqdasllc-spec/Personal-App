@@ -104,6 +104,9 @@ def build_quran(src):
     assert ar[k]['text'] and ar[k]['chapter'] == 2 and ar[k]['verse'] == 255
     surahs = [[c['chapter'], c['name'], c['englishname'], c['arabicname'],
                'Meccan' if c['revelation'].lower().startswith('mec') else 'Medinan', len(c['verses'])] for c in chapters]
+    pages = [v['page'] for c in chapters for v in c['verses']]  # Madinah mushaf page of each ayah
+    assert len(pages) == 6236 and pages[0] == 1 and pages[-1] == 604 and len(set(pages)) == 604
+    assert all(b >= a for a, b in zip(pages, pages[1:]))
     juz = [[r['start']['chapter'], r['start']['verse']] for r in info['juzs']['references']]
     sajda = [[r['chapter'], r['verse']] for r in info['sajdas']['references']]
     assert len(juz) == 30 and len(sajda) == 15
@@ -113,7 +116,7 @@ def build_quran(src):
             'english': 'Saheeh International',
             'urdu': 'Fateh Muhammad Jalandhry (tanzil.net)',
         },
-        'surahs': surahs, 'juz': juz, 'sajda': sajda,
+        'surahs': surahs, 'juz': juz, 'sajda': sajda, 'page': pages,
         'ar': [v['text'].strip() for v in ar],
         'en': [v['text'].strip() for v in en],
         'ur': [v['text'].strip() for v in ur],

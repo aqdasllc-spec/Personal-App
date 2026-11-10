@@ -48,7 +48,30 @@ class QuranData {
     required this.urdu,
     required this.juzStarts,
     required this.sajdas,
+    this.pages = const [],
   }) : assert(arabic.length == english.length && english.length == urdu.length);
+
+  /// The Madinah mushaf page (1-604) of each ayah, by position.
+  final List<int> pages;
+
+  static const pageCount = 604;
+
+  /// The page an ayah is on (1 when the data has no pages).
+  int pageOf(int index) => pages.isEmpty ? 1 : pages[index];
+
+  /// Position of the first ayah on [page].
+  int firstOnPage(int page) {
+    var lo = 0, hi = pages.length - 1;
+    while (lo < hi) {
+      final mid = (lo + hi) >> 1;
+      if (pages[mid] < page) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    return lo;
+  }
 
   final List<Surah> surahs;
   final List<String> arabic, english, urdu;
@@ -122,6 +145,7 @@ class QuranData {
       urdu: texts('ur'),
       juzStarts: [for (final p in (j['juz'] as List)) pair(p)],
       sajdas: {for (final p in (j['sajda'] as List)) pair(p)},
+      pages: [for (final p in (j['page'] as List? ?? const [])) p as int],
     );
   }
 }

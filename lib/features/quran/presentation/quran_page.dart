@@ -12,6 +12,7 @@ import '../../../design_system/tokens.dart';
 import '../application/quran_audio.dart';
 import '../application/quran_providers.dart';
 import '../data/quran_data.dart';
+import '../domain/khatm.dart';
 import 'cabinet_painters.dart';
 import 'quran_style.dart';
 
@@ -110,6 +111,7 @@ class _QuranHomePageState extends ConsumerState<QuranHomePage> {
                   key: const Key('surah-list'),
                   padding: const EdgeInsets.only(bottom: Space.s24),
                   children: [
+                    _KhatmCard(quran: q, onOpen: _open),
                     if (last != null && q.valid(last.$1, last.$2)) _continueCard(q, last),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(Space.s16, Space.s12, Space.s16, Space.s4),
@@ -754,4 +756,152 @@ class _QuranSettings extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// The khatm goal: today's portion, progress, and whether you are on track. Without a goal: a button to set one.
+class _KhatmCard extends ConsumerWidget {
+  const _KhatmCard({required this.quran, required this.onOpen});
+  final QuranData quran;
+  final void Function(int surah, [int ayah]) onOpen;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final plan = ref.watch(khatmProvider);
+    final t = Theme.of(context).textTheme;
+    final c = context.colors;
+    if (plan == null) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(Space.s16, Space.s16, Space.s16, 0),
+        child: OutlinedButton.icon(
+          key: const Key('khatm-set'),
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48), foregroundColor: QuranColors.goldDeep, side: const BorderSide(color: QuranColors.gold)),
+          onPressed: () => showKhatmSetup(context, ref, quran),
+          icon: const Icon(Icons.flag_outlined),
+          label: const Text('Set a khatm goal (finish the Quran in … days)'),
+        ),
+      );
+    }
+    final today = khatmToday(plan, DateTime.now());
+    final from = quran.refOf(quran.firstOnPage(today.from));
+    final (statusText, statusColor) = switch (today.status) {
+      KhatmStatus.finished => ('Khatm complete. May Allah accept it.', QuranColors.goldDeep),
+      KhatmStatus.doneToday => ("Today's portion is done", c.ok),
+      KhatmStatus.onTrack => ('On track', c.ok),
+      KhatmStatus.behind => ('${today.behindBy} ${today.behindBy == 1 ? 'page' : 'pages'} behind (included in today\'s portion)', c.warn),
+    };
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.s16, Space.s16, Space.s16, 0),
+      child: Card(
+        key: const Key('khatm-card'),
+        child: Padding(
+          padding: const EdgeInsets.all(Space.s16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.flag, color: QuranColors.goldDeep),
+                  const SizedBox(width: Space.s8),
+                  Expanded(child: Text('Khatm · day ${today.day} of ${plan.days}', style: t.titleMedium)),
+                  PopupMenuButton<String>(
+                    key: const Key('khatm-menu'),
+                    tooltip: 'Change or stop the goal',
+                    onSelected: (v) => v == 'stop' ? ref.read(khatmProvider.notifier).stop() : showKhatmSetup(context, ref, quran),
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'new', child: Text('Start a new goal')),
+                      PopupMenuItem(key: Key('khatm-stop'), value: 'stop', child: Text('Stop the goal')),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: Space.s8),
+              if (today.status != KhatmStatus.finished)
+                Text(
+                  today.status == KhatmStatus.doneToday
+                      ? 'Tomorrow continues from page ${plan.donePage + 1}.'
+                      : "Today: pages ${today.from}-${today.to} (from ${quran.surah(from.$1).name} ${from.$1}:${from.$2})",
+                  key: const Key('khatm-today'),
+                  style: t.bodyLarge,
+                ),
+              const SizedBox(height: Space.s4),
+              Text(statusText, key: const Key('khatm-status'), style: t.bodyMedium?.copyWith(color: statusColor, fontWeight: FontWeight.w600)),
+              const SizedBox(height: Space.s12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(value: plan.progress, minHeight: 6, color: QuranColors.gold, backgroundColor: c.surface2),
+              ),
+              const SizedBox(height: Space.s4),
+              Text('${(plan.donePage - plan.startPage + 1).clamp(0, plan.totalPages)} of ${plan.totalPages} pages · ${(plan.progress * 100).round()}%', style: t.bodySmall),
+              if (today.status == KhatmStatus.onTrack || today.status == KhatmStatus.behind) ...[
+                const SizedBox(height: Space.s12),
+                FilledButton.icon(
+                  key: const Key('khatm-read'),
+                  style: FilledButton.styleFrom(backgroundColor: QuranColors.velvet, foregroundColor: QuranColors.goldLight),
+                  onPressed: () => onOpen(from.$1, from.$2),
+                  icon: const Icon(Icons.menu_book),
+                  label: const Text("Read today's portion"),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Choose how many days, and whether to begin at Al-Fatiha or where you are now.
+Future<void> showKhatmSetup(BuildContext context, WidgetRef ref, QuranData q) async {
+  final last = ref.read(quranLastReadProvider);
+  final here = last != null && q.valid(last.$1, last.$2) ? q.pageOf(q.indexOf(last.$1, last.$2)) : 1;
+  var days = 30;
+  var fromHere = false;
+  final ok = await showModalBottomSheet<bool>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) {
+        final t = Theme.of(ctx).textTheme;
+        final from = fromHere ? here : 1;
+        final perDay = ((QuranData.pageCount - from + 1) / days).ceil();
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(Space.s16, 0, Space.s16, Space.s16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Finish the Quran in', style: t.titleMedium),
+                const SizedBox(height: Space.s8),
+                Wrap(
+                  spacing: Space.s8,
+                  runSpacing: Space.s8,
+                  children: [
+                    for (final d in const [7, 10, 15, 20, 30, 40, 60])
+                      ChoiceChip(key: Key('khatm-days-$d'), label: Text('$d days'), selected: d == days, onSelected: (_) => setState(() => days = d)),
+                  ],
+                ),
+                const SizedBox(height: Space.s16),
+                SegmentedButton<bool>(
+                  showSelectedIcon: false,
+                  segments: [
+                    const ButtonSegment(value: false, label: Text('From Al-Fatiha')),
+                    ButtonSegment(value: true, label: Text('From page $here (where you are)'), enabled: here > 1),
+                  ],
+                  selected: {fromHere},
+                  onSelectionChanged: (v) => setState(() => fromHere = v.first),
+                ),
+                const SizedBox(height: Space.s16),
+                Text('About $perDay ${perDay == 1 ? 'page' : 'pages'} a day (one juz is about 20 pages).', key: const Key('khatm-per-day'), style: t.bodyMedium),
+                const SizedBox(height: Space.s16),
+                FilledButton(key: const Key('khatm-start'), onPressed: () => Navigator.pop(ctx, true), child: const Text('Start')),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+  if (ok == true) ref.read(khatmProvider.notifier).start(days: days, fromPage: fromHere ? here : 1);
 }
