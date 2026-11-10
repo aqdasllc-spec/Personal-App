@@ -79,6 +79,12 @@ class _QuranHomePageState extends ConsumerState<QuranHomePage> {
           ),
           actions: [
             IconButton(
+              key: const Key('quran-adhkar'),
+              tooltip: 'Morning and evening adhkar',
+              icon: const Icon(Icons.wb_twilight),
+              onPressed: () => context.push(Routes.adhkar),
+            ),
+            IconButton(
               key: const Key('quran-tilawat'),
               tooltip: 'Tilawat mode (from where you stopped)',
               icon: const Icon(Icons.chrome_reader_mode_outlined),

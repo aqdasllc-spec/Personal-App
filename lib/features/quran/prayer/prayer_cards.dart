@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../app/router.dart';
 
 import '../../../design_system/tokens.dart';
 import '../presentation/quran_style.dart';
@@ -144,6 +147,14 @@ class PrayerLogCard extends ConsumerWidget {
               ],
             ),
             const Divider(height: Space.s24),
+            ListTile(
+              key: const Key('adhkar-open'),
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.wb_twilight),
+              title: const Text('Morning and evening adhkar'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push(Routes.adhkar),
+            ),
             ListTile(
               key: const Key('qaza-open'),
               contentPadding: EdgeInsets.zero,

@@ -197,6 +197,7 @@ const syncedPrefKeys = {
   'quran_bookmarks',
   'quran_daily_notify',
   'quran_tafsir',
+  'adhkar_done',
   'prayer_settings',
   'prayer_log',
 };

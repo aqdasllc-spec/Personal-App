@@ -90,6 +90,7 @@ flutter:
   assets:
     - assets/quran/quran.json.gz
     - assets/quran/hadith.json.gz
+    - assets/quran/adhkar.json
     - assets/fonts/OFL-amiriquran.txt
     - assets/fonts/OFL-notonastaliqurdu.txt
     - assets/fonts/OFL-scheherazadenew.txt

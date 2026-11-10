@@ -15,6 +15,7 @@ import '../features/quran/presentation/quran_extras.dart';
 import '../features/quran/presentation/quran_page.dart';
 import '../features/quran/prayer/prayer_page.dart';
 import '../features/quran/prayer/qibla_page.dart';
+import '../features/quran/presentation/adhkar_page.dart';
 import '../features/quran/presentation/tilawat_page.dart';
 import '../features/library/presentation/search_all_page.dart';
 import '../features/home/home_page.dart';
@@ -29,6 +30,7 @@ abstract final class Routes {
   static const quran = '/home/quran';
   static const prayer = '/home/prayer';
   static const qibla = '/home/prayer/qibla';
+  static const adhkar = '/home/quran/adhkar';
 }
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -87,6 +89,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                         path: 'find',
                         parentNavigatorKey: _rootKey,
                         builder: (_, _) => const QuranSearchPage(),
+                      ),
+                      GoRoute(
+                        path: 'adhkar',
+                        parentNavigatorKey: _rootKey,
+                        builder: (_, _) => const AdhkarPage(),
                       ),
                       GoRoute(
                         path: ':surah',
