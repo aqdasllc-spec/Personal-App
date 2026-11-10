@@ -39,6 +39,9 @@ import 'package:folio/data/sync/sync_service.dart';
 import 'package:folio/features/auth/auth_repository.dart';
 import 'package:folio/features/security/app_lock.dart';
 import 'package:folio/features/quran/application/quran_audio.dart';
+import 'package:folio/features/quran/prayer/battery.dart';
+import 'package:folio/features/quran/prayer/prayer_ringer.dart';
+import 'package:folio/features/planner/domain/reminders.dart';
 import 'package:sync_engine/sync_engine.dart';
 
 /// Reads "pages=N" from the file's text instead of running a PDF engine.
@@ -427,6 +430,8 @@ class TestEnv {
 
   /// The Quran recitation player (no sound in tests).
   final ayahPlayer = FakeAyahPlayer();
+  final ringer = FakeRinger();
+  final battery = FakeBattery();
 
   /// Replace the sync controller (e.g. to add sign-in gating).
   SyncController Function()? syncControllerFactory;
@@ -447,6 +452,8 @@ class TestEnv {
         speechEngineProvider.overrideWithValue(speech),
         mediaControlsProvider.overrideWithValue(media),
         ayahPlayerFactoryProvider.overrideWithValue(() => ayahPlayer),
+        prayerRingerProvider.overrideWithValue(ringer),
+        batteryPortProvider.overrideWithValue(battery),
         pageThumbsBuilderProvider.overrideWithValue((context, {required file, required pageCount, required current, required bookmarked, required drawn, required onPick}) => PageThumbGrid(
               pageCount: pageCount,
               current: current,
@@ -549,3 +556,55 @@ Future<void> settle(WidgetTester t) async {
 
 /// A BackupService over a TestEnv's database (for building backup files in tests).
 BackupService backupServiceFor(TestEnv e) => BackupService(e.db, e.store, libraryDir: e.libraryDir);
+
+/// Records the spoken / own-sound prayer alarms instead of setting real ones.
+class FakeRinger implements PrayerRinger {
+  List<Reminder> alarms = const [];
+  final tests = <Reminder>[];
+  final stopped = <int>[];
+  bool works = true;
+  String? problem;
+  final _ringing = StreamController<List<RingingAlarm>>.broadcast();
+  void ring(List<RingingAlarm> a) => _ringing.add(a);
+  @override
+  Future<void> start() async {}
+  @override
+  Future<RingResult> replace(List<Reminder> a) async {
+    if (!works) return const RingResult(ok: false);
+    alarms = a;
+    return RingResult(problem: problem);
+  }
+
+  @override
+  Future<RingResult> test(Reminder r) async {
+    if (!works) return const RingResult(ok: false);
+    tests.add(r);
+    return RingResult(problem: problem);
+  }
+
+  @override
+  Stream<List<RingingAlarm>> get ringing => _ringing.stream;
+  @override
+  Future<void> stop(int id) async {
+    stopped.add(id);
+    _ringing.add(const []);
+  }
+}
+
+class FakeBattery implements BatteryPort {
+  bool? unrestricted = true;
+  int asked = 0, opened = 0;
+  @override
+  Future<bool?> isUnrestricted() async => unrestricted;
+  @override
+  Future<bool> askUnrestricted() async {
+    asked++;
+    return true;
+  }
+
+  @override
+  Future<bool> openAppSettings() async {
+    opened++;
+    return true;
+  }
+}

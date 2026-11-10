@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +7,9 @@ import '../design_system/theme.dart';
 import '../features/auth/auth_repository.dart';
 import '../features/library/application/book_sync.dart';
 import 'providers.dart';
+import '../features/quran/prayer/prayer_ringer.dart';
+import '../features/quran/prayer/ringing_overlay.dart';
+import 'notification_taps.dart';
 import 'quick_actions.dart';
 import 'router.dart';
 
@@ -27,6 +32,8 @@ class _FolioAppState extends ConsumerState<FolioApp>
         ref
             .read(quickActionsProvider)
             .start(QuickAction.values, (t) => handleQuickAction(ref, t));
+        followNotificationTaps(ref);
+        unawaited(ref.read(prayerRingerProvider).start());
       },
     );
   }
@@ -70,6 +77,7 @@ class _FolioAppState extends ConsumerState<FolioApp>
       darkTheme: buildTheme(Brightness.dark),
       themeMode: ThemeMode.system,
       routerConfig: ref.watch(routerProvider),
+      builder: (context, child) => RingingOverlay(child: child ?? const SizedBox()),
     );
   }
 }

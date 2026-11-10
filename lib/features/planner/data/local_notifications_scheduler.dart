@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart'
@@ -32,6 +33,23 @@ class LocalNotificationsScheduler implements ReminderScheduler {
     : _plugin = plugin ?? fln.FlutterLocalNotificationsPlugin();
   final fln.FlutterLocalNotificationsPlugin _plugin;
   bool _ready = false;
+  final _taps = StreamController<String>.broadcast();
+  bool _launchTaken = false;
+
+  @override
+  Stream<String> get taps => _taps.stream;
+
+  @override
+  Future<String?> takeLaunchPayload() async {
+    if (_launchTaken || !await _init()) return null;
+    _launchTaken = true;
+    try {
+      final d = await _plugin.getNotificationAppLaunchDetails();
+      return d?.didNotificationLaunchApp == true ? d?.notificationResponse?.payload : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   static const _channel = fln.AndroidNotificationDetails(
     'planner_reminders',
@@ -61,6 +79,10 @@ class LocalNotificationsScheduler implements ReminderScheduler {
           iOS: darwin,
           macOS: darwin,
         ),
+        onDidReceiveNotificationResponse: (r) {
+          final p = r.payload;
+          if (p != null && p.isNotEmpty) _taps.add(p);
+        },
       );
       _ready = true;
     } catch (e) {

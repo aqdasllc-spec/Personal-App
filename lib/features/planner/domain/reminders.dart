@@ -10,10 +10,18 @@ class Reminder {
     required this.payload,
     this.tone = 'notification',
     this.insistent = false,
+    this.speech,
+    this.sound,
   });
 
-  /// Sound: 'notification' (the phone's notification sound), 'alarm', 'ringtone' or 'vibrate' (prayer reminders;
-  /// planner reminders keep the default).
+  /// Prayer reminders that speak: the words to say (made into sound on the phone).
+  final String? speech;
+
+  /// Prayer reminders with the user's own sound: the file, relative to the app's documents folder.
+  final String? sound;
+
+  /// Sound: 'notification' (the phone's notification sound), 'alarm', 'ringtone' or 'vibrate'; prayer reminders also
+  /// 'spoken' / 'voice' (they say [speech]) and 'own' (they play [sound]). Planner reminders keep the default.
   final String tone;
 
   /// Keep ringing until the notification is opened or swiped away.

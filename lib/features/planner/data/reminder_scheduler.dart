@@ -55,6 +55,12 @@ abstract interface class ReminderScheduler {
 
   /// Shows a prayer reminder at [Reminder.at] (a few seconds from now) with its tone, to hear how it sounds.
   Future<bool> testPrayerAlarm(Reminder r);
+
+  /// The payload of each notification the user taps while the app runs.
+  Stream<String> get taps;
+
+  /// The payload of the notification that started the app, once (null when it was started another way).
+  Future<String?> takeLaunchPayload();
 }
 
 /// Used where notifications aren't available (tests, unsupported platforms).
@@ -78,4 +84,8 @@ class NoopReminderScheduler implements ReminderScheduler {
   Future<bool> sendTestNow() async => false;
   @override
   Future<bool> scheduleTest(Duration after) async => false;
+  @override
+  Stream<String> get taps => const Stream.empty();
+  @override
+  Future<String?> takeLaunchPayload() async => null;
 }

@@ -451,6 +451,29 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     }
   }
 
+  /// Starts a download of [ayahs] ayahs; on mobile data with Wi-Fi only on, asks first (showing the size).
+  Future<void> _start(int ayahs, void Function(bool mobileOk) go) async {
+    if (!ref.read(wifiOnlyProvider) || !await ref.read(onMobileDataProvider)()) {
+      go(false);
+      return;
+    }
+    if (!mounted) return;
+    final r = ref.read(reciterProvider);
+    final mb = (wholeQuranBytes(r) * ayahs / widget.quran.ayahCount / 1e6).round();
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('You are on mobile data'),
+        content: Text('This download is about ${mb >= 1000 ? '${(mb / 1000).toStringAsFixed(1)} GB' : '$mb MB'}. Use mobile data for it, or wait until you are on Wi-Fi?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Wait for Wi-Fi')),
+          FilledButton(key: const Key('download-mobile-ok'), onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Use mobile data')),
+        ],
+      ),
+    );
+    if (yes == true) go(true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final r = ref.watch(reciterProvider);
@@ -472,8 +495,15 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text('Listen without internet', style: t.titleLarge),
-            Text('Recitation by ${r.name}. Downloads use mobile data unless you are on Wi-Fi.', style: t.bodySmall),
-            const SizedBox(height: Space.s16),
+            Text('Recitation by ${r.name}.', style: t.bodySmall),
+            SwitchListTile(
+              key: const Key('download-wifi-only'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Download on Wi-Fi only'),
+              subtitle: const Text('On mobile data Folio asks first, and pauses if Wi-Fi is lost'),
+              value: ref.watch(wifiOnlyProvider),
+              onChanged: ref.read(wifiOnlyProvider.notifier).set,
+            ),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(_surahHere == s.ayahCount ? Icons.download_done : Icons.download, color: QuranColors.goldDeep),
@@ -481,7 +511,9 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
               subtitle: Text(_surahHere == null ? 'Checking…' : (_surahHere == s.ayahCount ? 'On this phone' : '$_surahHere of ${s.ayahCount} on this phone'), key: const Key('download-surah-state')),
               trailing: FilledButton(
                 key: const Key('download-surah'),
-                onPressed: running || _surahHere == s.ayahCount ? null : () => ctl.downloadSurah(widget.quran, r, s.number),
+                onPressed: running || _surahHere == s.ayahCount
+                    ? null
+                    : () => _start(s.ayahCount, (ok) => ctl.downloadSurah(widget.quran, r, s.number, mobileOk: ok)),
                 child: const Text('Download'),
               ),
             ),
@@ -492,7 +524,9 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
               subtitle: Text(_allHere == null ? 'Checking…' : '$_allHere of ${widget.quran.ayahCount} ayahs on this phone'),
               trailing: OutlinedButton(
                 key: const Key('download-all'),
-                onPressed: running || _allHere == widget.quran.ayahCount ? null : () => ctl.downloadAll(widget.quran, r),
+                onPressed: running || _allHere == widget.quran.ayahCount
+                    ? null
+                    : () => _start(widget.quran.ayahCount, (ok) => ctl.downloadAll(widget.quran, r, mobileOk: ok)),
                 child: const Text('Download'),
               ),
             ),

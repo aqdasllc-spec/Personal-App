@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,6 +19,17 @@ DateTime d(int y, int m, int day, [int h = 0, int mi = 0]) => DateTime(y, m, day
 
 class FakeScheduler implements ReminderScheduler {
   FakeScheduler({this.granted = true});
+  final tapped = StreamController<String>.broadcast();
+  String? launch;
+  @override
+  Stream<String> get taps => tapped.stream;
+  @override
+  Future<String?> takeLaunchPayload() async {
+    final l = launch;
+    launch = null;
+    return l;
+  }
+
   bool granted;
   int requests = 0;
   List<Reminder> last = const [];

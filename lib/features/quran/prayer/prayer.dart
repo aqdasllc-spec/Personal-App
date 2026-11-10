@@ -26,15 +26,34 @@ enum Prayer {
   String salahUrduOn(DateTime d) => this == dhuhr && d.weekday == DateTime.friday ? 'نمازِ جمعہ' : salahUrdu;
 }
 
-/// How a prayer reminder sounds.
+/// How a prayer reminder sounds. The first three speak or play a sound through an alarm that sounds even in silent
+/// mode and keeps going (if chosen) until "I'm up" is tapped; the rest are ordinary notifications.
 enum PrayerTone {
-  notification('Phone notification sound'),
-  alarm('Phone alarm sound (loud)'),
-  ringtone('Phone ringtone'),
-  vibrate('Vibrate only');
+  spoken('Says the prayer name', 'نماز کا نام بولے'),
+  voice('Says your own words', 'آپ کے الفاظ بولے'),
+  own('Your own sound (e.g. an Azan)', 'اپنی آواز (مثلاً اذان)'),
+  alarm('Phone alarm sound', 'فون کا الارم'),
+  ringtone('Phone ringtone', 'فون کی رنگ ٹون'),
+  notification('Phone notification sound', 'نوٹیفکیشن کی آواز'),
+  vibrate('Vibrate only', 'صرف وائبریشن');
 
-  const PrayerTone(this.label);
-  final String label;
+  const PrayerTone(this.label, this.urdu);
+  final String label, urdu;
+
+  /// Rung by the alarm (speech or a sound file) rather than shown as a notification.
+  bool get rings => this == spoken || this == voice || this == own;
+}
+
+/// The words the second reminder says by default; {prayer} becomes the prayer's name.
+const defaultGetUpWords = 'Get up now, otherwise {prayer} will be missed.';
+
+/// A prayer's name the way a voice should say it ("Salat ul Fajr").
+String spokenName(Prayer p, DateTime d) => p.salahOn(d).replaceAll('-', ' ');
+
+/// [words] with {prayer} replaced, ready to be said.
+String getUpSpeech(String words, Prayer p, DateTime d) {
+  final w = words.trim().isEmpty ? defaultGetUpWords : words.trim();
+  return w.replaceAll('{prayer}', spokenName(p, d));
 }
 
 /// Calculation methods (the angles and rules each authority uses). Karachi is the usual choice in Pakistan and India.
@@ -66,15 +85,36 @@ class PrayerSettings {
     this.hanafi = true,
     this.hijriOffset = 0,
     this.alerts = const {},
-    this.tone = PrayerTone.notification,
+    this.tones = const {},
+    this.sounds = const {},
+    this.firstKeepRinging = false,
     this.secondAfterSeconds = 0,
     this.secondFajrOnly = true,
-    this.secondTone = PrayerTone.alarm,
+    this.secondTone = PrayerTone.voice,
     this.secondKeepRinging = true,
+    this.secondWords = defaultGetUpWords,
+    this.secondSound,
+    this.offsets = const {},
   });
 
-  /// The reminder at the prayer time.
-  final PrayerTone tone;
+  /// How the reminder at each prayer's time sounds (not set = it says the prayer's name).
+  final Map<Prayer, PrayerTone> tones;
+  PrayerTone toneOf(Prayer p) => tones[p] ?? PrayerTone.spoken;
+
+  /// The user's own sound for each prayer ([PrayerTone.own]): a file in the app's documents folder.
+  final Map<Prayer, String> sounds;
+
+  /// The reminder at the time keeps sounding until "I'm up" (spoken / own sound).
+  final bool firstKeepRinging;
+
+  /// What the second reminder says ([PrayerTone.voice]); {prayer} becomes the prayer's name.
+  final String secondWords;
+
+  /// The second reminder's own sound ([PrayerTone.own]).
+  final String? secondSound;
+
+  /// Minutes added to (or taken from) each calculated time, to match the local mosque.
+  final Map<Prayer, int> offsets;
 
   /// A second reminder this long after the prayer time ("get up now"); 0 = none.
   final int secondAfterSeconds;
@@ -111,11 +151,16 @@ class PrayerSettings {
     bool? hanafi,
     int? hijriOffset,
     Set<Prayer>? alerts,
-    PrayerTone? tone,
+    Map<Prayer, PrayerTone>? tones,
+    Map<Prayer, String>? sounds,
+    bool? firstKeepRinging,
     int? secondAfterSeconds,
     bool? secondFajrOnly,
     PrayerTone? secondTone,
     bool? secondKeepRinging,
+    String? secondWords,
+    String? secondSound,
+    Map<Prayer, int>? offsets,
   }) => PrayerSettings(
     lat: lat ?? this.lat,
     lng: lng ?? this.lng,
@@ -124,12 +169,21 @@ class PrayerSettings {
     hanafi: hanafi ?? this.hanafi,
     hijriOffset: hijriOffset ?? this.hijriOffset,
     alerts: alerts ?? this.alerts,
-    tone: tone ?? this.tone,
+    tones: tones ?? this.tones,
+    sounds: sounds ?? this.sounds,
+    firstKeepRinging: firstKeepRinging ?? this.firstKeepRinging,
     secondAfterSeconds: secondAfterSeconds ?? this.secondAfterSeconds,
     secondFajrOnly: secondFajrOnly ?? this.secondFajrOnly,
     secondTone: secondTone ?? this.secondTone,
     secondKeepRinging: secondKeepRinging ?? this.secondKeepRinging,
+    secondWords: secondWords ?? this.secondWords,
+    secondSound: secondSound ?? this.secondSound,
+    offsets: offsets ?? this.offsets,
   );
+
+  /// One prayer's tone changed (and, for [PrayerTone.own], its file).
+  PrayerSettings withTone(Prayer p, PrayerTone t, {String? sound}) =>
+      copyWith(tones: {...tones, p: t}, sounds: sound == null ? null : {...sounds, p: sound});
 
   String encode() => jsonEncode({
     'lat': lat,
@@ -139,11 +193,16 @@ class PrayerSettings {
     'hanafi': hanafi,
     'hijri': hijriOffset,
     'alerts': [for (final p in alerts) p.name],
-    'tone': tone.name,
+    'tones': {for (final e in tones.entries) e.key.name: e.value.name},
+    'sounds': {for (final e in sounds.entries) e.key.name: e.value},
+    'firstLoop': firstKeepRinging,
     'second': secondAfterSeconds,
     'secondFajr': secondFajrOnly,
     'secondTone': secondTone.name,
     'insistent': secondKeepRinging,
+    'words': secondWords,
+    'secondSound': secondSound,
+    'offsets': {for (final e in offsets.entries) e.key.name: e.value},
   });
 
   static PrayerSettings? decode(String raw) {
@@ -157,16 +216,26 @@ class PrayerSettings {
         hanafi: j['hanafi'] as bool? ?? true,
         hijriOffset: ((j['hijri'] as num?) ?? 0).toInt().clamp(-2, 2),
         alerts: {for (final a in (j['alerts'] as List? ?? const [])) ...Prayer.values.where((p) => p.name == a)},
-        tone: PrayerTone.values.where((t) => t.name == j['tone']).firstOrNull ?? PrayerTone.notification,
+        tones: _byPrayer(j['tones'], (v) => PrayerTone.values.where((t) => t.name == v).firstOrNull),
+        sounds: _byPrayer(j['sounds'], (v) => v is String && v.isNotEmpty ? v : null),
+        firstKeepRinging: j['firstLoop'] as bool? ?? false,
         secondAfterSeconds: ((j['second'] as num?) ?? 0).toInt().clamp(0, 3599),
         secondFajrOnly: j['secondFajr'] as bool? ?? true,
-        secondTone: PrayerTone.values.where((t) => t.name == j['secondTone']).firstOrNull ?? PrayerTone.alarm,
+        secondTone: PrayerTone.values.where((t) => t.name == j['secondTone']).firstOrNull ?? PrayerTone.voice,
         secondKeepRinging: j['insistent'] as bool? ?? true,
+        secondWords: (j['words'] as String?) ?? defaultGetUpWords,
+        secondSound: j['secondSound'] as String?,
+        offsets: _byPrayer(j['offsets'], (v) => v is num ? v.toInt().clamp(-60, 60) : null),
       );
     } catch (_) {
       return null;
     }
   }
+}
+
+Map<Prayer, T> _byPrayer<T>(Object? j, T? Function(Object?) read) {
+  if (j is! Map) return const {};
+  return {for (final p in Prayer.values) p: ?read(j[p.name])};
 }
 
 /// One day's times, in local time.
@@ -181,13 +250,14 @@ class PrayerDay {
 PrayerDay prayerDay(PrayerSettings s, DateTime date) {
   final params = s.method.method.getParameters()..madhab = s.hanafi ? adhan.Madhab.hanafi : adhan.Madhab.shafi;
   final t = adhan.PrayerTimes(adhan.Coordinates(s.lat!, s.lng!), adhan.DateComponents(date.year, date.month, date.day), params);
+  DateTime at(Prayer p, DateTime utc) => utc.toLocal().add(Duration(minutes: s.offsets[p] ?? 0));
   return PrayerDay(DateTime(date.year, date.month, date.day), {
-    Prayer.fajr: t.fajr.toLocal(),
-    Prayer.sunrise: t.sunrise.toLocal(),
-    Prayer.dhuhr: t.dhuhr.toLocal(),
-    Prayer.asr: t.asr.toLocal(),
-    Prayer.maghrib: t.maghrib.toLocal(),
-    Prayer.isha: t.isha.toLocal(),
+    Prayer.fajr: at(Prayer.fajr, t.fajr),
+    Prayer.sunrise: at(Prayer.sunrise, t.sunrise),
+    Prayer.dhuhr: at(Prayer.dhuhr, t.dhuhr),
+    Prayer.asr: at(Prayer.asr, t.asr),
+    Prayer.maghrib: at(Prayer.maghrib, t.maghrib),
+    Prayer.isha: at(Prayer.isha, t.isha),
   });
 }
 
@@ -236,7 +306,10 @@ List<Reminder> prayerAlarms(PrayerSettings s, DateTime now, {int days = 7}) {
             title: '$name · $nameUrdu',
             body: 'It is time for $name. · $nameUrdu کا وقت ہو گیا ہے۔',
             payload: 'prayer:${p.name}',
-            tone: s.tone.name,
+            tone: s.toneOf(p).name,
+            insistent: s.toneOf(p).rings && s.firstKeepRinging,
+            speech: s.toneOf(p) == PrayerTone.spoken ? spokenName(p, date) : null,
+            sound: s.toneOf(p) == PrayerTone.own ? s.sounds[p] : null,
           ),
         );
       }
@@ -252,6 +325,10 @@ List<Reminder> prayerAlarms(PrayerSettings s, DateTime now, {int days = 7}) {
               payload: 'prayer-again:${p.name}',
               tone: s.secondTone.name,
               insistent: s.secondKeepRinging,
+              speech: s.secondTone == PrayerTone.voice
+                  ? getUpSpeech(s.secondWords, p, date)
+                  : (s.secondTone == PrayerTone.spoken ? spokenName(p, date) : null),
+              sound: s.secondTone == PrayerTone.own ? s.secondSound : null,
             ),
           );
         }
@@ -260,6 +337,22 @@ List<Reminder> prayerAlarms(PrayerSettings s, DateTime now, {int days = 7}) {
   }
   out.sort((a, b) => a.at.compareTo(b.at));
   return out;
+}
+
+/// How far ahead prayer reminders are set on Android (each visit to Folio moves the window forward).
+const prayerScheduleDays = 21;
+
+/// If Folio is not opened for almost [days] days, the reminders would run out: two days before, a notification asks
+/// to open it once (which sets the next weeks).
+Reminder prayerRenewalNudge(DateTime now, int days) {
+  final at = DateTime(now.year, now.month, now.day + days - 2, 21, 30);
+  return Reminder(
+    id: prayerNotificationIds + 0xffe0,
+    at: at,
+    title: 'Keep your prayer reminders coming · نماز کی یاد دہانیاں جاری رکھیں',
+    body: 'Open Folio once so the next weeks are set. · اگلے ہفتوں کے لیے فولیو ایک بار کھولیں۔',
+    payload: 'prayer-renew',
+  );
 }
 
 const hijriMonthsEnglish = [

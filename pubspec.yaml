@@ -63,6 +63,8 @@ dependencies:
   adhan: ^2.0.0+1
   hijri: ^3.0.1
   geolocator: ^14.0.1
+  connectivity_plus: ^7.3.2
+  alarm: ^5.15.0
 
 dev_dependencies:
   flutter_test:

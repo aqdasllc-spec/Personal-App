@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show compute;
+import 'package:flutter/foundation.dart' show TargetPlatform, compute, defaultTargetPlatform;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -338,7 +338,7 @@ class DailyAyahNotify extends Notifier<({int hour, int minute})?> {
     await resync();
   }
 
-  /// The next week's notifications, each with that day's ayah in the Home card's language.
+  /// The next three weeks' notifications (Android; one week elsewhere), each with that day's ayah in the Home card's language.
   Future<void> resync({DateTime? now}) async {
     final at = state;
     final sched = ref.read(reminderSchedulerProvider);
@@ -350,7 +350,8 @@ class DailyAyahNotify extends Notifier<({int hour, int minute})?> {
     final urdu = ref.read(dailyLangProvider) == DailyLang.urdu;
     final t = now ?? DateTime.now();
     final out = <Reminder>[];
-    for (var d = 0; d < 7; d++) {
+    final days = defaultTargetPlatform == TargetPlatform.android ? 21 : 7; // iOS allows only 64 pending in all
+    for (var d = 0; d < days; d++) {
       final when = DateTime(t.year, t.month, t.day + d, at.hour, at.minute);
       if (!when.isAfter(t)) continue;
       final a = dailyAyah(q, when);
