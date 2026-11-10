@@ -76,7 +76,7 @@ class _Ringing extends StatelessWidget {
                           backgroundColor: QuranColors.gold,
                           foregroundColor: QuranColors.velvetDeep,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(36)),
-                          textStyle: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                          textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 22, fontWeight: FontWeight.w700),
                         ),
                         onPressed: onStop,
                         child: const Text("I'm up · اٹھ گیا"),

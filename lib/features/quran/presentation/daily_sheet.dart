@@ -7,9 +7,10 @@ import '../../../app/router.dart';
 import '../application/quran_audio.dart';
 import '../application/quran_providers.dart';
 import '../domain/daily.dart';
+import 'daily_share.dart';
 import 'quran_style.dart';
 
-/// The day's ayah or hadith in full, with both translations a tap apart, Listen (ayah), Open in Quran and Copy.
+/// The day's ayah or hadith in full, with both translations a tap apart, Listen (ayah), Open in Quran, Share picture and Copy.
 Future<void> showDailySheet(BuildContext context, {required bool hadith, required DateTime now}) => showModalBottomSheet<void>(
   context: context,
   isScrollControlled: true,
@@ -156,6 +157,13 @@ class _DailySheet extends ConsumerWidget {
                     icon: const Icon(Icons.menu_book_outlined),
                     label: Text(urdu ? 'قرآن میں کھولیں' : 'Open in Quran', style: urdu ? urduText(13).copyWith(height: 1.2) : null),
                   ),
+                OutlinedButton.icon(
+                  key: const Key('sheet-share'),
+                  style: OutlinedButton.styleFrom(foregroundColor: QuranColors.goldLight, side: const BorderSide(color: QuranColors.gold)),
+                  onPressed: () => showDailyShare(context, hadith: hadith, now: now),
+                  icon: const Icon(Icons.image_outlined, size: 18),
+                  label: Text(urdu ? 'تصویر بھیجیں' : 'Share picture', style: urdu ? urduText(13).copyWith(height: 1.2) : null),
+                ),
                 OutlinedButton.icon(
                   key: const Key('sheet-copy'),
                   style: OutlinedButton.styleFrom(foregroundColor: QuranColors.goldLight, side: const BorderSide(color: QuranColors.gold)),

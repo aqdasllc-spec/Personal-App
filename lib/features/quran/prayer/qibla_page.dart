@@ -155,7 +155,7 @@ class _QiblaPageState extends ConsumerState<QiblaPage> {
                   aspectRatio: 1,
                   child: CustomPaint(
                     key: const Key('qibla-dial'),
-                    painter: _DialPainter(heading: h ?? 0, qibla: qibla, facing: facing, live: h != null),
+                    painter: _DialPainter(heading: h ?? 0, qibla: qibla, facing: facing, live: h != null, letters: t.titleMedium ?? const TextStyle()),
                   ),
                 ),
                 const SizedBox(height: Space.s24),
@@ -192,9 +192,10 @@ class _QiblaPageState extends ConsumerState<QiblaPage> {
 }
 
 class _DialPainter extends CustomPainter {
-  _DialPainter({required this.heading, required this.qibla, required this.facing, required this.live});
+  _DialPainter({required this.heading, required this.qibla, required this.facing, required this.live, required this.letters});
   final double heading, qibla;
   final bool facing, live;
+  final TextStyle letters;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -222,7 +223,7 @@ class _DialPainter extends CustomPainter {
     for (final (d, l) in [(0, 'N'), (90, 'E'), (180, 'S'), (270, 'W')]) {
       final a = d * math.pi / 180;
       final tp = TextPainter(
-        text: TextSpan(text: l, style: TextStyle(color: d == 0 ? QuranColors.gold : QuranColors.goldLight, fontSize: 18, fontWeight: FontWeight.w700)),
+        text: TextSpan(text: l, style: letters.copyWith(color: d == 0 ? QuranColors.gold : QuranColors.goldLight, fontSize: 18, fontWeight: FontWeight.w700)),
         textDirection: TextDirection.ltr,
       )..layout();
       final p = Offset(math.sin(a) * (r - 48), -math.cos(a) * (r - 48));

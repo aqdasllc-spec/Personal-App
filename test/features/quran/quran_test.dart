@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:folio/app/app.dart';
 import 'package:folio/features/library/application/read_aloud.dart' show mediaControlsProvider;
 import 'package:folio/features/quran/application/quran_audio.dart';
 import 'package:folio/features/quran/application/quran_providers.dart';
@@ -168,13 +169,13 @@ void main() {
       }
     }
 
-    Future<TestEnv> open(WidgetTester t) async {
+    Future<TestEnv> open(WidgetTester t, {bool share = false}) async {
       t.view.physicalSize = const Size(411, 890);
       t.view.devicePixelRatio = 1;
       addTearDown(t.view.reset);
       final env = await TestEnv.create();
       addTearDown(env.db.close);
-      await t.pumpWidget(env.app);
+      await t.pumpWidget(share ? ProviderScope(overrides: [...env.overrides, ...env.shareOverrides], child: const FolioApp()) : env.app);
       await wait(t, 14);
       return env;
     }
@@ -327,6 +328,41 @@ void main() {
       await wait(t, 2);
       expect(copied, contains(d.english.first));
       expect(copied, contains(d.arabic.first));
+      await endIt(t);
+    });
+
+    testWidgets('share the hadith of the day as a picture: parchment card, Urdu / English / both, handed to the share sheet', (t) async {
+      final env = await open(t, share: true);
+      await t.tap(find.byKey(const Key('daily-tab-hadith')));
+      await wait(t, 3);
+      await t.tap(find.byKey(const Key('daily-open')));
+      await wait(t, 4);
+      final sheet = find.descendant(of: find.byKey(const Key('daily-sheet')), matching: find.byType(Scrollable)).first;
+      await t.scrollUntilVisible(find.byKey(const Key('sheet-share')), 150, scrollable: sheet);
+      await wait(t, 2);
+      await t.tap(find.byKey(const Key('sheet-share')));
+      await wait(t, 6);
+      expect(find.byKey(const Key('daily-share-card')), findsOneWidget);
+      expect(find.byKey(const Key('daily-share-urdu')), findsOneWidget, reason: 'Urdu by default, like the Home card');
+      expect(find.byKey(const Key('daily-share-english')), findsNothing);
+      final h = await t.runAsync(loadHadithAsset);
+      final d = dailyHadith(h!, DateTime.now());
+      expect(t.widget<Text>(find.byKey(const Key('daily-share-arabic'))).data, d.arabic);
+      await t.ensureVisible(find.byKey(const Key('daily-share-lang')));
+      await wait(t, 1);
+      await t.tap(find.descendant(of: find.byKey(const Key('daily-share-lang')), matching: find.text('Both')));
+      await wait(t, 2);
+      expect(t.widget<Text>(find.byKey(const Key('daily-share-english'))).data, d.english);
+      expect(t.widget<Text>(find.byKey(const Key('daily-share-date'))).data, contains('AH'));
+      await t.ensureVisible(find.byKey(const Key('daily-share-go')));
+      await t.tap(find.byKey(const Key('daily-share-go')));
+      for (var i = 0; i < 30 && env.sharedFiles.isEmpty; i++) {
+        await wait(t, 1);
+      }
+      expect(find.textContaining('Could not make'), findsNothing);
+      final (name, subject, head) = env.sharedFiles.last;
+      expect((name, subject), ('hadith-of-the-day.png', 'Hadith of the day · ${d.reference}'));
+      expect(head.codeUnits.take(4).toList(), [0x89, 0x50, 0x4E, 0x47]);
       await endIt(t);
     });
   });

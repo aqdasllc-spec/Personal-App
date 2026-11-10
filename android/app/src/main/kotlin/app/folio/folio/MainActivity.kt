@@ -33,6 +33,10 @@ class MainActivity : AudioServiceFragmentActivity() {
                     val lng = call.argument<Double>("lng")
                     if (lat == null || lng == null) result.success(null) else result.success(declination(lat, lng).toDouble())
                 }
+                "widget" -> {
+                    PrayerWidget.save(this, call.argument<String>("lines") ?: "")
+                    result.success(true)
+                }
                 "openAppSettings" -> {
                     result.success(open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))))
                 }

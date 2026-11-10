@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../../app/providers.dart';
 import '../../planner/application/planner_controller.dart' show reminderSchedulerProvider;
 import '../../planner/domain/reminders.dart';
+import 'battery.dart';
 import 'prayer.dart';
 import 'prayer_ringer.dart';
 
@@ -52,6 +53,14 @@ class PrayerSettingsController extends Notifier<PrayerSettings> {
     final sched = ref.read(reminderSchedulerProvider);
     final ringer = ref.read(prayerRingerProvider);
     final gen = ++_generation;
+    if (s.hasLocation) {
+      final times = [
+        for (var d = 0; d < days + 1; d++)
+          for (final e in prayerDay(s, DateTime(now.year, now.month, now.day + d)).times.entries)
+            if (e.key.isPrayer && e.value.isAfter(now)) (at: e.value, english: e.key.salahOn(e.value), urdu: e.key.salahUrduOn(e.value)),
+      ];
+      unawaited(ref.read(prayerWidgetUpdaterProvider)(widgetLines(times)));
+    }
     unawaited(() async {
       final r = await ringer.replace(ringing).catchError((Object _) => const RingResult(ok: false));
       if (gen != _generation) return;

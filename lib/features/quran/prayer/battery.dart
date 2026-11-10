@@ -53,3 +53,15 @@ final batteryPortProvider = Provider<BatteryPort>((_) => AndroidBattery());
 
 /// Re-read after coming back from the settings screen.
 final batteryUnrestrictedProvider = FutureProvider.autoDispose<bool?>((ref) => ref.watch(batteryPortProvider).isUnrestricted());
+
+/// What the home-screen widget is given: one line per coming prayer, "epochMillis|English|Urdu".
+String widgetLines(List<({DateTime at, String english, String urdu})> times) =>
+    [for (final t in times) '${t.at.millisecondsSinceEpoch}|${t.english.replaceAll('|', ' ')}|${t.urdu.replaceAll('|', ' ')}'].join('\n');
+
+/// Sends the coming prayer times to the Android home-screen widget (nothing elsewhere).
+final prayerWidgetUpdaterProvider = Provider<Future<void> Function(String lines)>((_) => (lines) async {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+  try {
+    await const MethodChannel('folio/battery').invokeMethod<bool>('widget', {'lines': lines});
+  } catch (_) {}
+});

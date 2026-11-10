@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:folio/app/app.dart';
 import 'package:folio/app/router.dart';
 import 'package:folio/design_system/theme.dart';
+import 'package:folio/features/quran/prayer/battery.dart';
 import 'package:folio/features/quran/prayer/prayer_cards.dart';
 import 'package:folio/features/quran/prayer/prayer_providers.dart';
 import 'package:go_router/go_router.dart';
@@ -46,6 +47,23 @@ void main() {
     expect(x.ramadan, isFalse, reason: '10 Nov 2026 is in Jumada al-Ula');
     // 1 Ramadan 1448 is around 10 Feb 2027 (Umm al-Qura)
     expect(extraTimes(lahore, DateTime(2027, 2, 20)).ramadan, isTrue);
+  });
+
+  test('home-screen widget: the coming prayers are sent as "time|English|Urdu" lines whenever reminders are set', () async {
+    expect(widgetLines([(at: DateTime.fromMillisecondsSinceEpoch(1000), english: 'Salat-ul-Asr', urdu: 'نمازِ عصر')]), '1000|Salat-ul-Asr|نمازِ عصر');
+    final env = await TestEnv.create();
+    addTearDown(env.db.close);
+    final sent = <String>[];
+    final c = ProviderContainer(overrides: [...env.overrides, prayerWidgetUpdaterProvider.overrideWithValue((l) async => sent.add(l))]);
+    addTearDown(c.dispose);
+    c.read(prayerSettingsProvider.notifier).set(lahore);
+    await pumpEventQueue();
+    final lines = sent.last.split('\n');
+    expect(lines.length, greaterThanOrEqualTo(5 * 21));
+    final first = lines.first.split('|');
+    expect(DateTime.fromMillisecondsSinceEpoch(int.parse(first[0])).isAfter(DateTime.now()), isTrue);
+    expect(first[1], startsWith('Salat-ul-'));
+    expect(lines.any((l) => l.contains('Sunrise')), isFalse);
   });
 
   group('prayer log and qaza', () {
