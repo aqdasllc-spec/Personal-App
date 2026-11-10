@@ -14,6 +14,7 @@ import '../data/quran_data.dart';
 import '../domain/khatm.dart';
 import 'cabinet_painters.dart';
 import 'quran_extras.dart';
+import 'tafsir_sheet.dart';
 import 'quran_style.dart';
 
 /// Spellings of surah names vary ("Yaseen", "Yasin", "Ya-Sin"; "Al-Faatiha", "Fatiha"): letters only, doubled vowels
@@ -459,6 +460,7 @@ class _SurahPageState extends ConsumerState<SurahPage> {
                       bookmarked: bookmarks.any((b) => b.surah == s.number && b.ayah == i),
                       onBookmark: () => showBookmarkSheet(context, ref, s, i),
                       onShare: () => showShareAyahSheet(context, ref, q, s.number, i),
+                      onTafsir: () => showTafsirSheet(context, q, s.number, i),
                       onMark: () {
                         ref.read(quranLastReadProvider.notifier).set((s.number, i));
                         final m = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
@@ -558,10 +560,11 @@ class _AyahTile extends StatelessWidget {
     this.bookmarked = false,
     this.onBookmark,
     this.onShare,
+    this.onTafsir,
   });
 
   final bool bookmarked;
-  final VoidCallback? onBookmark, onShare;
+  final VoidCallback? onBookmark, onShare, onTafsir;
   final Surah surah;
   final int ayah;
   final String arabic;
@@ -632,6 +635,13 @@ class _AyahTile extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
                 icon: Icon(bookmarked ? Icons.bookmark : Icons.bookmark_border, color: bookmarked ? QuranColors.goldDeep : null),
                 onPressed: onBookmark,
+              ),
+              IconButton(
+                key: Key('tafsir-${surah.number}-$ayah'),
+                tooltip: 'Tafsir (explanation)',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.menu_book_outlined, size: 20),
+                onPressed: onTafsir,
               ),
               IconButton(
                 key: Key('share-${surah.number}-$ayah'),

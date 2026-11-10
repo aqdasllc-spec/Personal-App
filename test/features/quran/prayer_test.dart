@@ -275,6 +275,11 @@ void main() {
     });
 
     Future<void> center(WidgetTester t, Finder f) async {
+      final page = find.byKey(const Key('prayer-page'));
+      if (f.evaluate().isEmpty && page.evaluate().isNotEmpty) {
+        // the page is a lazy list: scroll down until the item has been built
+        await t.scrollUntilVisible(f, 300, scrollable: find.descendant(of: page, matching: find.byType(Scrollable)).first);
+      }
       await Scrollable.ensureVisible(t.element(f), alignment: .5);
       await t.pump();
     }
@@ -410,7 +415,7 @@ void main() {
     });
 
     testWidgets('location refused: says why; entering the place by hand works; bad numbers are explained', (t) async {
-      await open(t, location: _Location(null, 'Folio may not use your location.'));
+      final (env, _) = await open(t, location: _Location(null, 'Folio may not use your location.'));
       await t.tap(find.byKey(const Key('prayer-strip')));
       await wait(t, 6);
       await t.tap(find.byKey(const Key('prayer-locate')));
@@ -427,7 +432,7 @@ void main() {
       await t.enterText(find.byKey(const Key('place-lat')), '24,86');
       await t.tap(find.byKey(const Key('place-save')));
       await wait(t, 4);
-      expect(find.text('Karachi'), findsOneWidget);
+      expect(await t.runAsync(() => env.store.state('prayer_settings')), allOf(contains('"place":"Karachi"'), contains('24.86')));
       expect(find.byKey(const Key('prayer-time-fajr')), findsOneWidget);
 
       // Hijri adjustment
