@@ -1411,8 +1411,6 @@ class _MarksSheet extends ConsumerWidget {
           child: Column(
             children: [
               TabBar(
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
                 tabs: [
                   Tab(key: const Key('tab-chapters'), text: list.isEmpty ? 'Chapters' : 'Chapters (${list.length})'),
                   Tab(

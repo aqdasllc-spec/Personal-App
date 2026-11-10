@@ -41,6 +41,7 @@ import 'package:folio/features/security/app_lock.dart';
 import 'package:folio/features/quran/application/quran_audio.dart';
 import 'package:folio/features/quran/prayer/battery.dart';
 import 'package:folio/features/library/application/open_with.dart';
+import 'package:folio/features/library/data/pdf_outline.dart';
 import 'package:folio/features/quran/prayer/prayer_ringer.dart';
 import 'package:folio/features/planner/domain/reminders.dart';
 import 'package:sync_engine/sync_engine.dart';
@@ -433,6 +434,9 @@ class TestEnv {
   final ayahPlayer = FakeAyahPlayer();
   final ringer = FakeRinger();
   final openWith = FakeOpenWith();
+
+  /// The table of contents every PDF has in tests (none unless a test sets it).
+  List<PdfChapter> chapters = const [];
   final battery = FakeBattery();
 
   /// Replace the sync controller (e.g. to add sign-in gating).
@@ -456,6 +460,7 @@ class TestEnv {
         ayahPlayerFactoryProvider.overrideWithValue(() => ayahPlayer),
         prayerRingerProvider.overrideWithValue(ringer),
         openWithPortProvider.overrideWithValue(openWith),
+        pdfOutlineReaderProvider.overrideWithValue((_) async => chapters),
         batteryPortProvider.overrideWithValue(battery),
         pageThumbsBuilderProvider.overrideWithValue((context, {required file, required pageCount, required current, required bookmarked, required drawn, required onPick}) => PageThumbGrid(
               pageCount: pageCount,

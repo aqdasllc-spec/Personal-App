@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:folio/app/app.dart';
 import 'package:folio/data/local/app_database.dart';
 import 'package:folio/features/library/data/library_repository.dart';
 import 'package:folio/features/library/data/pdf_outline.dart';
@@ -47,10 +45,8 @@ void main() {
       final repo = LibraryRepository(env.db, directory: env.libraryDir, inspector: FakePdfInspector());
       b = (await repo.importPdf(await env.writePdf('x.pdf', 50))).book!;
     });
-    await t.pumpWidget(ProviderScope(
-      overrides: [...env.overrides, pdfOutlineReaderProvider.overrideWithValue((_) async => chapters)],
-      child: const FolioApp(),
-    ));
+    env.chapters = chapters;
+    await t.pumpWidget(env.app);
     await io(t);
     await t.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('Library')));
     await io(t);
