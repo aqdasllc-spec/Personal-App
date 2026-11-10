@@ -18,6 +18,8 @@ Everything works offline. Signing in only adds syncing between your devices.
   - **Bookmarks** with notes (bookmark button on an ayah; the Bookmarks tab lists them).
   - **Share** an ayah as a picture (gold and green card, with Urdu, English or both) or copy the text.
   - **Memorise (Hifz)** (cap button in a surah): choose ayahs, repeat each 1-10×, repeat the selection, a pause to say it back, and *Hide the Arabic* (first word as a cue, tap to show).
+  - **Tafsir** (the book button on an ayah): Ibn Kathir or Bayan-ul-Quran (Dr. Israr Ahmad) in Urdu, Ibn Kathir (abridged) or Ma'ariful Qur'an in English; the first time a surah's tafsir is opened it is downloaded, after that it is on the phone. Ayahs explained together are marked.
+  - **Adhkar** (the sunrise button at the top of the Quran, or on the Prayer times page): the morning and evening adhkar from Hisn al-Muslim, how many times each, the translation (Urdu for the ayahs), the pronunciation in English letters, and its virtue and source; tick the ones you said today.
   - **Tilawat mode** (the reader button in a surah, or at the top of the Quran from where you stopped): full screen, page after page of the Madinah Mushaf that **scrolls by itself**; tap for the controls: play / pause, speed 1-20, rotation (turn with the phone / upright / sideways), night or light page, translation under each ayah. The screen stays on; your place is kept.
   - **Listen without internet** (download button in a surah): this surah or the whole Quran for the chosen reciter (about 0.8-2.4 GB depending on the reciter's quality); played from the phone by itself; stop, continue, delete. On Wi-Fi only by default: on mobile data it asks first (with the size) and pauses if Wi-Fi is lost.
   - **Ayah of the day each morning** (Quran settings): a notification at the time you choose.
@@ -28,14 +30,15 @@ Everything works offline. Signing in only adds syncing between your devices.
 - Tap a book for a preview card; tap again to read.
 
 ## Library
-- **Add PDFs** (the + button). Same file twice is detected.
+- **Add PDFs** (the + button). Same file twice is detected. **Open with Folio:** tap a PDF in WhatsApp, Files, Gmail or a browser and choose Folio (or *Share* it to Folio): it is added to the Library and opened (if it is already there, that copy opens).
+- **More room for books:** the title, search and buttons slide away while you scroll down and come back as you scroll up.
 - **Shelf style** (Settings → Library): *Classic* (rows of spines), *Turning books* (tap a spine and the book turns to show its cover, with its progress in a card at the bottom; tap the cover or Read to open it, Put back to return it) or *Glass cabinets* (the Library opens on a wall of small glass cabinets, one per shelf plus *Unsorted*; tap one and its doors swing open onto two rows of books that turn the same way; the phone's Back closes the cabinet). While you search, filter, show favourites or rearrange, Glass cabinets shows the books on open shelves. *Cover carousel*: the covers stand in a 3D row; swipe, use the arrows or tap a side cover to bring it to the middle; the middle one shows its progress with More and Read. The **full-screen** button (top right) shows the covers as big as the screen allows, on a soft wash of the book's colour, with when you last read it; Close (or Back) returns to the shelf at the same book.
 - **Spotlight search** (Settings → Library, on by default): on the shelf, searching keeps every book in place, greys out the others and lights up the matches with a gold glow, and scrolls to the first one. Turn it off to have the search hide the other books instead (Grid, List and the carousel always do that).
 - **Ribbons and dust** (Settings → Library, on by default): a red ribbon runs down a spine as far as you have read; finished books get gold bands; books you have not opened for about two months start to gather dust (more the longer they wait).
 - **Shelves**: group books; the pen next to a shelf = *edit shelf* (books wiggle; drag them left/right to reorder).
 - **Tag colours**: Sort and filter → Tags → Manage → tap the circle by a tag to give it one of 8 colours; a coloured dot then shows on the filter chips and the book preview.
 - **Sort and filter** (recent, title, author, status, tags) and **Saved views**: pick a status and tags, tap *Save this view*, give it a name; tap the view later to bring those filters back (long-lived, up to 20).
-- **Search inside all books** (magnifier-with-list button): type a word, see every place it appears in your books (scans too, once made searchable); tap a hit to open the book at that page with the search ready. Its **Highlights** tab shows every highlight you made, filtered by colour; press and hold a colour to say what it means to you (for example yellow = Important).
+- **Search inside all books** (magnifier-with-list button): type a word (results come as you type; after the first search the text of each book is kept, so later searches are instant), see every place it appears in your books (scans too, once made searchable); tap a hit to open the book at that page with the search ready. Its **Highlights** tab shows every highlight you made, filtered by colour; press and hold a colour to say what it means to you (for example yellow = Important).
 - **Add a whole folder** (folder button): choose a folder and every PDF in it and its sub-folders is added after you confirm.
 - **Search**,  **Select several books** (checklist icon) to tag, move, favourite or remove many at once.
 - **Long-press / hover** a book for a preview (first page, progress, tags).
@@ -44,7 +47,7 @@ Everything works offline. Signing in only adds syncing between your devices.
 
 ## Reading (open a book)
 **Top bar:** title with the page number, **Search**, **Aa** (reading look), **⋮** (more).
-**Bottom:** the page slider, then five tools: **Contents** (bookmarks and highlights), **Pages** (a grid of page pictures: tap one to jump; bookmarked and drawn pages are marked), **Bookmark**, **Draw**, **Listen**.
+**Bottom:** the page slider, then five tools: **Contents** (the PDF's own **chapters**, when it has a table of contents: the one you are in is marked, tap to go there; then bookmarks and highlights), **Pages** (a grid of page pictures: tap one to jump; bookmarked and drawn pages are marked), **Bookmark**, **Draw**, **Listen**.
 
 | You want to… | Do this |
 |---|---|
