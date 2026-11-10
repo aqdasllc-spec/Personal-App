@@ -123,3 +123,29 @@ class GeolocatorLocation implements LocationPort {
 }
 
 final locationPortProvider = Provider<LocationPort>((_) => GeolocatorLocation());
+
+/// Which prayers were prayed, and the qaza still to make up. Synced and backed up.
+class PrayerLogController extends Notifier<PrayerLog> {
+  static const key = 'prayer_log';
+  @override
+  PrayerLog build() {
+    Future<void> load() async {
+      try {
+        state = PrayerLog.decode(await ref.read(syncedStoreProvider).state(key));
+      } catch (_) {}
+    }
+
+    Future.microtask(load);
+    reloadOnRemote(ref, key, load);
+    return const PrayerLog();
+  }
+
+  void set(PrayerLog v) {
+    state = v;
+    try {
+      ref.read(syncedStoreProvider).setState(key, v.encode());
+    } catch (_) {}
+  }
+}
+
+final prayerLogProvider = NotifierProvider<PrayerLogController, PrayerLog>(PrayerLogController.new);

@@ -11,6 +11,7 @@ import '../application/quran_providers.dart';
 import '../presentation/cabinet_painters.dart';
 import '../presentation/quran_style.dart';
 import 'prayer.dart';
+import 'prayer_cards.dart';
 import 'prayer_providers.dart';
 import 'prayer_reminders_card.dart';
 
@@ -228,6 +229,16 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
         backgroundColor: QuranColors.velvet,
         foregroundColor: QuranColors.goldLight,
         title: const Text('Prayer times'),
+        actions: [
+          if (s.hasLocation)
+            TextButton.icon(
+              key: const Key('qibla-open'),
+              style: TextButton.styleFrom(foregroundColor: QuranColors.goldLight),
+              onPressed: () => context.push(Routes.qibla),
+              icon: const Icon(Icons.explore_outlined),
+              label: const Text('Qibla'),
+            ),
+        ],
       ),
       body: ListView(
         key: const Key('prayer-page'),
@@ -315,7 +326,14 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
             )
           else
             _times(context, s, now, urdu),
-          if (s.hasLocation) ...[const SizedBox(height: Space.s24), PrayerRemindersCard(now: now)],
+          if (s.hasLocation) ...[
+            const SizedBox(height: Space.s16),
+            PrayerLogCard(settings: s, now: now),
+            const SizedBox(height: Space.s16),
+            ExtraTimesCard(settings: s, now: now),
+            const SizedBox(height: Space.s24),
+            PrayerRemindersCard(now: now),
+          ],
           const SizedBox(height: Space.s24),
           Text('Settings', style: t.titleMedium),
           const SizedBox(height: Space.s8),
@@ -342,6 +360,23 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
               ),
             ),
           if (_problem != null && s.hasLocation) Text(_problem!, style: t.bodySmall?.copyWith(color: c.danger)),
+          if (s.hasLocation)
+            ListTile(
+              key: const Key('mosque-times'),
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.mosque_outlined),
+              title: const Text('Mosque times'),
+              subtitle: Text(
+                s.offsets.isEmpty
+                    ? 'Add or take away minutes to match your mosque'
+                    : [for (final e in s.offsets.entries) '${e.key.english} ${e.value > 0 ? '+' : ''}${e.value} min'].join(', '),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                final o = await showDialog<Map<Prayer, int>>(context: context, builder: (_) => MosqueTimesDialog(offsets: ref.read(prayerSettingsProvider).offsets));
+                if (o != null) set(ref.read(prayerSettingsProvider).copyWith(offsets: o));
+              },
+            ),
           const SizedBox(height: Space.s8),
           DropdownButtonFormField<PrayerMethod>(
             key: const Key('prayer-method'),

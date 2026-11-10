@@ -28,6 +28,11 @@ class MainActivity : AudioServiceFragmentActivity() {
                             open(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)),
                     )
                 }
+                "declination" -> {
+                    val lat = call.argument<Double>("lat")
+                    val lng = call.argument<Double>("lng")
+                    if (lat == null || lng == null) result.success(null) else result.success(declination(lat, lng).toDouble())
+                }
                 "openAppSettings" -> {
                     result.success(open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))))
                 }
@@ -35,6 +40,9 @@ class MainActivity : AudioServiceFragmentActivity() {
             }
         }
     }
+
+    private fun declination(lat: Double, lng: Double): Float =
+        android.hardware.GeomagneticField(lat.toFloat(), lng.toFloat(), 0f, System.currentTimeMillis()).declination
 
     private fun open(intent: Intent): Boolean = try {
         startActivity(intent)

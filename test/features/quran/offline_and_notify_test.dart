@@ -91,7 +91,7 @@ void main() {
     expect(wholeQuranSize(reciters.firstWhere((r) => r.bitrate == 64)), 'about 813 MB');
   });
 
-  test('morning ayah notification: a week ahead with each day\'s ayah, in the Home card\'s language; off clears', () async {
+  test('morning ayah notification: three weeks ahead with each day\'s ayah, in the Home card\'s language; off clears', () async {
     final env = await TestEnv.create();
     addTearDown(env.db.close);
     final sched = _Sched();
@@ -106,10 +106,10 @@ void main() {
     await n.set((hour: 7, minute: 0));
     final now = DateTime(2026, 11, 10, 9);
     await n.resync(now: now);
-    expect(sched.daily.length, 6, reason: "today's 7:00 has passed: the next six mornings");
+    expect(sched.daily.length, 20, reason: "three weeks ahead; today's 7:00 has passed");
     expect(sched.daily.every((r) => r.at.hour == 7 && r.at.isAfter(now)), isTrue);
     expect(sched.daily.every((r) => r.id >= dailyAyahNotificationIds && r.id < dailyAyahNotificationIds + 0x10000), isTrue);
-    expect(sched.daily.map((r) => r.id).toSet().length, 6);
+    expect(sched.daily.map((r) => r.id).toSet().length, 20);
     final first = sched.daily.first;
     final a = dailyAyah(q, first.at);
     expect(first.title, startsWith('آج کی آیت'), reason: 'Urdu by default');

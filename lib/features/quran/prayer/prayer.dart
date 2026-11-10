@@ -379,3 +379,146 @@ String hijriUrdu(DateTime date, int offset, String Function(int) digits) {
   final h = hijriDate(date, offset);
   return '${digits(h.day)} ${hijriMonthsUrdu[h.month - 1]} ${digits(h.year)} ھ';
 }
+
+/// Times beyond the five prayers, worked out from the day's prayer times (so mosque adjustments carry through).
+/// The fixed minutes are the common rule of thumb, shown as approximate.
+class ExtraTimes {
+  const ExtraTimes({
+    required this.sehriEnds,
+    required this.iftar,
+    required this.ishraq,
+    required this.zawalFrom,
+    required this.zawalTo,
+    required this.sunriseFrom,
+    required this.sunriseTo,
+    required this.sunsetFrom,
+    required this.sunsetTo,
+    required this.midnight,
+    required this.lastThird,
+    required this.nextFajr,
+    required this.ramadan,
+  });
+
+  /// Eating stops at Fajr; the fast opens at Maghrib.
+  final DateTime sehriEnds, iftar;
+
+  /// Ishraq / Chasht (Duha) begin when the sun is well up: about 20 minutes after sunrise.
+  final DateTime ishraq;
+
+  /// Prayer is disliked while the sun rises, at its height and while it sets.
+  final DateTime sunriseFrom, sunriseTo, zawalFrom, zawalTo, sunsetFrom, sunsetTo;
+
+  /// The night (Maghrib to the next Fajr): its middle, and the start of its last third (best for Tahajjud).
+  final DateTime midnight, lastThird, nextFajr;
+
+  /// The Hijri month is Ramadan (Sehri and Iftar are shown then).
+  final bool ramadan;
+}
+
+ExtraTimes extraTimes(PrayerSettings s, DateTime date) {
+  final d = prayerDay(s, date), next = prayerDay(s, DateTime(date.year, date.month, date.day + 1));
+  final sunrise = d.times[Prayer.sunrise]!, dhuhr = d.times[Prayer.dhuhr]!, maghrib = d.times[Prayer.maghrib]!;
+  final fajr2 = next.times[Prayer.fajr]!;
+  final night = fajr2.difference(maghrib);
+  return ExtraTimes(
+    sehriEnds: d.times[Prayer.fajr]!,
+    iftar: maghrib,
+    ishraq: sunrise.add(const Duration(minutes: 20)),
+    sunriseFrom: sunrise,
+    sunriseTo: sunrise.add(const Duration(minutes: 20)),
+    zawalFrom: dhuhr.subtract(const Duration(minutes: 10)),
+    zawalTo: dhuhr,
+    sunsetFrom: maghrib.subtract(const Duration(minutes: 20)),
+    sunsetTo: maghrib,
+    midnight: maghrib.add(night ~/ 2),
+    lastThird: maghrib.add(night * 2 ~/ 3),
+    nextFajr: fajr2,
+    ramadan: hijriDate(date, s.hijriOffset).month == 9,
+  );
+}
+
+/// The direction of the Kaaba from [lat], [lng]: degrees clockwise from true north.
+double qiblaBearing(double lat, double lng) => adhan.Qibla(adhan.Coordinates(lat, lng)).direction;
+
+/// Whether each prayer was prayed, day by day, and the qaza (missed prayers still to make up).
+class PrayerLog {
+  const PrayerLog({this.days = const {}, this.pastOwed = const {}, this.madeUp = const {}});
+
+  /// 'yyyy-mm-dd' -> prayer -> true (prayed) / false (missed).
+  final Map<String, Map<Prayer, bool>> days;
+
+  /// Missed prayers from before the log, entered by hand.
+  final Map<Prayer, int> pastOwed;
+
+  /// Qaza prayers made up so far.
+  final Map<Prayer, int> madeUp;
+
+  static String dayKey(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  bool? on(DateTime d, Prayer p) => days[dayKey(d)]?[p];
+
+  /// Marks [p] on [d] as prayed (true), missed (false) or not marked (null).
+  PrayerLog mark(DateTime d, Prayer p, bool? prayed) {
+    final k = dayKey(d);
+    final day = {...?days[k]};
+    if (prayed == null) {
+      day.remove(p);
+    } else {
+      day[p] = prayed;
+    }
+    final all = {...days};
+    if (day.isEmpty) {
+      all.remove(k);
+    } else {
+      all[k] = day;
+    }
+    return PrayerLog(days: all, pastOwed: pastOwed, madeUp: madeUp);
+  }
+
+  int missedInLog(Prayer p) => days.values.where((d) => d[p] == false).length;
+
+  /// Still to make up for [p] (never below zero).
+  int owed(Prayer p) => (missedInLog(p) + (pastOwed[p] ?? 0) - (madeUp[p] ?? 0)).clamp(0, 1 << 30);
+  int get owedTotal => Prayer.values.where((p) => p.isPrayer).fold(0, (n, p) => n + owed(p));
+
+  PrayerLog makeUp(Prayer p, [int n = 1]) =>
+      PrayerLog(days: days, pastOwed: pastOwed, madeUp: {...madeUp, p: ((madeUp[p] ?? 0) + n).clamp(0, 1 << 30)});
+
+  PrayerLog addPast(Prayer p, int n) =>
+      PrayerLog(days: days, pastOwed: {...pastOwed, p: ((pastOwed[p] ?? 0) + n).clamp(0, 1 << 30)}, madeUp: madeUp);
+
+  /// Days in a row, up to [today], with every one of the five prayers marked prayed (today counts once complete).
+  int streak(DateTime today) {
+    bool full(DateTime d) => Prayer.values.where((p) => p.isPrayer).every((p) => on(d, p) == true);
+    var d = DateTime(today.year, today.month, today.day);
+    if (!full(d)) d = DateTime(d.year, d.month, d.day - 1);
+    var n = 0;
+    while (full(d)) {
+      n++;
+      d = DateTime(d.year, d.month, d.day - 1);
+    }
+    return n;
+  }
+
+  String encode() => jsonEncode({
+    for (final e in days.entries) e.key: {for (final x in e.value.entries) x.key.name: x.value ? 1 : 0},
+    '_past': {for (final e in pastOwed.entries) e.key.name: e.value},
+    '_made': {for (final e in madeUp.entries) e.key.name: e.value},
+  });
+
+  static PrayerLog decode(String? raw) {
+    if (raw == null || raw.isEmpty) return const PrayerLog();
+    try {
+      final j = jsonDecode(raw) as Map<String, dynamic>;
+      final days = <String, Map<Prayer, bool>>{};
+      for (final e in j.entries) {
+        if (e.key.startsWith('_') || e.value is! Map) continue;
+        days[e.key] = _byPrayer(e.value, (v) => v is num ? v == 1 : null);
+      }
+      int? count(Object? v) => v is num && v >= 0 ? v.toInt() : null;
+      return PrayerLog(days: days, pastOwed: _byPrayer(j['_past'], count), madeUp: _byPrayer(j['_made'], count));
+    } catch (_) {
+      return const PrayerLog();
+    }
+  }
+}

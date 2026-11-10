@@ -147,6 +147,7 @@ class QuranDownloads extends Notifier<DownloadJob?> {
           error = 'Paused: the phone is on mobile data and downloads are set to Wi-Fi only. Tap Download on Wi-Fi to continue.';
           return;
         }
+        if (token != _token || error != null || next >= todo.length) return; // the others took the rest meanwhile
         final i = todo[next++];
         var tries = 0;
         while (true) {
