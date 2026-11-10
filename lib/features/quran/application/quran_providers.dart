@@ -187,3 +187,44 @@ class KhatmController extends Notifier<KhatmPlan?> {
 }
 
 final khatmProvider = NotifierProvider<KhatmController, KhatmPlan?>(KhatmController.new);
+
+/// Hifz (memorising) settings: how to repeat, and whether the Arabic is hidden until tapped. Remembered.
+class HifzSettings {
+  const HifzSettings({this.eachAyah = 3, this.rounds = 1, this.pauseSeconds = 0, this.hideArabic = false});
+  final int eachAyah, rounds, pauseSeconds;
+  final bool hideArabic;
+
+  HifzSettings copyWith({int? eachAyah, int? rounds, int? pauseSeconds, bool? hideArabic}) => HifzSettings(
+    eachAyah: eachAyah ?? this.eachAyah,
+    rounds: rounds ?? this.rounds,
+    pauseSeconds: pauseSeconds ?? this.pauseSeconds,
+    hideArabic: hideArabic ?? this.hideArabic,
+  );
+}
+
+class HifzController extends Notifier<HifzSettings> {
+  static const key = 'quran_hifz';
+  @override
+  HifzSettings build() {
+    Future.microtask(() async {
+      try {
+        final raw = await ref.read(syncedStoreProvider).state(key);
+        if (raw == null) return;
+        final p = raw.split(',').map(int.tryParse).toList();
+        if (p.length == 4 && p.every((x) => x != null)) {
+          state = HifzSettings(eachAyah: p[0]!.clamp(1, 10), rounds: p[1]!.clamp(1, 10), pauseSeconds: p[2]!.clamp(0, 10), hideArabic: p[3] == 1);
+        }
+      } catch (_) {}
+    });
+    return const HifzSettings();
+  }
+
+  void set(HifzSettings s) {
+    state = s;
+    try {
+      ref.read(syncedStoreProvider).setState(key, '${s.eachAyah},${s.rounds},${s.pauseSeconds},${s.hideArabic ? 1 : 0}');
+    } catch (_) {}
+  }
+}
+
+final hifzProvider = NotifierProvider<HifzController, HifzSettings>(HifzController.new);

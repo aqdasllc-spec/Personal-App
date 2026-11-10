@@ -270,6 +270,29 @@ class _SurahPageState extends ConsumerState<SurahPage> {
   Timer? _saveTimer;
   int? _followed;
 
+  /// Hifz: ayahs shown again by tapping them while the Arabic is hidden.
+  final _revealed = <int>{};
+
+  Future<void> _hifzSheet(QuranData q, Surah s) async {
+    final first = (_firstVisibleAyah() ?? 1).clamp(1, s.ayahCount);
+    final r = await showModalBottomSheet<({int from, int to})>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _HifzSheet(surah: s, from: first, to: (first + 4).clamp(first, s.ayahCount)),
+    );
+    if (r == null || !mounted) return;
+    final h = ref.read(hifzProvider);
+    setState(_revealed.clear);
+    await ref.read(quranAudioProvider.notifier).playFrom(
+      q,
+      s.number,
+      r.from,
+      to: r.to,
+      repeat: RepeatPlan(eachAyah: h.eachAyah, rounds: h.rounds, pause: Duration(seconds: h.pauseSeconds)),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -318,6 +341,7 @@ class _SurahPageState extends ConsumerState<SurahPage> {
     final mode = ref.watch(translationModeProvider);
     final scale = ref.watch(quranTextScaleProvider);
     final audio = ref.watch(quranAudioProvider);
+    final hifz = ref.watch(hifzProvider);
     ref.listen(quranAudioProvider, (_, a) => _follow(a));
     final c = context.colors;
     return data.when(
@@ -351,6 +375,12 @@ class _SurahPageState extends ConsumerState<SurahPage> {
                     a.playFrom(q, s.number, _firstVisibleAyah() ?? 1);
                   }
                 },
+              ),
+              IconButton(
+                key: const Key('hifz-open'),
+                tooltip: 'Memorise (Hifz): repeat and hide',
+                icon: Icon(hifz.hideArabic ? Icons.visibility_off : Icons.school_outlined),
+                onPressed: () => _hifzSheet(q, s),
               ),
               PopupMenuButton<TranslationMode>(
                 key: const Key('translation-menu'),
@@ -390,6 +420,8 @@ class _SurahPageState extends ConsumerState<SurahPage> {
                       scale: scale,
                       sajda: q.sajdas.contains((s.number, i)),
                       reciting: mine && audio.ayah == i,
+                      hidden: hifz.hideArabic && !_revealed.contains(i),
+                      onReveal: () => setState(() => _revealed.add(i)),
                       onPlay: () => ref.read(quranAudioProvider.notifier).playFrom(q, s.number, i),
                       onMark: () {
                         ref.read(quranLastReadProvider.notifier).set((s.number, i));
@@ -485,6 +517,8 @@ class _AyahTile extends StatelessWidget {
     required this.reciting,
     required this.onPlay,
     required this.onMark,
+    this.hidden = false,
+    this.onReveal,
   });
   final Surah surah;
   final int ayah;
@@ -493,6 +527,10 @@ class _AyahTile extends StatelessWidget {
   final double scale;
   final bool sajda, reciting;
   final VoidCallback onPlay, onMark;
+
+  /// Hifz: the Arabic is hidden (only its first word shows as a cue) until tapped.
+  final bool hidden;
+  final VoidCallback? onReveal;
 
   @override
   Widget build(BuildContext context) {
@@ -557,13 +595,42 @@ class _AyahTile extends StatelessWidget {
               ),
             ],
           ),
-          Text(
-            '$arabic ${ayahEnd(ayah)}',
-            key: Key('arabic-${surah.number}-$ayah'),
-            textDirection: TextDirection.rtl,
-            textAlign: TextAlign.right,
-            style: quranArabic(26 * scale, color: c.text),
-          ),
+          if (hidden)
+            Semantics(
+              button: true,
+              label: 'Show ayah $ayah',
+              child: InkWell(
+                key: Key('reveal-${surah.number}-$ayah'),
+                onTap: onReveal,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(minHeight: 56),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: QuranColors.gold.withValues(alpha: .10),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: QuranColors.gold.withValues(alpha: .4)),
+                  ),
+                  child: Row(
+                    textDirection: TextDirection.rtl,
+                    children: [
+                      Text('${arabic.split(' ').first} …', textDirection: TextDirection.rtl, style: quranArabic(24 * scale, color: c.text)),
+                      const Spacer(),
+                      Text('Tap to show', style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            Text(
+              '$arabic ${ayahEnd(ayah)}',
+              key: Key('arabic-${surah.number}-$ayah'),
+              textDirection: TextDirection.rtl,
+              textAlign: TextAlign.right,
+              style: quranArabic(26 * scale, color: c.text),
+            ),
           if (urdu != null) ...[
             const SizedBox(height: Space.s8),
             Text(
@@ -619,7 +686,13 @@ class _AudioBar extends ConsumerWidget {
                       style: const TextStyle(color: QuranColors.goldLight, fontWeight: FontWeight.w600),
                     ),
                     Text(
-                      a.phase == PlayerPhase.loading ? 'Loading… ${r.name}' : r.name,
+                      [
+                        if (a.phase == PlayerPhase.loading) 'Loading…',
+                        if (a.repeats > 1) 'repeat ${a.repeat}/${a.repeats}',
+                        if (a.rounds > 1) 'round ${a.round}/${a.rounds}',
+                        r.name,
+                      ].join(' · '),
+                      key: const Key('audio-subtitle'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: QuranColors.creamMuted, fontSize: 12),
@@ -904,4 +977,106 @@ Future<void> showKhatmSetup(BuildContext context, WidgetRef ref, QuranData q) as
     ),
   );
   if (ok == true) ref.read(khatmProvider.notifier).start(days: days, fromPage: fromHere ? here : 1);
+}
+
+/// Memorising: which ayahs, how many times, pauses, and hiding the Arabic.
+class _HifzSheet extends ConsumerStatefulWidget {
+  const _HifzSheet({required this.surah, required this.from, required this.to});
+  final Surah surah;
+  final int from, to;
+  @override
+  ConsumerState<_HifzSheet> createState() => _HifzSheetState();
+}
+
+class _HifzSheetState extends ConsumerState<_HifzSheet> {
+  late int _from = widget.from, _to = widget.to;
+
+  @override
+  Widget build(BuildContext context) {
+    final h = ref.watch(hifzProvider);
+    final set = ref.read(hifzProvider.notifier).set;
+    final t = Theme.of(context).textTheme;
+    final n = widget.surah.ayahCount;
+    Widget chips<T>(String keyPrefix, List<T> values, T current, String Function(T) label, void Function(T) pick) => Wrap(
+      spacing: Space.s8,
+      runSpacing: Space.s8,
+      children: [for (final v in values) ChoiceChip(key: Key('$keyPrefix-$v'), label: Text(label(v)), selected: v == current, onSelected: (_) => pick(v))],
+    );
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: .85,
+      maxChildSize: .95,
+      builder: (context, scroll) => ListView(
+        key: const Key('hifz-sheet'),
+        controller: scroll,
+        padding: const EdgeInsets.fromLTRB(Space.s16, 0, Space.s16, Space.s24),
+        children: [
+          Text('Memorise (Hifz)', style: t.titleLarge),
+          Text('${widget.surah.name}: choose the ayahs, how often to hear them, and hide the text to test yourself.', style: t.bodySmall),
+          const SizedBox(height: Space.s16),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  key: const Key('hifz-from'),
+                  initialValue: _from,
+                  decoration: const InputDecoration(labelText: 'From ayah', border: OutlineInputBorder()),
+                  items: [for (var i = 1; i <= n; i++) DropdownMenuItem(value: i, child: Text('$i'))],
+                  onChanged: (v) => setState(() {
+                    _from = v ?? _from;
+                    if (_to < _from) _to = _from;
+                  }),
+                ),
+              ),
+              const SizedBox(width: Space.s12),
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  key: ValueKey('hifz-to-$_from'),
+                  initialValue: _to,
+                  decoration: const InputDecoration(labelText: 'To ayah', border: OutlineInputBorder()),
+                  items: [for (var i = _from; i <= n; i++) DropdownMenuItem(value: i, child: Text('$i'))],
+                  onChanged: (v) => setState(() => _to = v ?? _to),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Space.s16),
+          Text('Repeat each ayah', style: t.titleSmall),
+          const SizedBox(height: Space.s4),
+          chips('hifz-each', const [1, 2, 3, 5, 7, 10], h.eachAyah, (v) => '$v×', (v) => set(ref.read(hifzProvider).copyWith(eachAyah: v))),
+          const SizedBox(height: Space.s16),
+          Text('Then repeat the whole selection', style: t.titleSmall),
+          const SizedBox(height: Space.s4),
+          chips('hifz-rounds', const [1, 2, 3, 5, 10], h.rounds, (v) => v == 1 ? 'Once' : '$v×', (v) => set(ref.read(hifzProvider).copyWith(rounds: v))),
+          const SizedBox(height: Space.s16),
+          Text('Pause after each repeat (time to say it back)', style: t.titleSmall),
+          const SizedBox(height: Space.s4),
+          chips('hifz-pause', const [0, 2, 5], h.pauseSeconds, (v) => v == 0 ? 'No pause' : '$v s', (v) => set(ref.read(hifzProvider).copyWith(pauseSeconds: v))),
+          const SizedBox(height: Space.s8),
+          SwitchListTile(
+            key: const Key('hifz-hide'),
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Hide the Arabic'),
+            subtitle: const Text('Only the first word of each ayah shows as a cue; tap an ayah to see it.'),
+            value: h.hideArabic,
+            onChanged: (v) => set(ref.read(hifzProvider).copyWith(hideArabic: v)),
+          ),
+          const SizedBox(height: Space.s8),
+          Text(
+            'You will hear ayahs $_from-$_to, each ${h.eachAyah}×${h.rounds > 1 ? ', the whole selection ${h.rounds}×' : ''}.',
+            key: const Key('hifz-summary'),
+            style: t.bodyMedium,
+          ),
+          const SizedBox(height: Space.s12),
+          FilledButton.icon(
+            key: const Key('hifz-start'),
+            style: FilledButton.styleFrom(backgroundColor: QuranColors.velvet, foregroundColor: QuranColors.goldLight, minimumSize: const Size.fromHeight(48)),
+            onPressed: () => Navigator.pop(context, (from: _from, to: _to)),
+            icon: const Icon(Icons.play_arrow),
+            label: const Text('Start'),
+          ),
+        ],
+      ),
+    );
+  }
 }

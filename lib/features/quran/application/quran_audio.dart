@@ -42,7 +42,10 @@ class JustAudioAyahPlayer implements AyahPlayer {
 
   @override
   Future<void> setQueue(List<Uri> urls, {int start = 0}) async {
-    await _p.setAudioSources([for (final u in urls) ja.AudioSource.uri(u)], initialIndex: start);
+    await _p.setAudioSources([
+      for (final u in urls)
+        u.scheme == 'silence' ? ja.SilenceAudioSource(duration: Duration(milliseconds: int.tryParse(u.path) ?? 0)) : ja.AudioSource.uri(u),
+    ], initialIndex: start);
   }
 
   @override
@@ -71,29 +74,85 @@ class JustAudioAyahPlayer implements AyahPlayer {
 
 final ayahPlayerFactoryProvider = Provider<AyahPlayer Function()>((_) => JustAudioAyahPlayer.new);
 
+/// Where the recording of ayah [n] (1-6236) by [r] comes from: the internet, or a downloaded file.
+final ayahUriResolverProvider = Provider<Uri Function(Reciter r, int n)>((_) => (r, n) => r.ayahUrl(n));
+
+/// A short silence in the queue (Hifz pauses): `silence:<milliseconds>`.
+Uri silenceUri(Duration d) => Uri(scheme: 'silence', path: '${d.inMilliseconds}');
+
+/// What one queue entry plays.
+class _Entry {
+  const _Entry(this.ayah, {this.translation = false, this.silence = false, this.repeat = 1, this.round = 1});
+  final int ayah, repeat, round;
+  final bool translation, silence;
+}
+
+/// How to repeat while memorising (Hifz). The default plays everything once.
+class RepeatPlan {
+  const RepeatPlan({this.eachAyah = 1, this.rounds = 1, this.pause = Duration.zero});
+  final int eachAyah, rounds;
+  final Duration pause;
+  bool get isPlain => eachAyah == 1 && rounds == 1;
+}
+
 /// What is being recited.
 class QuranAudioState {
-  const QuranAudioState({this.surah, this.ayah, this.lastAyah, this.phase = PlayerPhase.idle, this.translationTurn = false, this.error});
+  const QuranAudioState({
+    this.surah,
+    this.ayah,
+    this.firstAyah,
+    this.lastAyah,
+    this.phase = PlayerPhase.idle,
+    this.translationTurn = false,
+    this.error,
+    this.repeat = 1,
+    this.repeats = 1,
+    this.round = 1,
+    this.rounds = 1,
+  });
   final int? surah, ayah;
 
-  /// Where playback stops (the end of the surah, or of the day's ayahs).
-  final int? lastAyah;
+  /// The ayahs being played (the rest of the surah, the day's ayahs, or a Hifz selection).
+  final int? firstAyah, lastAyah;
   final PlayerPhase phase;
 
   /// True while the spoken translation of [ayah] (not the recitation) is playing.
   final bool translationTurn;
   final String? error;
 
+  /// Hifz: which repetition of the ayah, and which round of the selection, is playing.
+  final int repeat, repeats, round, rounds;
+
   bool get active => surah != null && phase != PlayerPhase.idle && phase != PlayerPhase.finished;
   bool get playing => phase == PlayerPhase.playing || phase == PlayerPhase.loading;
+
+  QuranAudioState copy({int? ayah, PlayerPhase? phase, bool? translationTurn, String? error, int? repeat, int? round, bool clearError = false}) => QuranAudioState(
+    surah: surah,
+    ayah: ayah ?? this.ayah,
+    firstAyah: firstAyah,
+    lastAyah: lastAyah,
+    phase: phase ?? this.phase,
+    translationTurn: translationTurn ?? this.translationTurn,
+    error: clearError ? null : (error ?? this.error),
+    repeat: repeat ?? this.repeat,
+    repeats: repeats,
+    round: round ?? this.round,
+    rounds: rounds,
+  );
 }
 
+const _failed = 'Could not play the recitation. Check the internet connection and try again.';
+
 /// Plays a surah (or a few ayahs) ayah by ayah with the chosen reciter, optionally followed by each ayah's spoken
-/// translation; reports which ayah is playing so the reader can mark it and scroll to it.
+/// translation, optionally repeating (Hifz); reports which ayah is playing so the reader can mark it and follow it.
 class QuranAudio extends Notifier<QuranAudioState> {
   AyahPlayer? _player;
   final _subs = <StreamSubscription<Object?>>[];
-  int _from = 1, _per = 1;
+  List<_Entry> _queue = const [];
+  int _index = 0;
+
+  /// The longest queue built (a selection of 10 ayahs x 10 repeats x 10 rounds with pauses stays below this).
+  static const maxQueue = 4000;
 
   @override
   QuranAudioState build() {
@@ -113,27 +172,16 @@ class QuranAudio extends Notifier<QuranAudioState> {
   }
 
   void _onIndex(int? i) {
-    if (i == null || state.surah == null) return;
-    state = QuranAudioState(
-      surah: state.surah,
-      ayah: _from + i ~/ _per,
-      lastAyah: state.lastAyah,
-      phase: state.phase,
-      translationTurn: _per > 1 && i % _per == 1,
-    );
+    if (i == null || state.surah == null || i >= _queue.length) return;
+    _index = i;
+    final e = _queue[i];
+    state = state.copy(ayah: e.ayah, translationTurn: e.translation, repeat: e.repeat, round: e.round);
     _showControls();
   }
 
   void _onPhase(PlayerPhase p) {
     if (state.surah == null) return;
-    state = QuranAudioState(
-      surah: state.surah,
-      ayah: state.ayah,
-      lastAyah: state.lastAyah,
-      phase: p,
-      translationTurn: state.translationTurn,
-      error: p == PlayerPhase.failed ? 'Could not play the recitation. Check the internet connection and try again.' : null,
-    );
+    state = state.copy(phase: p, error: p == PlayerPhase.failed ? _failed : null, clearError: p != PlayerPhase.failed);
     if (p == PlayerPhase.finished || p == PlayerPhase.failed) {
       unawaited(ref.read(mediaControlsProvider).hide());
     } else {
@@ -141,26 +189,50 @@ class QuranAudio extends Notifier<QuranAudioState> {
     }
   }
 
-  /// Recites [surah] from [ayah] to [to] (default: the end of the surah).
-  Future<void> playFrom(QuranData q, int surah, int ayah, {int? to}) async {
+  /// Recites [surah] from [ayah] to [to] (default: the end of the surah), repeating as [repeat] says.
+  Future<void> playFrom(QuranData q, int surah, int ayah, {int? to, RepeatPlan repeat = const RepeatPlan()}) async {
     final last = to ?? q.surah(surah).ayahCount;
     final reciter = ref.read(reciterProvider);
     final voice = ref.read(spokenTranslationProvider).voice;
-    _from = ayah;
-    _per = voice == null ? 1 : 2;
-    final urls = <Uri>[
-      for (var a = ayah; a <= last; a++) ...[
-        reciter.ayahUrl(q.indexOf(surah, a) + 1),
-        if (voice != null) voice.ayahUrl(q.indexOf(surah, a) + 1),
-      ],
-    ];
-    state = QuranAudioState(surah: surah, ayah: ayah, lastAyah: last, phase: PlayerPhase.loading);
+    final source = ref.read(ayahUriResolverProvider);
+    final entries = <_Entry>[];
+    final urls = <Uri>[];
+    for (var round = 1; round <= repeat.rounds; round++) {
+      for (var a = ayah; a <= last; a++) {
+        final n = q.indexOf(surah, a) + 1;
+        for (var r = 1; r <= repeat.eachAyah; r++) {
+          entries.add(_Entry(a, repeat: r, round: round));
+          urls.add(source(reciter, n));
+          final lastOne = round == repeat.rounds && a == last && r == repeat.eachAyah && voice == null;
+          if (repeat.pause > Duration.zero && !lastOne) {
+            entries.add(_Entry(a, silence: true, repeat: r, round: round));
+            urls.add(silenceUri(repeat.pause));
+          }
+        }
+        if (voice != null) {
+          entries.add(_Entry(a, translation: true, repeat: repeat.eachAyah, round: round));
+          urls.add(source(voice, n));
+        }
+        if (urls.length > maxQueue) break;
+      }
+    }
+    _queue = entries;
+    _index = 0;
+    state = QuranAudioState(
+      surah: surah,
+      ayah: ayah,
+      firstAyah: ayah,
+      lastAyah: last,
+      phase: PlayerPhase.loading,
+      repeats: repeat.eachAyah,
+      rounds: repeat.rounds,
+    );
     final p = _ensure();
     try {
       await p.setQueue(urls);
       await p.play();
     } catch (_) {
-      state = QuranAudioState(surah: surah, ayah: ayah, lastAyah: last, phase: PlayerPhase.failed, error: 'Could not play the recitation. Check the internet connection and try again.');
+      state = state.copy(phase: PlayerPhase.failed, error: _failed);
     }
   }
 
@@ -169,25 +241,30 @@ class QuranAudio extends Notifier<QuranAudioState> {
 
   Future<void> toggle() async => state.playing ? pause() : resume();
 
+  /// The first recitation of the next ayah (in this round).
   Future<void> next() async {
-    final a = state.ayah, last = state.lastAyah;
-    if (a == null || last == null || a >= last) return;
-    await _player?.seekToIndex((a + 1 - _from) * _per);
+    final cur = _queue.isEmpty ? null : _queue[_index];
+    if (cur == null) return;
+    final j = _queue.indexWhere((e) => e.round == cur.round && e.ayah == cur.ayah + 1 && !e.silence && !e.translation, _index);
+    if (j >= 0) await _player?.seekToIndex(j);
   }
 
+  /// The first recitation of the previous ayah (in this round).
   Future<void> previous() async {
-    final a = state.ayah;
-    if (a == null || a <= _from) return;
-    await _player?.seekToIndex((a - 1 - _from) * _per);
+    final cur = _queue.isEmpty ? null : _queue[_index];
+    if (cur == null) return;
+    final j = _queue.indexWhere((e) => e.round == cur.round && e.ayah == cur.ayah - 1 && !e.silence && !e.translation);
+    if (j >= 0) await _player?.seekToIndex(j);
   }
 
   Future<void> stop() async {
     await _player?.stop();
+    _queue = const [];
     state = const QuranAudioState();
     await ref.read(mediaControlsProvider).hide();
   }
 
-  /// Changing the reciter or the spoken translation restarts at the same ayah.
+  /// Changing the reciter or the spoken translation restarts at the same ayah (plain listening, to the same end).
   Future<void> restart(QuranData q) async {
     final s = state.surah, a = state.ayah, last = state.lastAyah;
     if (s == null || a == null || !state.active) return;
@@ -200,7 +277,7 @@ class QuranAudio extends Notifier<QuranAudioState> {
     final r = ref.read(reciterProvider);
     unawaited(
       ref.read(mediaControlsProvider).show(
-        title: 'Quran $s:$a',
+        title: 'Quran $s:$a${state.repeats > 1 ? ' (${state.repeat}/${state.repeats})' : ''}',
         subtitle: r.name,
         playing: state.playing,
         onPlay: resume,

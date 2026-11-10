@@ -77,16 +77,26 @@ class _PrayerStripState extends ConsumerState<PrayerStrip> {
     final small = urdu
         ? urduText(11, color: QuranColors.cream).copyWith(height: 1.5)
         : const TextStyle(color: QuranColors.cream, fontSize: 11.5, fontWeight: FontWeight.w600);
-    final muted = urdu ? urduText(10.5, color: QuranColors.creamMuted).copyWith(height: 1.5) : const TextStyle(color: QuranColors.creamMuted, fontSize: 11);
+    final muted = urdu
+        ? urduText(10.5, color: QuranColors.creamMuted).copyWith(height: 1.5)
+        : const TextStyle(color: QuranColors.creamMuted, fontSize: 11);
 
     Widget next;
     if (!s.hasLocation) {
-      next = Text(urdu ? 'نماز کے اوقات: مقام منتخب کریں' : 'Prayer times: tap to set your place', key: const Key('prayer-strip-setup'), style: small, maxLines: 1, overflow: TextOverflow.ellipsis);
+      next = Text(
+        urdu ? 'نماز کے اوقات: مقام منتخب کریں' : 'Prayer times: tap to set your place',
+        key: const Key('prayer-strip-setup'),
+        style: small,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
     } else {
       final n = prayerNow(s, now);
       final left = _left(n.nextAt.difference(now) + const Duration(seconds: 59), urdu);
       next = Text(
-        urdu ? '${n.next.urdu} ${urduClock(n.nextAt)}، $left میں' : '${n.next.english} ${_clock(context, n.nextAt)} · in $left',
+        urdu
+            ? '${n.next.urdu} ${urduClock(n.nextAt)}، $left میں'
+            : '${n.next.english} ${_clock(context, n.nextAt)} · in $left',
         key: const Key('prayer-strip-next'),
         style: small,
         maxLines: 1,
@@ -112,7 +122,17 @@ class _PrayerStripState extends ConsumerState<PrayerStrip> {
                   const SizedBox(width: 6),
                   Expanded(flex: 3, child: next),
                   const SizedBox(width: 8),
-                  Flexible(flex: 2, child: Text(hijri, key: const Key('prayer-strip-hijri'), style: muted, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: urdu ? TextAlign.left : TextAlign.right)),
+                  Flexible(
+                    flex: 2,
+                    child: Text(
+                      hijri,
+                      key: const Key('prayer-strip-hijri'),
+                      style: muted,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: urdu ? TextAlign.left : TextAlign.right,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -160,7 +180,9 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
     setState(() => _locating = false);
     if (pos != null) {
       final s = ref.read(prayerSettingsProvider);
-      ref.read(prayerSettingsProvider.notifier).set(s.copyWith(lat: pos.lat, lng: pos.lng, place: s.place.isEmpty ? 'My location' : s.place));
+      ref
+          .read(prayerSettingsProvider.notifier)
+          .set(s.copyWith(lat: pos.lat, lng: pos.lng, place: s.place.isEmpty ? 'My location' : s.place));
     }
   }
 
@@ -170,18 +192,22 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
       context: context,
       builder: (_) => _PlaceDialog(lat: s.lat, lng: s.lng, place: s.place),
     );
-    if (r != null) ref.read(prayerSettingsProvider.notifier).set(s.copyWith(lat: r.lat, lng: r.lng, place: r.place));
+    if (r != null && mounted) {
+      final cur = ref.read(prayerSettingsProvider);
+      ref.read(prayerSettingsProvider.notifier).set(cur.copyWith(lat: r.lat, lng: r.lng, place: r.place));
+    }
   }
 
   Future<void> _toggleAlert(Prayer p, bool on) async {
-    final s = ref.read(prayerSettingsProvider);
     if (on) {
       final sched = ref.read(reminderSchedulerProvider);
       if (!await sched.hasPermission()) await sched.requestPermission();
     }
-    final a = {...s.alerts};
+    if (!mounted) return;
+    final cur = ref.read(prayerSettingsProvider); // fresh: the permission question may have taken a while
+    final a = {...cur.alerts};
     on ? a.add(p) : a.remove(p);
-    ref.read(prayerSettingsProvider.notifier).set(s.copyWith(alerts: a));
+    ref.read(prayerSettingsProvider.notifier).set(cur.copyWith(alerts: a));
   }
 
   @override
@@ -216,10 +242,22 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
                   padding: const EdgeInsets.symmetric(vertical: Space.s16, horizontal: Space.s16),
                   child: Column(
                     children: [
-                      Text(hijriUrdu(now, s.hijriOffset, urduDigits), key: const Key('prayer-hijri-urdu'), textDirection: TextDirection.rtl, style: urduText(20, color: QuranColors.goldLight)),
-                      Text(hijriEnglish(now, s.hijriOffset), key: const Key('prayer-hijri'), style: const TextStyle(color: QuranColors.cream, fontSize: 15, fontWeight: FontWeight.w600)),
+                      Text(
+                        hijriUrdu(now, s.hijriOffset, urduDigits),
+                        key: const Key('prayer-hijri-urdu'),
+                        textDirection: TextDirection.rtl,
+                        style: urduText(20, color: QuranColors.goldLight),
+                      ),
+                      Text(
+                        hijriEnglish(now, s.hijriOffset),
+                        key: const Key('prayer-hijri'),
+                        style: const TextStyle(color: QuranColors.cream, fontSize: 15, fontWeight: FontWeight.w600),
+                      ),
                       const SizedBox(height: 2),
-                      Text(MaterialLocalizations.of(context).formatFullDate(now), style: const TextStyle(color: QuranColors.creamMuted, fontSize: 12)),
+                      Text(
+                        MaterialLocalizations.of(context).formatFullDate(now),
+                        style: const TextStyle(color: QuranColors.creamMuted, fontSize: 12),
+                      ),
                     ],
                   ),
                 ),
@@ -236,7 +274,10 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
                   children: [
                     Text('Where are you?', style: t.titleMedium),
                     const SizedBox(height: Space.s4),
-                    Text('Prayer times depend on your place. They are calculated on your phone; your location is not sent anywhere.', style: t.bodySmall),
+                    Text(
+                      'Prayer times depend on your place. They are calculated on your phone; your location is not sent anywhere.',
+                      style: t.bodySmall,
+                    ),
                     const SizedBox(height: Space.s12),
                     Wrap(
                       spacing: Space.s8,
@@ -245,15 +286,25 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
                         FilledButton.icon(
                           key: const Key('prayer-locate'),
                           onPressed: _locating ? null : _locate,
-                          icon: _locating ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.my_location),
+                          icon: _locating
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.my_location),
                           label: const Text('Use my location'),
                         ),
-                        OutlinedButton(key: const Key('prayer-manual'), onPressed: _manual, child: const Text('Enter the place')),
+                        OutlinedButton(
+                          key: const Key('prayer-manual'),
+                          onPressed: _manual,
+                          child: const Text('Enter the place'),
+                        ),
                       ],
                     ),
                     if (_problem != null) ...[
                       const SizedBox(height: Space.s8),
-                      Text(_problem!, key: const Key('prayer-problem'), style: t.bodySmall?.copyWith(color: c.danger)),
+                      Text(
+                        _problem!,
+                        key: const Key('prayer-problem'),
+                        style: t.bodySmall?.copyWith(color: c.danger),
+                      ),
                     ],
                   ],
                 ),
@@ -273,8 +324,16 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
               subtitle: Text('${s.lat!.toStringAsFixed(4)}, ${s.lng!.toStringAsFixed(4)}'),
               trailing: Wrap(
                 children: [
-                  IconButton(tooltip: 'Use my location again', onPressed: _locating ? null : _locate, icon: const Icon(Icons.my_location)),
-                  IconButton(tooltip: 'Enter the place', onPressed: _manual, icon: const Icon(Icons.edit_location_alt_outlined)),
+                  IconButton(
+                    tooltip: 'Use my location again',
+                    onPressed: _locating ? null : _locate,
+                    icon: const Icon(Icons.my_location),
+                  ),
+                  IconButton(
+                    tooltip: 'Enter the place',
+                    onPressed: _manual,
+                    icon: const Icon(Icons.edit_location_alt_outlined),
+                  ),
                 ],
               ),
             ),
@@ -285,8 +344,14 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
             initialValue: s.method,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'Calculation method', border: OutlineInputBorder()),
-            items: [for (final m in PrayerMethod.values) DropdownMenuItem(value: m, child: Text(m.label, overflow: TextOverflow.ellipsis))],
-            onChanged: (m) => m == null ? null : set(s.copyWith(method: m)),
+            items: [
+              for (final m in PrayerMethod.values)
+                DropdownMenuItem(
+                  value: m,
+                  child: Text(m.label, overflow: TextOverflow.ellipsis),
+                ),
+            ],
+            onChanged: (m) => m == null ? null : set(ref.read(prayerSettingsProvider).copyWith(method: m)),
           ),
           const SizedBox(height: Space.s12),
           Text('Asr time', style: t.bodyLarge),
@@ -299,7 +364,7 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
               ButtonSegment(value: false, label: Text("Shafi'i, Maliki, Hanbali")),
             ],
             selected: {s.hanafi},
-            onSelectionChanged: (v) => set(s.copyWith(hanafi: v.first)),
+            onSelectionChanged: (v) => set(ref.read(prayerSettingsProvider).copyWith(hanafi: v.first)),
           ),
           const SizedBox(height: Space.s16),
           Row(
@@ -309,13 +374,40 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Hijri date adjustment', style: t.bodyLarge),
-                    Text('Moon sighting where you live may differ from the Umm al-Qura calendar (in Pakistan and India often one day behind).', style: t.bodySmall),
+                    Text(
+                      'Moon sighting where you live may differ from the Umm al-Qura calendar (in Pakistan and India often one day behind).',
+                      style: t.bodySmall,
+                    ),
                   ],
                 ),
               ),
-              IconButton(key: const Key('hijri-minus'), tooltip: 'One day earlier', onPressed: s.hijriOffset > -2 ? () => set(s.copyWith(hijriOffset: s.hijriOffset - 1)) : null, icon: const Icon(Icons.remove_circle_outline)),
-              Text(s.hijriOffset == 0 ? '0' : (s.hijriOffset > 0 ? '+${s.hijriOffset}' : '${s.hijriOffset}'), key: const Key('hijri-offset'), style: t.titleMedium),
-              IconButton(key: const Key('hijri-plus'), tooltip: 'One day later', onPressed: s.hijriOffset < 2 ? () => set(s.copyWith(hijriOffset: s.hijriOffset + 1)) : null, icon: const Icon(Icons.add_circle_outline)),
+              IconButton(
+                key: const Key('hijri-minus'),
+                tooltip: 'One day earlier',
+                onPressed: s.hijriOffset > -2
+                    ? () {
+                        final cur = ref.read(prayerSettingsProvider);
+                        set(cur.copyWith(hijriOffset: (cur.hijriOffset - 1).clamp(-2, 2)));
+                      }
+                    : null,
+                icon: const Icon(Icons.remove_circle_outline),
+              ),
+              Text(
+                s.hijriOffset == 0 ? '0' : (s.hijriOffset > 0 ? '+${s.hijriOffset}' : '${s.hijriOffset}'),
+                key: const Key('hijri-offset'),
+                style: t.titleMedium,
+              ),
+              IconButton(
+                key: const Key('hijri-plus'),
+                tooltip: 'One day later',
+                onPressed: s.hijriOffset < 2
+                    ? () {
+                        final cur = ref.read(prayerSettingsProvider);
+                        set(cur.copyWith(hijriOffset: (cur.hijriOffset + 1).clamp(-2, 2)));
+                      }
+                    : null,
+                icon: const Icon(Icons.add_circle_outline),
+              ),
             ],
           ),
           const SizedBox(height: Space.s16),
@@ -350,8 +442,18 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       spacing: Space.s12,
                       children: [
-                        Text(p.english, style: t.titleMedium?.copyWith(color: p.isPrayer ? c.text : c.textMuted, fontWeight: p == n.next ? FontWeight.w700 : null)),
-                        Text(p.urdu, textDirection: TextDirection.rtl, style: urduText(15, color: p.isPrayer ? c.text : c.textMuted)),
+                        Text(
+                          p.english,
+                          style: t.titleMedium?.copyWith(
+                            color: p.isPrayer ? c.text : c.textMuted,
+                            fontWeight: p == n.next ? FontWeight.w700 : null,
+                          ),
+                        ),
+                        Text(
+                          p.urdu,
+                          textDirection: TextDirection.rtl,
+                          style: urduText(15, color: p.isPrayer ? c.text : c.textMuted),
+                        ),
                       ],
                     ),
                   ),
@@ -359,8 +461,19 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(_clock(context, day.times[p]!), key: Key('prayer-time-${p.name}'), style: t.titleMedium?.copyWith(fontFeatures: const [FontFeature.tabularFigures()], fontWeight: p == n.next ? FontWeight.w700 : null)),
-                      if (p == n.next) Text('in ${_left(n.nextAt.difference(now) + const Duration(seconds: 59), false)}', style: t.bodySmall?.copyWith(color: QuranColors.goldDeep)),
+                      Text(
+                        _clock(context, day.times[p]!),
+                        key: Key('prayer-time-${p.name}'),
+                        style: t.titleMedium?.copyWith(
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                          fontWeight: p == n.next ? FontWeight.w700 : null,
+                        ),
+                      ),
+                      if (p == n.next)
+                        Text(
+                          'in ${_left(n.nextAt.difference(now) + const Duration(seconds: 59), false)}',
+                          style: t.bodySmall?.copyWith(color: QuranColors.goldDeep),
+                        ),
                     ],
                   ),
                   const SizedBox(width: Space.s4),
@@ -369,7 +482,10 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
                       key: Key('prayer-alert-${p.name}'),
                       tooltip: s.alerts.contains(p) ? 'Reminder on' : 'Remind me',
                       onPressed: () => _toggleAlert(p, !s.alerts.contains(p)),
-                      icon: Icon(s.alerts.contains(p) ? Icons.notifications_active : Icons.notifications_none, color: s.alerts.contains(p) ? QuranColors.goldDeep : null),
+                      icon: Icon(
+                        s.alerts.contains(p) ? Icons.notifications_active : Icons.notifications_none,
+                        color: s.alerts.contains(p) ? QuranColors.goldDeep : null,
+                      ),
                     )
                   else
                     const SizedBox(width: 48),
@@ -421,11 +537,28 @@ class _PlaceDialogState extends State<_PlaceDialog> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          TextField(key: const Key('place-name'), controller: _place, decoration: const InputDecoration(labelText: 'Name (for you), e.g. Lahore')),
-          TextField(key: const Key('place-lat'), controller: _lat, keyboardType: const TextInputType.numberWithOptions(signed: true, decimal: true), decoration: const InputDecoration(labelText: 'Latitude')),
-          TextField(key: const Key('place-lng'), controller: _lng, keyboardType: const TextInputType.numberWithOptions(signed: true, decimal: true), decoration: const InputDecoration(labelText: 'Longitude')),
+          TextField(
+            key: const Key('place-name'),
+            controller: _place,
+            decoration: const InputDecoration(labelText: 'Name (for you), e.g. Lahore'),
+          ),
+          TextField(
+            key: const Key('place-lat'),
+            controller: _lat,
+            keyboardType: const TextInputType.numberWithOptions(signed: true, decimal: true),
+            decoration: const InputDecoration(labelText: 'Latitude'),
+          ),
+          TextField(
+            key: const Key('place-lng'),
+            controller: _lng,
+            keyboardType: const TextInputType.numberWithOptions(signed: true, decimal: true),
+            decoration: const InputDecoration(labelText: 'Longitude'),
+          ),
           const SizedBox(height: 8),
-          Text(_error ?? 'You can copy them from a map app: press and hold on the place.', style: TextStyle(fontSize: 12, color: _error == null ? null : Theme.of(context).colorScheme.error)),
+          Text(
+            _error ?? 'You can copy them from a map app: press and hold on the place.',
+            style: TextStyle(fontSize: 12, color: _error == null ? null : Theme.of(context).colorScheme.error),
+          ),
         ],
       ),
     ),
