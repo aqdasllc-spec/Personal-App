@@ -301,6 +301,8 @@ class _PrayerRemindersCardState extends ConsumerState<PrayerRemindersCard> with 
               const SizedBox(height: Space.s4),
               Text('${minSec(s.secondAfterSeconds)} after the prayer time.', key: const Key('second-summary'), style: t.bodySmall),
               const SizedBox(height: Space.s12),
+              Text('After which prayers', style: t.labelLarge),
+              const SizedBox(height: Space.s4),
               SegmentedButton<bool>(
                 key: const Key('second-scope'),
                 showSelectedIcon: false,
@@ -375,6 +377,34 @@ class _PrayerRemindersCardState extends ConsumerState<PrayerRemindersCard> with 
                 child: Text(problem, key: const Key('ring-problem'), style: t.bodySmall?.copyWith(color: c.danger)),
               ),
             const Divider(),
+            Text('Coming reminders', style: t.titleSmall),
+            const SizedBox(height: Space.s4),
+            _Coming(settings: s, now: now),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                key: const Key('prayer-full-test'),
+                onPressed: () async {
+                  final sched = ref.read(reminderSchedulerProvider);
+                  if (!await sched.hasPermission()) await sched.requestPermission();
+                  final tests = ref.read(prayerSettingsProvider.notifier).fullTest();
+                  if (!context.mounted) return;
+                  final hm = MaterialLocalizations.of(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      duration: const Duration(seconds: 6),
+                      content: Text(
+                        'Set like a real prayer: the reminder at ${hm.formatTimeOfDay(TimeOfDay.fromDateTime(tests.first.at))} '
+                        'and the second one a minute later. Lock the phone and wait.',
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.alarm_on_outlined),
+                label: const Text('Full test: in 2 minutes'),
+              ),
+            ),
+            const Divider(),
             Text('Make sure they come', style: t.titleSmall),
             const SizedBox(height: Space.s4),
             if (until != null)
@@ -427,6 +457,83 @@ class _PrayerRemindersCardState extends ConsumerState<PrayerRemindersCard> with 
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The next few reminders, with whether each is really set on the phone (alarms are checked with the alarm service).
+class _Coming extends ConsumerStatefulWidget {
+  const _Coming({required this.settings, required this.now});
+  final PrayerSettings settings;
+  final DateTime now;
+  @override
+  ConsumerState<_Coming> createState() => _ComingState();
+}
+
+class _ComingState extends ConsumerState<_Coming> {
+  Map<int, DateTime>? _set;
+  Timer? _again;
+
+  @override
+  void initState() {
+    super.initState();
+    _check();
+    // the alarms are set in the background after a change: look again shortly
+    _again = Timer.periodic(const Duration(seconds: 4), (_) => _check());
+  }
+
+  @override
+  void dispose() {
+    _again?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _check() async {
+    try {
+      final p = await ref.read(prayerRingerProvider).pending();
+      if (mounted) setState(() => _set = p);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final c = context.colors;
+    final next = prayerAlarms(widget.settings, widget.now, days: 2).take(4).toList();
+    if (next.isEmpty) return Text('None: tap a bell next to a prayer.', style: t.bodySmall);
+    final hm = MaterialLocalizations.of(context);
+    return Column(
+      key: const Key('prayer-coming'),
+      children: [
+        for (final r in next)
+          Builder(
+            builder: (context) {
+              final rings = PrayerTone.values.where((x) => x.name == r.tone).firstOrNull?.rings ?? false;
+              final ok = !rings || (_set?[r.id]?.millisecondsSinceEpoch ?? -1) ~/ 1000 == r.at.millisecondsSinceEpoch ~/ 1000;
+              final when = '${hm.formatShortDate(r.at)} ${hm.formatTimeOfDay(TimeOfDay.fromDateTime(r.at))}';
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Icon(
+                      r.payload.startsWith('prayer-again') ? Icons.alarm : Icons.notifications_active_outlined,
+                      size: 18,
+                      color: QuranColors.goldDeep,
+                    ),
+                    const SizedBox(width: Space.s8),
+                    Expanded(child: Text('$when · ${r.title.split(' · ').first}', style: t.bodySmall, overflow: TextOverflow.ellipsis)),
+                    if (rings)
+                      Text(
+                        _set == null ? '…' : (ok ? 'set ✓' : 'setting…'),
+                        key: Key('coming-${r.id}'),
+                        style: t.bodySmall?.copyWith(color: ok ? QuranColors.goldDeep : c.textMuted, fontWeight: FontWeight.w600),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+      ],
     );
   }
 }

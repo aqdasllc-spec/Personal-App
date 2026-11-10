@@ -130,6 +130,14 @@ void main() {
       expect((own.tone, own.sound, own.speech, own.insistent), ('own', 'prayer_sounds/1_azan.mp3', null, true));
     });
 
+    test('an alarm that is ringing (or just rang) is never cancelled when the reminders are set again', () {
+      final now = DateTime(2026, 11, 10, 5, 12);
+      expect(mayCancel(now.subtract(const Duration(seconds: 30)), now), isFalse, reason: 'ringing now');
+      expect(mayCancel(now.subtract(const Duration(minutes: 40)), now), isFalse, reason: 'may still be going');
+      expect(mayCancel(now.add(const Duration(hours: 1)), now), isTrue, reason: 'a future one no longer wanted');
+      expect(mayCancel(now.subtract(const Duration(hours: 5)), now), isTrue, reason: 'an old leftover');
+    });
+
     test('mosque times: minutes added to or taken from a prayer move its time and its reminders', () {
       final d = DateTime(2026, 11, 10);
       final plain = prayerDay(lahore, d), moved = prayerDay(lahore.copyWith(offsets: {Prayer.isha: 15, Prayer.fajr: -2}), d);
@@ -149,7 +157,7 @@ void main() {
     });
 
     test('second reminder: minutes and seconds after the time, Fajr only or every prayer, its own tone, keeps ringing', () {
-      final s = lahore.copyWith(alerts: {Prayer.fajr, Prayer.asr}, secondAfterSeconds: 10 * 60 + 30, tones: {Prayer.fajr: PrayerTone.notification, Prayer.asr: PrayerTone.notification}, secondTone: PrayerTone.alarm);
+      final s = lahore.copyWith(alerts: {Prayer.fajr, Prayer.asr}, secondAfterSeconds: 10 * 60 + 30, secondFajrOnly: true, tones: {Prayer.fajr: PrayerTone.notification, Prayer.asr: PrayerTone.notification}, secondTone: PrayerTone.alarm);
       final now = DateTime(2026, 11, 10);
       final day = prayerDay(lahore, now);
       final a = prayerAlarms(s, now, days: 1);
@@ -322,6 +330,25 @@ void main() {
       expect(sched.prayer.where((r) => r.payload == 'prayer:fajr'), isNotEmpty);
       await center(t, find.byKey(const Key('ring-problem')));
       expect(find.byKey(const Key('ring-problem')), findsOneWidget);
+      await endIt(t);
+    });
+
+    testWidgets('coming reminders show as set; Full test sets a reminder in 2 minutes and the second a minute later, like real ones', (t) async {
+      final (env, _) = await open(t);
+      await toPrayerPageWithPlace(t, env);
+      await center(t, find.byKey(const Key('prayer-coming')));
+      await wait(t, 3);
+      expect(find.text('set ✓'), findsWidgets);
+      await center(t, find.byKey(const Key('prayer-full-test')));
+      await t.tap(find.byKey(const Key('prayer-full-test')));
+      await wait(t, 4);
+      final tests = env.ringer.alarms.where((r) => r.payload.endsWith(':test')).toList();
+      expect(tests.length, 2);
+      expect(tests[1].at.difference(tests[0].at), const Duration(minutes: 1));
+      expect(tests[0].at.difference(DateTime.now()).inSeconds, inInclusiveRange(55, 125));
+      expect(tests[0].speech, isNotNull);
+      expect((tests[1].tone, tests[1].insistent), ('voice', true));
+      expect(env.ringer.alarms.where((r) => !r.payload.endsWith(':test')), isNotEmpty, reason: 'the real ones stay set');
       await endIt(t);
     });
 

@@ -101,6 +101,9 @@ abstract class PrayerRinger {
   Stream<List<RingingAlarm>> get ringing;
 
   Future<void> stop(int id);
+
+  /// When each pending alarm will ring (by id), to show that the reminders are really set.
+  Future<Map<int, DateTime>> pending();
 }
 
 class NoopRinger implements PrayerRinger {
@@ -114,7 +117,15 @@ class NoopRinger implements PrayerRinger {
   Stream<List<RingingAlarm>> get ringing => const Stream.empty();
   @override
   Future<void> stop(int id) async {}
+  @override
+  Future<Map<int, DateTime>> pending() async => const {};
 }
+
+/// Whether an alarm set for [at] that is no longer wanted may be cancelled at [now]: only one still to come. An alarm
+/// whose time has come is ringing (or just rang), and opening Folio from it must never silence it (that is what
+/// "I'm up" is for); a leftover from hours ago is cleared.
+bool mayCancel(DateTime at, DateTime now) =>
+    at.isAfter(now.add(const Duration(seconds: 5))) || at.isBefore(now.subtract(const Duration(hours: 3)));
 
 /// The id the "Try it" alarm uses.
 const prayerTestAlarmId = prayerNotificationIds + 0xfff1;
@@ -162,6 +173,12 @@ class AlarmRinger implements PrayerRinger {
   @override
   Future<void> stop(int id) async {
     if (await _init()) await Alarm.stop(id);
+  }
+
+  @override
+  Future<Map<int, DateTime>> pending() async {
+    if (!await _init()) return const {};
+    return {for (final a in await Alarm.getAlarms()) a.id: a.dateTime};
   }
 
   /// The sound file for [r], relative to the documents folder (null = the phone's alarm sound), and a problem to
@@ -245,8 +262,10 @@ class AlarmRinger implements PrayerRinger {
       want[r.id] = _settings(r, audio);
     }
     final have = {for (final a in await Alarm.getAlarms()) a.id: a};
-    for (final id in have.keys) {
-      if (!want.containsKey(id) && id != prayerTestAlarmId) await Alarm.stop(id);
+    final now = DateTime.now();
+    for (final e in have.entries) {
+      if (want.containsKey(e.key) || e.key == prayerTestAlarmId) continue;
+      if (mayCancel(e.value.dateTime, now)) await Alarm.stop(e.key);
     }
     for (final e in want.entries) {
       final old = have[e.key];

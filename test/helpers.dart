@@ -597,6 +597,8 @@ class FakeRinger implements PrayerRinger {
   }
 
   @override
+  Future<Map<int, DateTime>> pending() async => {for (final a in alarms) a.id: a.at};
+  @override
   Stream<List<RingingAlarm>> get ringing => _ringing.stream;
   @override
   Future<void> stop(int id) async {

@@ -46,7 +46,7 @@ class PrayerSettingsController extends Notifier<PrayerSettings> {
     final days = android ? prayerScheduleDays : 1; // iOS allows only 64 pending in all
     final now = DateTime.now();
     final s = state;
-    final all = prayerAlarms(s, now, days: days);
+    final all = [...prayerAlarms(s, now, days: days), ..._tests.where((r) => r.at.isAfter(now))]..sort((a, b) => a.at.compareTo(b.at));
     bool rings(Reminder r) => PrayerTone.values.where((t) => t.name == r.tone).firstOrNull?.rings ?? false;
     final ringing = all.where(rings).toList(), quiet = all.where((r) => !rings(r)).toList();
     final nudge = [if (android && s.alerts.isNotEmpty && s.hasLocation) prayerRenewalNudge(now, days)];
@@ -75,6 +75,44 @@ class PrayerSettingsController extends Notifier<PrayerSettings> {
   }
 
   int _generation = 0;
+  List<Reminder> _tests = const [];
+
+  /// A full test through the same path as the real reminders: the reminder at the time in 2 minutes, and the second
+  /// reminder a minute after it, each with the sound chosen for them.
+  List<Reminder> fullTest({DateTime? now}) {
+    final t = now ?? DateTime.now();
+    final s = state;
+    final n = prayerNow(s, t);
+    final p = n.next == Prayer.sunrise ? Prayer.dhuhr : n.next;
+    final at = DateTime(t.year, t.month, t.day, t.hour, t.minute).add(const Duration(minutes: 2));
+    final first = s.toneOf(p), second = s.secondTone;
+    _tests = [
+      Reminder(
+        id: prayerNotificationIds + 0xfff2,
+        at: at,
+        title: 'Test: ${p.salahOn(at)} · ${p.salahUrduOn(at)}',
+        body: 'This is how the reminder at the prayer time comes.',
+        payload: 'prayer:test',
+        tone: first.name,
+        insistent: first.rings && s.firstKeepRinging,
+        speech: first == PrayerTone.spoken ? spokenName(p, at) : null,
+        sound: first == PrayerTone.own ? s.sounds[p] : null,
+      ),
+      Reminder(
+        id: prayerNotificationIds + 0xfff3,
+        at: at.add(const Duration(minutes: 1)),
+        title: 'Test: get up for ${p.salahOn(at)} · اٹھیں، ${p.salahUrduOn(at)} ادا کریں',
+        body: 'This is how the second reminder comes.',
+        payload: 'prayer-again:test',
+        tone: second.name,
+        insistent: s.secondKeepRinging,
+        speech: second == PrayerTone.voice ? getUpSpeech(s.secondWords, p, at) : (second == PrayerTone.spoken ? spokenName(p, at) : null),
+        sound: second == PrayerTone.own ? s.secondSound : null,
+      ),
+    ];
+    resync();
+    return _tests;
+  }
 
   static Reminder _asNotification(Reminder r) =>
       Reminder(id: r.id, at: r.at, title: r.title, body: r.body, payload: r.payload, tone: PrayerTone.alarm.name, insistent: r.insistent);
