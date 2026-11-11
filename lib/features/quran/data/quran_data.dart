@@ -128,6 +128,14 @@ class QuranData {
       ? [for (var i = 0; i < juzStarts.length; i++) indoPakParaStarts[i + 1] ?? juzStarts[i]]
       : juzStarts;
 
+  /// The positions (in the whole Quran) of the first and last ayah of para [n] (1-30).
+  (int, int) paraRange(int n) {
+    final starts = paraStarts;
+    final from = indexOf(starts[n - 1].$1, starts[n - 1].$2);
+    final to = n == starts.length ? ayahCount - 1 : indexOf(starts[n].$1, starts[n].$2) - 1;
+    return (from, to);
+  }
+
   /// The traditional name of para [n] (1-30): its opening words, from the Indo-Pak text (waqf signs left out).
   String paraName(int n) {
     final text = indopak.isNotEmpty ? indopak : uthmani;

@@ -93,8 +93,11 @@ Uri silenceUri(Duration d) => Uri(scheme: 'silence', path: '${d.inMilliseconds}'
 
 /// What one queue entry plays.
 class _Entry {
-  const _Entry(this.ayah, {this.translation = false, this.silence = false, this.repeat = 1, this.round = 1});
-  final int ayah, repeat, round;
+  const _Entry(this.surah, this.ayah, this.pos, {this.translation = false, this.silence = false, this.repeat = 1, this.round = 1});
+  final int surah, ayah, repeat, round;
+
+  /// Position of the ayah in the whole Quran (0-6235).
+  final int pos;
   final bool translation, silence;
 }
 
@@ -137,8 +140,8 @@ class QuranAudioState {
   bool get active => surah != null && phase != PlayerPhase.idle && phase != PlayerPhase.finished;
   bool get playing => phase == PlayerPhase.playing || phase == PlayerPhase.loading;
 
-  QuranAudioState copy({int? ayah, PlayerPhase? phase, bool? translationTurn, String? error, int? repeat, int? round, bool clearError = false}) => QuranAudioState(
-    surah: surah,
+  QuranAudioState copy({int? surah, int? ayah, PlayerPhase? phase, bool? translationTurn, String? error, int? repeat, int? round, bool clearError = false}) => QuranAudioState(
+    surah: surah ?? this.surah,
     ayah: ayah ?? this.ayah,
     firstAyah: firstAyah,
     lastAyah: lastAyah,
@@ -186,7 +189,7 @@ class QuranAudio extends Notifier<QuranAudioState> {
     if (i == null || state.surah == null || i >= _queue.length) return;
     _index = i;
     final e = _queue[i];
-    state = state.copy(ayah: e.ayah, translationTurn: e.translation, repeat: e.repeat, round: e.round);
+    state = state.copy(surah: e.surah, ayah: e.ayah, translationTurn: e.translation, repeat: e.repeat, round: e.round);
     _showControls();
   }
 
@@ -212,21 +215,22 @@ class QuranAudio extends Notifier<QuranAudioState> {
       for (var a = ayah; a <= last; a++) {
         final n = q.indexOf(surah, a) + 1;
         for (var r = 1; r <= repeat.eachAyah; r++) {
-          entries.add(_Entry(a, repeat: r, round: round));
+          entries.add(_Entry(surah, a, n - 1, repeat: r, round: round));
           urls.add(source(reciter, n));
           final lastOne = round == repeat.rounds && a == last && r == repeat.eachAyah && voice == null;
           if (repeat.pause > Duration.zero && !lastOne) {
-            entries.add(_Entry(a, silence: true, repeat: r, round: round));
+            entries.add(_Entry(surah, a, n - 1, silence: true, repeat: r, round: round));
             urls.add(silenceUri(repeat.pause));
           }
         }
         if (voice != null) {
-          entries.add(_Entry(a, translation: true, repeat: repeat.eachAyah, round: round));
+          entries.add(_Entry(surah, a, n - 1, translation: true, repeat: repeat.eachAyah, round: round));
           urls.add(source(voice, n));
         }
         if (urls.length > maxQueue) break;
       }
     }
+    _rangeTo = null;
     _queue = entries;
     _index = 0;
     state = QuranAudioState(
@@ -247,6 +251,44 @@ class QuranAudio extends Notifier<QuranAudioState> {
     }
   }
 
+  /// The end (position in the whole Quran) of a range being played across surahs, e.g. a para.
+  int? _rangeTo;
+
+  /// Recites positions [from]..[to] of the whole Quran (e.g. a para), across surahs, each ayah once (followed by its
+  /// spoken translation if one is chosen).
+  Future<void> playRange(QuranData q, int from, int to) async {
+    final reciter = ref.read(reciterProvider);
+    final voice = ref.read(spokenTranslationProvider).voice;
+    final source = ref.read(ayahUriResolverProvider);
+    final entries = <_Entry>[];
+    final urls = <Uri>[];
+    for (var i = from; i <= to && urls.length < maxQueue; i++) {
+      final (s, a) = q.refOf(i);
+      entries.add(_Entry(s, a, i));
+      urls.add(source(reciter, i + 1));
+      if (voice != null) {
+        entries.add(_Entry(s, a, i, translation: true));
+        urls.add(source(voice, i + 1));
+      }
+    }
+    if (entries.isEmpty) return;
+    _rangeTo = to;
+    _queue = entries;
+    _index = 0;
+    final (s, a) = q.refOf(from);
+    state = QuranAudioState(surah: s, ayah: a, phase: PlayerPhase.loading);
+    final p = _ensure();
+    try {
+      await p.setQueue(urls);
+      await p.play();
+    } catch (_) {
+      state = state.copy(phase: PlayerPhase.failed, error: _failed);
+    }
+  }
+
+  /// Position (in the whole Quran) of the ayah being recited, or null.
+  int? get position => _queue.isEmpty || _index >= _queue.length ? null : _queue[_index].pos;
+
   Future<void> pause() async => _player?.pause();
   Future<void> resume() async => _player?.play();
 
@@ -256,7 +298,7 @@ class QuranAudio extends Notifier<QuranAudioState> {
   Future<void> next() async {
     final cur = _queue.isEmpty ? null : _queue[_index];
     if (cur == null) return;
-    final j = _queue.indexWhere((e) => e.round == cur.round && e.ayah == cur.ayah + 1 && !e.silence && !e.translation, _index);
+    final j = _queue.indexWhere((e) => e.round == cur.round && e.pos == cur.pos + 1 && !e.silence && !e.translation, _index);
     if (j >= 0) await _player?.seekToIndex(j);
   }
 
@@ -264,7 +306,7 @@ class QuranAudio extends Notifier<QuranAudioState> {
   Future<void> previous() async {
     final cur = _queue.isEmpty ? null : _queue[_index];
     if (cur == null) return;
-    final j = _queue.indexWhere((e) => e.round == cur.round && e.ayah == cur.ayah - 1 && !e.silence && !e.translation);
+    final j = _queue.indexWhere((e) => e.round == cur.round && e.pos == cur.pos - 1 && !e.silence && !e.translation);
     if (j >= 0) await _player?.seekToIndex(j);
   }
 
@@ -279,6 +321,8 @@ class QuranAudio extends Notifier<QuranAudioState> {
   Future<void> restart(QuranData q) async {
     final s = state.surah, a = state.ayah, last = state.lastAyah;
     if (s == null || a == null || !state.active) return;
+    final to = _rangeTo;
+    if (to != null) return playRange(q, q.indexOf(s, a), to);
     await playFrom(q, s, a, to: last);
   }
 

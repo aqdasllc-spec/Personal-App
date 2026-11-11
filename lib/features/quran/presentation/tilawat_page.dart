@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/providers.dart';
 import '../../library/application/reader_prefs.dart' show ReaderOrientation, ReaderSystem, readerSystemProvider, screenAwakeProvider;
 import '../../settings/rotation.dart' show OrientationLock, RotationMode, orientationLockProvider, rotationProvider;
+import '../application/quran_audio.dart';
 import '../application/quran_providers.dart';
 import '../data/quran_data.dart';
 import 'quran_style.dart';
@@ -86,6 +87,58 @@ class _TilawatPageState extends ConsumerState<TilawatPage> with SingleTickerProv
   int? _startPage;
   int _visiblePage = 1;
   (Offset, DateTime)? _down;
+
+  /// Listen and follow: the reciter recites from here and the page keeps the ayah being recited in view.
+  bool _following = false;
+  int? _followedPos;
+
+  /// Starts (or pauses / resumes) the recitation from the page on screen to the end of its para.
+  Future<void> _listen(QuranData q) async {
+    final audio = ref.read(quranAudioProvider);
+    final ctl = ref.read(quranAudioProvider.notifier);
+    if (_following && audio.active) {
+      await ctl.toggle();
+      return;
+    }
+    final from = q.firstOnPage(_visiblePage);
+    final (s, a) = q.refOf(from);
+    final (_, to) = q.paraRange(q.juzOf(s, a));
+    if (_playing) _setPlaying(false); // the recitation sets the pace now
+    setState(() => _following = true);
+    await ctl.playRange(q, from, to);
+  }
+
+  /// Keeps the ayah being recited in view: its page, and roughly where on the page it is.
+  void _follow(QuranData q, int pos, [int tries = 0]) {
+    if (!mounted || !_following || !_scroll.hasClients) return;
+    final page = q.pageOf(pos);
+    final box = _pageKeys[page]?.currentContext?.findRenderObject() as RenderBox?;
+    final view = _scroll.position.viewportDimension;
+    if (box == null || !box.attached) {
+      // not built yet (further on): move a screen towards it and look again
+      if (tries < 6) {
+        _scroll.jumpTo((_scroll.offset + (page > _visiblePage ? view * .9 : -view * .9)).clamp(_scroll.position.minScrollExtent, _scroll.position.maxScrollExtent));
+        WidgetsBinding.instance.addPostFrameCallback((_) => _follow(q, pos, tries + 1));
+      }
+      return;
+    }
+    final first = q.firstOnPage(page);
+    final last = page == QuranData.pageCount ? q.ayahCount - 1 : q.firstOnPage(page + 1) - 1;
+    var before = 0, all = 0;
+    for (var i = first; i <= last; i++) {
+      if (i < pos) before += q.arabic[i].length;
+      all += q.arabic[i].length;
+    }
+    final top = box.localToGlobal(Offset.zero).dy;
+    final y = top + box.size.height * (all == 0 ? 0 : before / all); // where the ayah begins, about
+    final want = view * .3;
+    if ((y - want).abs() < view * .2) return; // already well placed
+    _scroll.animateTo(
+      (_scroll.offset + y - want).clamp(_scroll.position.minScrollExtent, _scroll.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeInOut,
+    );
+  }
 
   // read while the page is alive: providers may not be read in dispose()
   late final ReaderSystem _sys;
@@ -194,6 +247,15 @@ class _TilawatPageState extends ConsumerState<TilawatPage> with SingleTickerProv
     final set = ref.watch(tilawatProvider);
     final scale = ref.watch(quranTextScaleProvider);
     final night = set.night;
+    final audio = ref.watch(quranAudioProvider);
+    final reciting = audio.active && !audio.translationTurn ? ref.read(quranAudioProvider.notifier).position : null;
+    ref.listen(quranAudioProvider, (_, a) {
+      final q = ref.read(quranDataProvider).value;
+      final pos = ref.read(quranAudioProvider.notifier).position;
+      if (!_following || q == null || pos == null || pos == _followedPos) return;
+      _followedPos = pos;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _follow(q, pos));
+    });
     final bg = night ? const Color(0xFF0A1F18) : const Color(0xFFFBF5E4);
     final ink = night ? QuranColors.cream : const Color(0xFF14261F);
     final soft = night ? QuranColors.creamMuted : const Color(0xFF4A5E55);
@@ -216,6 +278,7 @@ class _TilawatPageState extends ConsumerState<TilawatPage> with SingleTickerProv
             soft: soft,
             translation: set.translation,
             urdu: ref.watch(translationModeProvider) != TranslationMode.english,
+            reciting: _following ? reciting : null,
           );
           return Stack(
             children: [
@@ -340,6 +403,13 @@ class _TilawatPageState extends ConsumerState<TilawatPage> with SingleTickerProv
                   top: false,
                   child: Row(
                     children: [
+                      IconButton(
+                        key: const Key('tilawat-listen'),
+                        color: _following && audio.active ? QuranColors.gold : QuranColors.goldLight,
+                        tooltip: _following && audio.playing ? 'Pause the recitation' : 'Listen and follow',
+                        icon: Icon(_following && audio.playing ? Icons.pause_circle_outline : Icons.headphones),
+                        onPressed: () => _listen(q),
+                      ),
                       IconButton.filled(
                         key: const Key('tilawat-play'),
                         style: IconButton.styleFrom(backgroundColor: QuranColors.gold, foregroundColor: QuranColors.velvetDeep),
@@ -439,12 +509,16 @@ class _MushafPage extends StatelessWidget {
     required this.soft,
     required this.translation,
     required this.urdu,
+    this.reciting,
   });
   final QuranData quran;
   final int page;
   final double scale;
   final Color ink, soft;
   final bool translation, urdu;
+
+  /// Position of the ayah being recited (highlighted), or null.
+  final int? reciting;
 
   @override
   Widget build(BuildContext context) {
@@ -483,13 +557,15 @@ class _MushafPage extends StatelessWidget {
           );
         }
       }
+      final lit = i == reciting ? QuranColors.gold.withValues(alpha: .28) : null;
       if (translation) {
         blocks.add(
           Text(
             '${ayahWithEnd(q.arabic[i], a)}${q.isRukuEnd(i) ? '\u00A0ع' : ''}',
+            key: i == reciting ? const Key('tilawat-reciting') : null,
             textDirection: TextDirection.rtl,
             textAlign: TextAlign.justify,
-            style: quranArabic(25 * scale, color: ink).copyWith(height: 2.1),
+            style: quranArabic(25 * scale, color: ink).copyWith(height: 2.1, backgroundColor: lit),
           ),
         );
         blocks.add(
@@ -499,11 +575,11 @@ class _MushafPage extends StatelessWidget {
           ),
         );
       } else {
-        run.add(TextSpan(text: q.arabic[i]));
+        run.add(TextSpan(text: q.arabic[i], style: lit == null ? null : TextStyle(backgroundColor: lit)));
         run.add(
           TextSpan(
             text: '\u00A0${ayahEnd(a)}${q.isRukuEnd(i) ? '\u00A0ع' : ''} ',
-            style: TextStyle(color: QuranColors.goldDeep.withValues(alpha: .95)),
+            style: TextStyle(color: QuranColors.goldDeep.withValues(alpha: .95), backgroundColor: lit),
           ),
         );
       }

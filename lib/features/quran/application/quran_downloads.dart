@@ -124,6 +124,10 @@ class QuranDownloads extends Notifier<DownloadJob?> {
     return _download(r, '${s.name} ($surah)', s.firstIndex, s.firstIndex + s.ayahCount - 1, mobileOk: mobileOk);
   }
 
+  /// Positions [from]..[to] of the whole Quran (e.g. a para), under [label].
+  Future<void> downloadRange(Reciter r, String label, int from, int to, {bool mobileOk = false}) =>
+      _download(r, label, from, to, mobileOk: mobileOk);
+
   Future<void> downloadAll(QuranData q, Reciter r, {bool mobileOk = false}) =>
       _download(r, 'the whole Quran', 0, q.ayahCount - 1, mobileOk: mobileOk);
 

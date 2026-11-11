@@ -9,6 +9,7 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../../../app/router.dart';
 import '../../../design_system/tokens.dart';
 import '../application/quran_audio.dart';
+import '../application/quran_downloads.dart';
 import '../application/quran_providers.dart';
 import '../data/quran_data.dart';
 import '../domain/khatm.dart';
@@ -46,6 +47,33 @@ class _QuranHomePageState extends ConsumerState<QuranHomePage> {
   }
 
   void _open(int surah, [int ayah = 1]) => context.push('${Routes.quran}/$surah?ayah=$ayah');
+
+  /// Downloads a para's recitation; on mobile data with Wi-Fi only on, asks first (with the size).
+  Future<void> _downloadPara(QuranData q, int n) async {
+    final (from, to) = q.paraRange(n);
+    final r = ref.read(reciterProvider);
+    var mobileOk = false;
+    if (ref.read(wifiOnlyProvider) && await ref.read(onMobileDataProvider)()) {
+      if (!mounted) return;
+      final mb = (wholeQuranBytes(r) * (to - from + 1) / q.ayahCount / 1e6).round();
+      final yes = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('You are on mobile data'),
+          content: Text('Para $n is about $mb MB. Use mobile data for it, or wait until you are on Wi-Fi?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Wait for Wi-Fi')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Use mobile data')),
+          ],
+        ),
+      );
+      if (yes != true) return;
+      mobileOk = true;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Downloading para $n (${r.name})…')));
+    await ref.read(quranDownloadsProvider.notifier).downloadRange(r, 'Para $n', from, to, mobileOk: mobileOk);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -155,21 +183,67 @@ class _QuranHomePageState extends ConsumerState<QuranHomePage> {
                   itemCount: q.paraStarts.length,
                   itemBuilder: (_, i) {
                     final (s, a) = q.paraStarts[i];
+                    final n = i + 1;
                     final indoPak = q.script == QuranScript.indopak;
-                    return ListTile(
-                      key: Key('juz-${i + 1}'),
-                      leading: _NumberBadge(i + 1),
-                      title: Text(indoPak ? 'Para ${i + 1}' : 'Juz ${i + 1} (Para ${i + 1})'),
-                      subtitle: Text('Starts at ${q.surah(s).name} $s:$a'),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(q.paraName(i + 1), key: Key('para-name-${i + 1}'), textDirection: TextDirection.rtl, style: quranArabic(17).copyWith(height: 1.3)),
-                          Text('پارہ ${urduDigits(i + 1)}', textDirection: TextDirection.rtl, style: urduText(11, color: QuranColors.goldDeep).copyWith(height: 1.3)),
-                        ],
-                      ),
-                      onTap: () => _open(s, a),
+                    final (from, to) = q.paraRange(n);
+                    final audio = ref.watch(quranAudioProvider);
+                    final pos = ref.read(quranAudioProvider.notifier).position;
+                    final playingHere = audio.active && pos != null && pos >= from && pos <= to;
+                    final job = ref.watch(quranDownloadsProvider);
+                    final downloading = job != null && job.running && job.label == 'Para $n';
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ListTile(
+                          key: Key('juz-$n'),
+                          leading: _NumberBadge(n),
+                          title: Row(
+                            children: [
+                              Text(indoPak ? 'Para $n' : 'Juz $n'),
+                              const SizedBox(width: Space.s8),
+                              Expanded(
+                                child: Text(
+                                  q.paraName(n),
+                                  key: Key('para-name-$n'),
+                                  textDirection: TextDirection.rtl,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: quranArabic(17).copyWith(height: 1.3),
+                                ),
+                              ),
+                            ],
+                          ),
+                          subtitle: Text('Starts at ${q.surah(s).name} $s:$a · ${to - from + 1} ayahs'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                key: Key('para-listen-$n'),
+                                tooltip: playingHere && audio.playing ? 'Pause' : 'Listen to para $n',
+                                icon: Icon(playingHere && audio.playing ? Icons.pause_circle : Icons.play_circle_outline, color: QuranColors.goldDeep),
+                                onPressed: () {
+                                  final ctl = ref.read(quranAudioProvider.notifier);
+                                  playingHere ? ctl.toggle() : ctl.playRange(q, from, to);
+                                },
+                              ),
+                              IconButton(
+                                key: Key('para-download-$n'),
+                                tooltip: 'Download para $n to listen without internet',
+                                icon: const Icon(Icons.download_for_offline_outlined),
+                                onPressed: downloading ? null : () => _downloadPara(q, n),
+                              ),
+                            ],
+                          ),
+                          onTap: () => _open(s, a),
+                        ),
+                        if (job != null && job.label == 'Para $n' && (job.running || job.error != null))
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(72, 0, Space.s16, Space.s8),
+                            child: job.error != null
+                                ? Text(job.error!, style: TextStyle(color: context.colors.danger, fontSize: 12))
+                                : LinearProgressIndicator(key: Key('para-progress-$n'), value: job.fraction, color: QuranColors.gold),
+                          ),
+                      ],
                     );
                   },
                 ),
