@@ -282,3 +282,11 @@ Settings → Library → **Shelf style** (local setting `shelf_style`, default C
 - **Instant search:** page text kept per book in `app support/text_cache/<id>.json` after the first read; search as you type (350 ms pause).
 - **Play build:** `docs/PLAY_STORE.md` (bundle, signing so Play and hand-installed APKs stay interchangeable, listing, permission declarations, data safety, privacy policy draft). `READ_EXTERNAL_STORAGE` from the alarm plugin removed from the manifest.
 
+
+## 2h. Indo-Pak script, paras, listening, prayer and Islamic-date reminders (2026-11-11, build 11)
+- **Paras and rukus:** the Para tab names each para by its opening words in the Indo-Pak text; seven paras start where South Asian mushafs start them (`QuranData.indoPakParaStarts`). The 556 ruku ends come from the data build (`ruku`, checked: 556, in order) and are marked ع. Tilawat shows *Para n · Surah · Ruku n*.
+- **Listening:** `QuranAudio.playRange` plays any range across surahs: Listen per para, and *Listen and follow* in Tilawat (from the page on screen to the end of its para; the ayah is highlighted and kept in view). *Download this para* uses `downloadRange` (Wi-Fi only unless allowed).
+- **"Did you pray?":** notifications on the `prayer_check` channel with Prayed / Missed action buttons (payload `check:<prayer>:<date>`). An answer given with the app closed is kept by a background handler in shared preferences (`notification_answers.dart`) and applied to the prayer log (and so the qaza count) when the app next starts or resumes. Prayers already marked are not asked.
+- **Jumu'ah, Al-Kahf, Al-Mulk, Islamic dates and fasts** (`prayer/islamic.dart`): notification ids from `0x7f020000`, replaced as a group. Dates from the Hijri calendar with the user's adjustment; fasting reminders skip Ramadan, the Eids and the days of Tashreeq, and are not doubled when two reasons fall on one day.
+- **Reading card:** Quran pages read today (pages of the Madinah mushaf that came to the top of the screen in the reader or Tilawat; a quick scroll over up to five pages counts the pages passed), next to the khatm progress. Device-only (`quran_today`).
+- Tests: `islamic_test.dart`, `listen_test.dart`, the "Sunnah and Islamic dates" widget test in `prayer_test.dart`, para/ruku tests in `quran_test.dart`, Reading-card checks in `khatm_test.dart`.
