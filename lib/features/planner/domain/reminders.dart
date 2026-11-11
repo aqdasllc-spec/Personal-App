@@ -64,6 +64,9 @@ const prayerNotificationIds = 0x7f000000;
 /// The morning "ayah of the day" notification uses ids from here (up to 0x7f01ffff).
 const dailyAyahNotificationIds = 0x7f010000;
 
+/// Sunnah surahs, Jumu'ah, "Did you pray?" and Islamic dates use ids from here (up to 0x7f02ffff).
+const islamicNotificationIds = 0x7f020000;
+
 String _two(int v) => v.toString().padLeft(2, '0');
 String _clock(DateTime d) => '${_two(d.hour)}:${_two(d.minute)}';
 

@@ -26,6 +26,8 @@ class FakeScheduler implements ReminderScheduler {
   @override
   Future<Set<int>> pendingIds() async => {for (final r in last) r.id};
   @override
+  Future<void> replaceIslamicReminders(List<Reminder> reminders) async {}
+  @override
   Future<String?> takeLaunchPayload() async {
     final l = launch;
     launch = null;

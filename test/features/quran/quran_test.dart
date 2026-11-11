@@ -345,7 +345,7 @@ void main() {
       await wait(t, 6);
       expect(find.text('Para 4'), findsOneWidget);
       expect(textOf(t, find.byKey(const Key('para-name-4'))), startsWith('لَنۡ تَنَالُوا'));
-      expect(find.text('Starts at Aal-i-Imraan 3:92'), findsOneWidget);
+      expect(find.textContaining('Starts at Aal-i-Imraan 3:92 · '), findsOneWidget);
       await t.tap(find.byKey(const Key('quran-tab-surahs')));
       await wait(t, 6);
       await t.tap(find.byKey(const Key('surah-1')));

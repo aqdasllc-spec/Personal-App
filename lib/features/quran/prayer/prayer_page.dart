@@ -11,6 +11,7 @@ import '../application/quran_providers.dart';
 import '../presentation/cabinet_painters.dart';
 import '../presentation/quran_style.dart';
 import 'prayer.dart';
+import 'islamic_card.dart';
 import 'prayer_cards.dart';
 import 'prayer_providers.dart';
 import 'prayer_reminders_card.dart';
@@ -63,6 +64,7 @@ class _PrayerStripState extends ConsumerState<PrayerStrip> {
       if (!mounted) return;
       ref.read(prayerSettingsProvider.notifier).resync();
       ref.read(dailyAyahNotifyProvider.notifier).resync();
+      ref.read(islamicRemindersProvider.notifier).resync();
     });
   }
 
@@ -331,6 +333,10 @@ class _PrayerPageState extends ConsumerState<PrayerPage> {
             ExtraTimesCard(settings: s, now: now),
             const SizedBox(height: Space.s24),
             PrayerRemindersCard(now: now),
+            const SizedBox(height: Space.s16),
+            const IslamicRemindersCard(),
+            const SizedBox(height: Space.s16),
+            IslamicDatesCard(now: now),
           ],
           const SizedBox(height: Space.s24),
           Text('Settings', style: t.titleMedium),

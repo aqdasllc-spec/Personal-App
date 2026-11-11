@@ -10,6 +10,8 @@ import '../../planner/domain/reminders.dart';
 import 'battery.dart';
 import 'prayer.dart';
 import 'prayer_ringer.dart';
+import 'islamic.dart';
+import '../../planner/data/notification_answers.dart' show takeNotificationAnswers;
 
 /// Prayer-time settings, remembered on this device.
 class PrayerSettingsController extends Notifier<PrayerSettings> {
@@ -72,6 +74,7 @@ class PrayerSettingsController extends Notifier<PrayerSettings> {
       );
       ref.read(prayerScheduledUntilProvider.notifier).set(all.isEmpty ? null : all.last.at);
     }());
+    ref.read(islamicRemindersProvider.notifier).resync(); // "Did you pray?" follows the prayer times
   }
 
   int _generation = 0;
@@ -192,7 +195,83 @@ class PrayerLogController extends Notifier<PrayerLog> {
     try {
       ref.read(syncedStoreProvider).setState(key, v.encode());
     } catch (_) {}
+    ref.read(islamicRemindersProvider.notifier).resync(); // no "Did you pray?" for what is marked now
   }
 }
 
 final prayerLogProvider = NotifierProvider<PrayerLogController, PrayerLog>(PrayerLogController.new);
+
+
+/// The Sunnah surahs, Jumu'ah, "Did you pray?" and Islamic-date reminders: their settings (synced) and scheduling.
+class IslamicRemindersController extends Notifier<IslamicSettings> {
+  static const key = 'islamic_reminders';
+  @override
+  IslamicSettings build() {
+    Future<void> load() async {
+      try {
+        state = IslamicSettings.decode(await ref.read(syncedStoreProvider).state(key));
+        resync();
+      } catch (_) {}
+    }
+
+    Future.microtask(load);
+    reloadOnRemote(ref, key, load);
+    return const IslamicSettings();
+  }
+
+  Future<void> set(IslamicSettings v) async {
+    final asking = v.askPrayed && !state.askPrayed;
+    state = v;
+    try {
+      ref.read(syncedStoreProvider).setState(key, v.encode());
+    } catch (_) {}
+    if (asking || v.kahf || v.mulk || v.jumuah || v.monThu || v.whiteDays) {
+      final s = ref.read(reminderSchedulerProvider);
+      if (!await s.hasPermission()) await s.requestPermission();
+    }
+    resync();
+  }
+
+  /// The coming reminders: three weeks of Sunnah / Jumu'ah, a week of "Did you pray?", a month of Islamic dates.
+  void resync({DateTime? now}) {
+    final t = now ?? DateTime.now();
+    final s = state;
+    final p = ref.read(prayerSettingsProvider);
+    final all = [
+      ...sunnahReminders(s, t),
+      ...prayedChecks(p, s, t, log: ref.read(prayerLogProvider)),
+      ...islamicDateReminders(s, p.hijriOffset, t),
+    ];
+    unawaited(ref.read(reminderSchedulerProvider).replaceIslamicReminders(all).catchError((Object _) {}));
+  }
+}
+
+final islamicRemindersProvider = NotifierProvider<IslamicRemindersController, IslamicSettings>(IslamicRemindersController.new);
+
+/// Where answers given with notification buttons come from (a function so tests can give their own).
+final notificationAnswersProvider = Provider<Future<List<(String, String)>> Function()>((_) => takeNotificationAnswers);
+
+/// Puts the "Did you pray?" answers (Prayed / Missed, possibly given while the app was closed) into the prayer log.
+/// Returns how many were applied.
+Future<int> applyPrayerAnswers(Ref ref) async {
+  final answers = await ref.read(notificationAnswersProvider)().catchError((Object _) => const <(String, String)>[]);
+  var n = 0;
+  var log = ref.read(prayerLogProvider);
+  for (final (action, payload) in answers) {
+    final p = payload.split(':');
+    if (p.length != 3 || p[0] != 'check' || (action != 'prayed' && action != 'missed')) continue;
+    final prayer = Prayer.values.where((x) => x.name == p[1] && x.isPrayer).firstOrNull;
+    final d = DateTime.tryParse(p[2]);
+    if (prayer == null || d == null) continue;
+    log = log.mark(d, prayer, action == 'prayed');
+    n++;
+  }
+  if (n > 0) {
+    ref.read(prayerLogProvider.notifier).set(log);
+    ref.read(islamicRemindersProvider.notifier).resync();
+  }
+  return n;
+}
+
+/// Lets widgets call [applyPrayerAnswers].
+final applyPrayerAnswersProvider = Provider<Future<int> Function()>((ref) => () => applyPrayerAnswers(ref));

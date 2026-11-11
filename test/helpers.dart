@@ -45,6 +45,7 @@ import 'package:folio/features/library/application/open_with.dart';
 import 'package:folio/features/library/data/pdf_outline.dart';
 import 'package:folio/features/library/application/search_all.dart' show BookTextCache, bookTextCacheProvider;
 import 'package:folio/features/quran/prayer/prayer_ringer.dart';
+import 'package:folio/features/quran/prayer/prayer_providers.dart' show notificationAnswersProvider;
 import 'package:folio/features/planner/domain/reminders.dart';
 import 'package:sync_engine/sync_engine.dart';
 
@@ -441,6 +442,9 @@ class TestEnv {
   final ringer = FakeRinger();
   final openWith = FakeOpenWith();
 
+  /// Answers given with notification buttons, as (button, payload), waiting for the app.
+  final answers = <(String, String)>[];
+
   /// The table of contents every PDF has in tests (none unless a test sets it).
   List<PdfChapter> chapters = const [];
   final battery = FakeBattery();
@@ -466,6 +470,11 @@ class TestEnv {
         ayahPlayerFactoryProvider.overrideWithValue(() => ayahPlayer),
         prayerRingerProvider.overrideWithValue(ringer),
         openWithPortProvider.overrideWithValue(openWith),
+        notificationAnswersProvider.overrideWithValue(() async {
+          final a = [...answers];
+          answers.clear();
+          return a;
+        }),
         pdfOutlineReaderProvider.overrideWithValue((_) async => chapters),
         batteryPortProvider.overrideWithValue(battery),
         pageThumbsBuilderProvider.overrideWithValue((context, {required file, required pageCount, required current, required bookmarked, required drawn, required onPick}) => PageThumbGrid(

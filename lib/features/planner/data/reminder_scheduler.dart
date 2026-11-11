@@ -53,6 +53,10 @@ abstract interface class ReminderScheduler {
   /// The same for the morning ayah-of-the-day notifications (ids from [dailyAyahNotificationIds]).
   Future<void> replaceDailyAyahAlarms(List<Reminder> alarms);
 
+  /// The same for the Sunnah, Jumu'ah, "Did you pray?" (with Prayed / Missed buttons, payload `check:...`) and
+  /// Islamic-date reminders (ids from [islamicNotificationIds]).
+  Future<void> replaceIslamicReminders(List<Reminder> reminders);
+
   /// Shows a prayer reminder at [Reminder.at] (a few seconds from now) with its tone, to hear how it sounds.
   Future<bool> testPrayerAlarm(Reminder r);
 
@@ -78,6 +82,8 @@ class NoopReminderScheduler implements ReminderScheduler {
   Future<void> replacePrayerAlarms(List<Reminder> alarms) async {}
   @override
   Future<void> replaceDailyAyahAlarms(List<Reminder> alarms) async {}
+  @override
+  Future<void> replaceIslamicReminders(List<Reminder> reminders) async {}
   @override
   Future<bool> testPrayerAlarm(Reminder r) async => false;
   @override

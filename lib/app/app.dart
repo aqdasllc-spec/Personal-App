@@ -7,6 +7,7 @@ import '../design_system/theme.dart';
 import '../features/auth/auth_repository.dart';
 import '../features/library/application/book_sync.dart';
 import 'providers.dart';
+import '../features/quran/prayer/prayer_providers.dart' show applyPrayerAnswersProvider;
 import '../features/quran/prayer/prayer_ringer.dart';
 import '../features/quran/prayer/ringing_overlay.dart';
 import '../features/library/application/open_with.dart';
@@ -35,6 +36,7 @@ class _FolioAppState extends ConsumerState<FolioApp>
             .start(QuickAction.values, (t) => handleQuickAction(ref, t));
         followNotificationTaps(ref);
         followOpenWith(ref);
+        unawaited(ref.read(applyPrayerAnswersProvider)().catchError((Object _) => 0));
         unawaited(ref.read(prayerRingerProvider).start());
       },
     );
@@ -55,6 +57,7 @@ class _FolioAppState extends ConsumerState<FolioApp>
         lock.onBackgrounded();
       case AppLifecycleState.resumed:
         lock.onResumed();
+        unawaited(ref.read(applyPrayerAnswersProvider)().catchError((Object _) => 0)); // answered from a notification
         ref.read(syncControllerProvider.notifier).syncNow();
         ref.invalidate(
           cloudOnlyCountProvider,

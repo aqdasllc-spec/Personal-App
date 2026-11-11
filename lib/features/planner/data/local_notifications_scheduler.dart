@@ -7,6 +7,7 @@ import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../domain/reminders.dart';
+import 'notification_answers.dart';
 import 'reminder_scheduler.dart';
 
 /// Platforms whose notification plugin setup we have wired (Android, iOS, macOS).
@@ -89,10 +90,18 @@ class LocalNotificationsScheduler implements ReminderScheduler {
           iOS: darwin,
           macOS: darwin,
         ),
-        onDidReceiveNotificationResponse: (r) {
+        onDidReceiveNotificationResponse: (r) async {
           final p = r.payload;
+          final a = r.actionId;
+          if (a != null && a.isNotEmpty) {
+            // a button (Prayed / Missed): keep the answer, then let the app take it
+            await keepNotificationAnswer(p, a);
+            _taps.add('answer:$a');
+            return;
+          }
           if (p != null && p.isNotEmpty) _taps.add(p);
         },
+        onDidReceiveBackgroundNotificationResponse: folioNotificationBackground,
       );
       _ready = true;
     } catch (e) {
@@ -206,6 +215,36 @@ class LocalNotificationsScheduler implements ReminderScheduler {
     macOS: fln.DarwinNotificationDetails(),
   );
 
+  static const _islamicDetails = fln.NotificationDetails(
+    android: fln.AndroidNotificationDetails(
+      'islamic_reminders',
+      'Sunnah, Jumu\'ah and Islamic dates',
+      channelDescription: 'Surah Al-Kahf and Al-Mulk, Jumu\'ah, Islamic dates and voluntary fasts',
+      importance: fln.Importance.high,
+      priority: fln.Priority.high,
+      styleInformation: fln.BigTextStyleInformation(''),
+    ),
+    iOS: fln.DarwinNotificationDetails(),
+    macOS: fln.DarwinNotificationDetails(),
+  );
+
+  /// "Did you pray?" with two buttons that answer without opening the app.
+  static const _askDetails = fln.NotificationDetails(
+    android: fln.AndroidNotificationDetails(
+      'prayer_check',
+      'Did you pray?',
+      channelDescription: 'Asks after each prayer time; the answer goes into your prayer log',
+      importance: fln.Importance.defaultImportance,
+      styleInformation: fln.BigTextStyleInformation(''),
+      actions: [
+        fln.AndroidNotificationAction('prayed', 'Prayed ✓ · ادا کی'),
+        fln.AndroidNotificationAction('missed', 'Missed · قضا'),
+      ],
+    ),
+    iOS: fln.DarwinNotificationDetails(),
+    macOS: fln.DarwinNotificationDetails(),
+  );
+
   static const _dailyDetails = fln.NotificationDetails(
     android: fln.AndroidNotificationDetails(
       'daily_ayah',
@@ -275,6 +314,18 @@ class LocalNotificationsScheduler implements ReminderScheduler {
       return false;
     }
   }
+
+  @override
+  Future<void> replaceIslamicReminders(List<Reminder> reminders) => _replaceGroup(
+    islamicNotificationIds,
+    reminders,
+    _islamicDetails,
+    exactWanted: true,
+    what: 'Islamic reminders',
+    detailsOf: (r) => r.payload.startsWith('check:')
+        ? _askDetails
+        : (r.tone == 'alarm' ? _prayerTone('alarm') : _islamicDetails),
+  );
 
   @override
   Future<void> replaceDailyAyahAlarms(List<Reminder> alarms) =>

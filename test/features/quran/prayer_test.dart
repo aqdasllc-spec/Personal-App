@@ -46,6 +46,9 @@ class _Scheduler extends NoopReminderScheduler {
   Future<void> replacePrayerAlarms(List<Reminder> alarms) async => prayer = alarms;
   @override
   Future<Set<int>> pendingIds() async => {for (final r in prayer) r.id};
+  List<Reminder> islamic = [];
+  @override
+  Future<void> replaceIslamicReminders(List<Reminder> reminders) async => islamic = reminders;
 }
 
 class _Location implements LocationPort {
@@ -351,6 +354,24 @@ void main() {
       expect(tests[0].speech, isNotNull);
       expect((tests[1].tone, tests[1].insistent), ('voice', true));
       expect(env.ringer.alarms.where((r) => !r.payload.endsWith(':test')), isNotEmpty, reason: 'the real ones stay set');
+      await endIt(t);
+    });
+
+    testWidgets('Sunnah and Islamic dates: "Did you pray?" asks after the prayers; the coming dates are listed', (t) async {
+      final (env, sched) = await open(t);
+      await toPrayerPageWithPlace(t, env);
+      await center(t, find.byKey(const Key('ask-prayed')));
+      await t.tap(find.byKey(const Key('ask-prayed')));
+      await wait(t, 4);
+      expect(sched.islamic.where((r) => r.payload.startsWith('check:')), isNotEmpty);
+      expect(sched.islamic.where((r) => r.payload.startsWith('check:')).every((r) => r.title.startsWith('Did you pray')), isTrue);
+      await center(t, find.byKey(const Key('islamic-dates-card')));
+      expect(find.text('Ramadan begins'), findsOneWidget);
+      expect(await t.runAsync(() => env.store.state('islamic_reminders')), contains('"ask":true'));
+      // marking a prayer in the log stops its question
+      final today = DateTime.now();
+      final before = sched.islamic.where((r) => r.payload.startsWith('check:fajr:${today.add(const Duration(days: 1)).toString().substring(0, 10)}')).length;
+      expect(before, 1);
       await endIt(t);
     });
 
