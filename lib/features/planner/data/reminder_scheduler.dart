@@ -61,6 +61,9 @@ abstract interface class ReminderScheduler {
 
   /// The payload of the notification that started the app, once (null when it was started another way).
   Future<String?> takeLaunchPayload();
+
+  /// The ids of the notifications now waiting to be shown (to show that reminders are really set).
+  Future<Set<int>> pendingIds();
 }
 
 /// Used where notifications aren't available (tests, unsupported platforms).
@@ -88,4 +91,6 @@ class NoopReminderScheduler implements ReminderScheduler {
   Stream<String> get taps => const Stream.empty();
   @override
   Future<String?> takeLaunchPayload() async => null;
+  @override
+  Future<Set<int>> pendingIds() async => const {};
 }

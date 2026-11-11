@@ -281,7 +281,7 @@ class _TilawatPageState extends ConsumerState<TilawatPage> with SingleTickerProv
                               style: TextStyle(color: QuranColors.goldLight, fontWeight: FontWeight.w700),
                             ),
                             Text(
-                              'Page $_visiblePage of ${QuranData.pageCount} · Juz ${q.juzOf(q.refOf(q.firstOnPage(_visiblePage)).$1, q.refOf(q.firstOnPage(_visiblePage)).$2)}',
+                              _whereText(q),
                               key: const Key('tilawat-where'),
                               style: const TextStyle(color: QuranColors.creamMuted, fontSize: 12),
                             ),
@@ -399,6 +399,19 @@ class _TilawatPageState extends ConsumerState<TilawatPage> with SingleTickerProv
     );
   }
 
+  /// Where the reading is: para and ruku in the Indo-Pak script (as South Asian readers count), page and juz of the
+  /// Madinah mushaf otherwise.
+  String _whereText(QuranData q) {
+    final i = q.firstOnPage(_visiblePage);
+    final (s, a) = q.refOf(i);
+    final para = q.juzOf(s, a);
+    if (q.script == QuranScript.indopak) {
+      final r = q.rukuInSurah(i);
+      return 'Para $para · ${q.surah(s).name}${r == null ? '' : ' · Ruku $r'}';
+    }
+    return 'Page $_visiblePage of ${QuranData.pageCount} · Juz $para';
+  }
+
   Widget _bar(BuildContext context, {required bool top, required Widget child}) => Container(
     decoration: BoxDecoration(
       color: QuranColors.velvetDeep.withValues(alpha: .94),
@@ -473,7 +486,7 @@ class _MushafPage extends StatelessWidget {
       if (translation) {
         blocks.add(
           Text(
-            ayahWithEnd(q.arabic[i], a),
+            '${ayahWithEnd(q.arabic[i], a)}${q.isRukuEnd(i) ? '\u00A0ع' : ''}',
             textDirection: TextDirection.rtl,
             textAlign: TextAlign.justify,
             style: quranArabic(25 * scale, color: ink).copyWith(height: 2.1),
@@ -489,7 +502,7 @@ class _MushafPage extends StatelessWidget {
         run.add(TextSpan(text: q.arabic[i]));
         run.add(
           TextSpan(
-            text: '\u00A0${ayahEnd(a)} ',
+            text: '\u00A0${ayahEnd(a)}${q.isRukuEnd(i) ? '\u00A0ع' : ''} ',
             style: TextStyle(color: QuranColors.goldDeep.withValues(alpha: .95)),
           ),
         );

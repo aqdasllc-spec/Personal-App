@@ -66,6 +66,7 @@ class QuranData {
     this.script = QuranScript.madinah,
     this.urduName = 'Fateh Muhammad Jalandhry',
     this.urduRtl = true,
+    this.rukus = const [],
   }) : uthmani = uthmani ?? arabic,
        assert(arabic.length == english.length && english.length == urdu.length);
 
@@ -97,7 +98,42 @@ class QuranData {
       script: s,
       urduName: urduName ?? this.urduName,
       urduRtl: urduRtl ?? this.urduRtl,
+      rukus: rukus,
     );
+  }
+
+  /// The ruku (section) of each ayah, numbered through the whole Quran (1-556; empty in tests without it).
+  final List<int> rukus;
+
+  /// The last ayah of its ruku (marked ع in South Asian mushafs).
+  bool isRukuEnd(int index) => rukus.isNotEmpty && (index == rukus.length - 1 || rukus[index + 1] != rukus[index]);
+
+  /// The ruku's number within its surah (1 = the surah's first), or null without ruku data.
+  int? rukuInSurah(int index) {
+    if (rukus.isEmpty) return null;
+    final (s, _) = refOf(index);
+    return rukus[index] - rukus[surahs[s - 1].firstIndex] + 1;
+  }
+
+  /// Where the Indo-Pak paras begin differently from the Madinah juz (para number -> surah, ayah). A para is named
+  /// after its opening words, and these are the ayahs whose opening words are the paras' names in South Asian
+  /// mushafs (e.g. para 4 "لَنۡ تَنَالُوا" at 3:92, where the Madinah juz 4 begins at 3:93).
+  static const indoPakParaStarts = <int, (int, int)>{4: (3, 92), 7: (5, 83), 11: (9, 94), 14: (15, 2), 20: (27, 60), 21: (29, 45), 23: (36, 22)};
+
+  /// How many opening words make up each para's name (para 1 is named after Al-Baqarah's opening, الٓمّٓ).
+  static const _paraNameWords = [1, 1, 2, 2, 1, 3, 2, 2, 2, 1, 1, 3, 2, 1, 2, 2, 1, 2, 2, 2, 3, 2, 2, 2, 2, 1, 3, 3, 2, 1];
+
+  /// Where each of the 30 paras begins in the script being shown: Indo-Pak paras, or the Madinah juz.
+  List<(int, int)> get paraStarts => script == QuranScript.indopak && indopak.isNotEmpty
+      ? [for (var i = 0; i < juzStarts.length; i++) indoPakParaStarts[i + 1] ?? juzStarts[i]]
+      : juzStarts;
+
+  /// The traditional name of para [n] (1-30): its opening words, from the Indo-Pak text (waqf signs left out).
+  String paraName(int n) {
+    final text = indopak.isNotEmpty ? indopak : uthmani;
+    final (s, a) = n == 1 ? (2, 1) : (indoPakParaStarts[n] ?? juzStarts[n - 1]);
+    final words = text[indexOf(s, a)].split(' ').where((w) => w.isNotEmpty).take(_paraNameWords[n - 1]).join(' ');
+    return words.replaceAll(RegExp('[\u06D6-\u06DC\u06DE\u06E9]'), '').trim();
   }
 
   /// For searching only: the same ayahs in everyday spelling, without vowel marks (never shown).
@@ -158,9 +194,10 @@ class QuranData {
   /// The juz (1-30) an ayah belongs to.
   int juzOf(int surah, int ayah) {
     final i = indexOf(surah, ayah);
+    final starts = paraStarts;
     var j = 1;
-    for (var k = 0; k < juzStarts.length; k++) {
-      if (indexOf(juzStarts[k].$1, juzStarts[k].$2) <= i) j = k + 1;
+    for (var k = 0; k < starts.length; k++) {
+      if (indexOf(starts[k].$1, starts[k].$2) <= i) j = k + 1;
     }
     return j;
   }
@@ -200,6 +237,7 @@ class QuranData {
       pages: [for (final p in (j['page'] as List? ?? const [])) p as int],
       searchArabic: [for (final t in (j['ars'] as List? ?? const [])) t as String],
       indopak: j['ip'] == null ? const [] : texts('ip'),
+      rukus: [for (final r in (j['ruku'] as List? ?? const [])) r as int],
     );
   }
 }

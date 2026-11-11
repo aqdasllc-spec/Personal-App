@@ -44,6 +44,28 @@ void main() {
       expect((v.urdu[0], v.urduRtl), (roman[0], false));
     });
 
+    test('Indo-Pak paras: named by their opening words; seven begin where South Asian mushafs begin them; rukus', () {
+      final ip = q.view(script: QuranScript.indopak);
+      expect(ip.paraName(1), 'الٓمّٓ');
+      expect(ip.paraName(4), startsWith('لَنۡ تَنَالُوا'));
+      expect(ip.paraName(30), 'عَمَّ');
+      expect(ip.paraStarts[3], (3, 92), reason: 'Indo-Pak para 4');
+      expect(q.paraStarts[3], (3, 93), reason: 'Madinah juz 4');
+      expect((ip.juzOf(3, 92), q.juzOf(3, 92)), (4, 3));
+      expect(ip.paraStarts.length, 30);
+      // every name is the opening of the ayah its para starts with (para 1: Al-Baqarah's opening)
+      for (var n = 2; n <= 30; n++) {
+        final (s, a) = ip.paraStarts[n - 1];
+        expect(q.indopak[q.indexOf(s, a)].replaceAll(RegExp('[\u06D6-\u06DC\u06DE\u06E9]'), ''), startsWith(ip.paraName(n)), reason: 'para $n');
+      }
+      expect(q.rukus.length, 6236);
+      expect(q.rukus.last, 556);
+      expect(q.isRukuEnd(q.indexOf(1, 7)), isTrue, reason: 'Al-Fatiha is one ruku');
+      expect(q.isRukuEnd(q.indexOf(2, 7)), isTrue);
+      expect(q.isRukuEnd(q.indexOf(2, 6)), isFalse);
+      expect(q.rukuInSurah(q.indexOf(2, 8)), 2);
+    });
+
     test('the whole Quran: 114 surahs, 6236 ayahs, three languages aligned, 30 juz, 15 sajdas', () {
       expect(q.surahs.length, 114);
       expect(q.ayahCount, 6236);
@@ -311,6 +333,27 @@ void main() {
       await wait(t, 6);
       expect(find.byKey(const Key('quran-cabinet')), findsOneWidget);
       expect(find.byKey(const Key('quran-continue-label')), findsOneWidget);
+      await endIt(t);
+    });
+
+    testWidgets('contents: the title fits; the Para tab names each para; an ayah ending a ruku is marked ع', (t) async {
+      await open(t);
+      await t.tap(find.byKey(const Key('quran-open')));
+      await wait(t, 10);
+      expect(find.byKey(const Key('quran-title')), findsOneWidget);
+      await t.tap(find.byKey(const Key('quran-tab-juz')));
+      await wait(t, 6);
+      expect(find.text('Para 4'), findsOneWidget);
+      expect(textOf(t, find.byKey(const Key('para-name-4'))), startsWith('لَنۡ تَنَالُوا'));
+      expect(find.text('Starts at Aal-i-Imraan 3:92'), findsOneWidget);
+      await t.tap(find.byKey(const Key('quran-tab-surahs')));
+      await wait(t, 6);
+      await t.tap(find.byKey(const Key('surah-1')));
+      await wait(t, 8);
+      final list = find.descendant(of: find.byKey(const Key('ayah-list')), matching: find.byType(Scrollable)).first;
+      await t.scrollUntilVisible(find.byKey(const Key('arabic-1-7')), 200, scrollable: list);
+      expect(textOf(t, find.byKey(const Key('arabic-1-7'))), endsWith('\u00A0ع'), reason: 'the end of the ruku');
+      expect(textOf(t, find.byKey(const Key('arabic-1-6'))), endsWith('﴾'), reason: 'not the end of a ruku');
       await endIt(t);
     });
 

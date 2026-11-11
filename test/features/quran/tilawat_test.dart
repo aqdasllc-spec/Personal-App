@@ -40,7 +40,7 @@ void main() {
     expect(env.readerSystem.immersive.last, isTrue);
     expect(env.awake.last, isTrue);
     expect(find.byKey(const Key('tilawat-page-2')), findsOneWidget, reason: 'Al-Baqarah begins on page 2');
-    expect(t.widget<Text>(find.byKey(const Key('tilawat-where'))).data, 'Page 2 of 604 · Juz 1');
+    expect(t.widget<Text>(find.byKey(const Key('tilawat-where'))).data, 'Para 1 · Al-Baqara · Ruku 1', reason: 'Indo-Pak: para and ruku');
 
     final scroll = t.widget<Scrollable>(find.descendant(of: find.byKey(const Key('tilawat-scroll')), matching: find.byType(Scrollable)).first);
     double offset() => scroll.controller!.offset;

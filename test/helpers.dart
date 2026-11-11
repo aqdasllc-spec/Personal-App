@@ -653,7 +653,7 @@ class MemoryTextCache implements BookTextCache {
 /// The text shown by a [Text] (plain or rich) or a [QuranTranslation] found by [f].
 String textOf(WidgetTester t, Finder f) {
   final w = t.widget(f);
-  if (w is Text) return w.data ?? w.textSpan!.toPlainText();
+  if (w is Text) return w.data ?? w.textSpan!.toPlainText(includeSemanticsLabels: false);
   if (w is QuranTranslation) return w.text;
   throw ArgumentError('No text in ${w.runtimeType}');
 }

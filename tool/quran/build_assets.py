@@ -148,6 +148,10 @@ def build_quran(src):
     pages = [v['page'] for c in chapters for v in c['verses']]  # Madinah mushaf page of each ayah
     assert len(pages) == 6236 and pages[0] == 1 and pages[-1] == 604 and len(set(pages)) == 604
     assert all(b >= a for a, b in zip(pages, pages[1:]))
+    # the ruku (section) of each ayah, numbered through the whole Quran (556), as South Asian mushafs mark them
+    ruku = [v['ruku'] for c in chapters for v in c['verses']]
+    assert len(ruku) == 6236 and ruku[0] == 1 and ruku[-1] == info['rukus']['count'] == 556
+    assert all(b - a in (0, 1) for a, b in zip(ruku, ruku[1:]))
     juz = [[r['start']['chapter'], r['start']['verse']] for r in info['juzs']['references']]
     sajda = [[r['chapter'], r['verse']] for r in info['sajdas']['references']]
     assert len(juz) == 30 and len(sajda) == 15
@@ -157,7 +161,7 @@ def build_quran(src):
             'english': 'Saheeh International',
             'urdu': 'Fateh Muhammad Jalandhry (tanzil.net)',
         },
-        'surahs': surahs, 'juz': juz, 'sajda': sajda, 'page': pages, 'ars': search,
+        'surahs': surahs, 'juz': juz, 'sajda': sajda, 'page': pages, 'ruku': ruku, 'ars': search,
         'ar': [v['text'].strip() for v in ar],
         'en': [v['text'].strip() for v in en],
         'ur': [v['text'].strip() for v in ur],

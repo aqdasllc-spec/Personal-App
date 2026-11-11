@@ -59,23 +59,15 @@ class _QuranHomePageState extends ConsumerState<QuranHomePage> {
           backgroundColor: QuranColors.velvet,
           foregroundColor: QuranColors.goldLight,
           toolbarHeight: 64,
-          title: Row(
-            children: [
-              Flexible(
-                flex: 2,
-                child: Text(
-                  'القرآن الكريم',
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.fade,
-                  style: quranArabic(22, color: QuranColors.goldLight).copyWith(height: 1.4),
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Flexible(
-                child: Text('The Holy Quran', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: QuranColors.creamMuted)),
-              ),
-            ],
+          title: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              'القرآن الكريم',
+              key: const Key('quran-title'),
+              maxLines: 1,
+              style: quranArabic(22, color: QuranColors.goldLight).copyWith(height: 1.4),
+            ),
           ),
           actions: [
             IconButton(
@@ -160,15 +152,23 @@ class _QuranHomePageState extends ConsumerState<QuranHomePage> {
                 ),
                 ListView.builder(
                   key: const Key('juz-list'),
-                  itemCount: q.juzStarts.length,
+                  itemCount: q.paraStarts.length,
                   itemBuilder: (_, i) {
-                    final (s, a) = q.juzStarts[i];
+                    final (s, a) = q.paraStarts[i];
+                    final indoPak = q.script == QuranScript.indopak;
                     return ListTile(
                       key: Key('juz-${i + 1}'),
                       leading: _NumberBadge(i + 1),
-                      title: Text('Juz ${i + 1} (Para ${i + 1})'),
+                      title: Text(indoPak ? 'Para ${i + 1}' : 'Juz ${i + 1} (Para ${i + 1})'),
                       subtitle: Text('Starts at ${q.surah(s).name} $s:$a'),
-                      trailing: Text(q.surah(s).arabic, style: quranArabic(16).copyWith(height: 1.3)),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(q.paraName(i + 1), key: Key('para-name-${i + 1}'), textDirection: TextDirection.rtl, style: quranArabic(17).copyWith(height: 1.3)),
+                          Text('پارہ ${urduDigits(i + 1)}', textDirection: TextDirection.rtl, style: urduText(11, color: QuranColors.goldDeep).copyWith(height: 1.3)),
+                        ],
+                      ),
                       onTap: () => _open(s, a),
                     );
                   },
@@ -493,6 +493,7 @@ class _SurahPageState extends ConsumerState<SurahPage> {
                       urdu: mode.showUrdu ? q.urdu[idx] : null,
                       english: mode.showEnglish ? q.english[idx] : null,
                       urduRtl: q.urduRtl,
+                      rukuEnd: q.isRukuEnd(idx) ? q.rukuInSurah(idx) : null,
                       scale: scale,
                       sajda: q.sajdas.contains((s.number, i)),
                       reciting: mine && audio.ayah == i,
@@ -623,10 +624,14 @@ class _AyahTile extends StatelessWidget {
     this.onShare,
     this.onTafsir,
     this.urduRtl = true,
+    this.rukuEnd,
   });
 
   /// False when the Urdu translation is in English letters (Roman Urdu).
   final bool urduRtl;
+
+  /// This ayah ends ruku number [rukuEnd] of its surah (shown as ع), or null.
+  final int? rukuEnd;
 
   final bool bookmarked;
   final VoidCallback? onBookmark, onShare, onTafsir;
@@ -746,8 +751,18 @@ class _AyahTile extends StatelessWidget {
               ),
             )
           else
-            Text(
-              ayahWithEnd(arabic, ayah),
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(text: ayahWithEnd(arabic, ayah)),
+                  if (rukuEnd != null)
+                    TextSpan(
+                      text: '\u00A0ع',
+                      semanticsLabel: 'end of ruku $rukuEnd',
+                      style: TextStyle(color: QuranColors.goldDeep, fontWeight: FontWeight.w700, fontSize: 20 * scale),
+                    ),
+                ],
+              ),
               key: Key('arabic-${surah.number}-$ayah'),
               textDirection: TextDirection.rtl,
               textAlign: TextAlign.justify,

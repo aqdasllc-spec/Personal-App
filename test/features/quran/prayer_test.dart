@@ -44,6 +44,8 @@ class _Scheduler extends NoopReminderScheduler {
   Future<bool> requestPermission() async => asked = true;
   @override
   Future<void> replacePrayerAlarms(List<Reminder> alarms) async => prayer = alarms;
+  @override
+  Future<Set<int>> pendingIds() async => {for (final r in prayer) r.id};
 }
 
 class _Location implements LocationPort {

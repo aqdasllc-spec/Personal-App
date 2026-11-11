@@ -472,6 +472,7 @@ class _Coming extends ConsumerStatefulWidget {
 
 class _ComingState extends ConsumerState<_Coming> {
   Map<int, DateTime>? _set;
+  Set<int>? _notes;
   Timer? _again;
 
   @override
@@ -491,7 +492,13 @@ class _ComingState extends ConsumerState<_Coming> {
   Future<void> _check() async {
     try {
       final p = await ref.read(prayerRingerProvider).pending();
-      if (mounted) setState(() => _set = p);
+      final n = await ref.read(reminderSchedulerProvider).pendingIds();
+      if (mounted) {
+        setState(() {
+          _set = p;
+          _notes = n;
+        });
+      }
     } catch (_) {}
   }
 
@@ -509,7 +516,10 @@ class _ComingState extends ConsumerState<_Coming> {
           Builder(
             builder: (context) {
               final rings = PrayerTone.values.where((x) => x.name == r.tone).firstOrNull?.rings ?? false;
-              final ok = !rings || (_set?[r.id]?.millisecondsSinceEpoch ?? -1) ~/ 1000 == r.at.millisecondsSinceEpoch ~/ 1000;
+              // an alarm is checked with the alarm service, a notification with the phone's list of waiting ones
+              final ok = rings
+                  ? (_set?[r.id]?.millisecondsSinceEpoch ?? -1) ~/ 1000 == r.at.millisecondsSinceEpoch ~/ 1000
+                  : (_notes?.contains(r.id) ?? false);
               final when = '${hm.formatShortDate(r.at)} ${hm.formatTimeOfDay(TimeOfDay.fromDateTime(r.at))}';
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
@@ -522,8 +532,7 @@ class _ComingState extends ConsumerState<_Coming> {
                     ),
                     const SizedBox(width: Space.s8),
                     Expanded(child: Text('$when · ${r.title.split(' · ').first}', style: t.bodySmall, overflow: TextOverflow.ellipsis)),
-                    if (rings)
-                      Text(
+                    Text(
                         _set == null ? '…' : (ok ? 'set ✓' : 'setting…'),
                         key: Key('coming-${r.id}'),
                         style: t.bodySmall?.copyWith(color: ok ? QuranColors.goldDeep : c.textMuted, fontWeight: FontWeight.w600),

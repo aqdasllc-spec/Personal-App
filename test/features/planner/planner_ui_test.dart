@@ -24,6 +24,8 @@ class FakeScheduler implements ReminderScheduler {
   @override
   Stream<String> get taps => tapped.stream;
   @override
+  Future<Set<int>> pendingIds() async => {for (final r in last) r.id};
+  @override
   Future<String?> takeLaunchPayload() async {
     final l = launch;
     launch = null;

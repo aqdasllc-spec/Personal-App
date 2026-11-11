@@ -40,6 +40,16 @@ class LocalNotificationsScheduler implements ReminderScheduler {
   Stream<String> get taps => _taps.stream;
 
   @override
+  Future<Set<int>> pendingIds() async {
+    if (!await _init()) return const {};
+    try {
+      return {for (final p in await _plugin.pendingNotificationRequests()) p.id};
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  @override
   Future<String?> takeLaunchPayload() async {
     if (_launchTaken || !await _init()) return null;
     _launchTaken = true;
