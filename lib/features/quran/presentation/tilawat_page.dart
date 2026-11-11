@@ -146,6 +146,7 @@ class _TilawatPageState extends ConsumerState<TilawatPage> with SingleTickerProv
   late final OrientationLock _lock;
   late final RotationMode _appRotation;
   late final void Function((int, int)?) _setLastRead;
+  late final void Function(int, {DateTime? now}) _sawPage;
   QuranData? _quran;
 
   @override
@@ -156,6 +157,7 @@ class _TilawatPageState extends ConsumerState<TilawatPage> with SingleTickerProv
     _lock = ref.read(orientationLockProvider);
     _appRotation = ref.read(rotationProvider);
     _setLastRead = ref.read(quranLastReadProvider.notifier).set;
+    _sawPage = ref.read(quranTodayProvider.notifier).saw;
     _sys.setImmersive(true);
     _sys.setOrientation(ref.read(tilawatProvider).orientation);
     _awake(true);
@@ -227,6 +229,11 @@ class _TilawatPageState extends ConsumerState<TilawatPage> with SingleTickerProv
       if (top <= 80 && bottom > 80) best = e.key;
     }
     if (best != null && best != _visiblePage) setState(() => _visiblePage = best!);
+    if (best != null) {
+      try {
+        _sawPage(best);
+      } catch (_) {}
+    }
   }
 
   void _saveLastRead() {

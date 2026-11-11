@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:folio/features/quran/application/quran_providers.dart';
 import 'package:folio/app/router.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -117,6 +119,28 @@ void main() {
       await t.pageBack();
       await wait(t, 6);
       expect(find.byKey(const Key('khatm-label')), findsOneWidget);
+
+      // the Reading card: the Quran pages read today, next to the khatm progress
+      await t.scrollUntilVisible(find.byKey(const Key('stats-quran')), 300, scrollable: find.byType(Scrollable).first);
+      await t.pump();
+      expect(find.text('Khatm 21 of 604'), findsOneWidget);
+      final c = ProviderScope.containerOf(t.element(find.byKey(const Key('stats-quran'))));
+      final today = c.read(quranTodayProvider);
+      expect(today.pages, containsAll([1, 22]), reason: 'the pages opened in the reader');
+      expect(today.pages.contains(10), isFalse, reason: 'a jump of many pages does not count the pages skipped');
+      expect(find.text('Quran: ${today.pages.length} pages today'), findsOneWidget);
+      // reading on page by page (or a quick scroll over a few) counts each page passed
+      final ctl = c.read(quranTodayProvider.notifier);
+      ctl.saw(300);
+      ctl.saw(303);
+      await t.pump();
+      expect(c.read(quranTodayProvider).pages, containsAll([300, 301, 302, 303]));
+      expect(find.text('Quran: ${today.pages.length + 4} pages today'), findsOneWidget);
+      expect(await t.runAsync(() => env.store.state('quran_today')), contains('300,301,302,303'));
+      // a new day starts again
+      ctl.saw(304, now: DateTime.now().add(const Duration(days: 1)));
+      expect(c.read(quranTodayProvider).pages, {304});
+      expect(ctl.countOn(DateTime.now()), 0);
       await t.pumpWidget(const SizedBox());
       await t.pump(const Duration(seconds: 1));
     });

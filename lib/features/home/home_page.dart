@@ -16,7 +16,9 @@ import '../planner/application/planner_controller.dart';
 import '../planner/domain/agenda.dart';
 import '../planner/presentation/format.dart';
 import '../planner/presentation/planner_widgets.dart';
-import '../quran/application/quran_providers.dart' show DailyLang, dailyLangProvider;
+import '../quran/application/quran_providers.dart' show DailyLang, dailyLangProvider, khatmProvider, quranTodayProvider;
+import '../quran/data/quran_data.dart' show QuranData;
+import '../quran/domain/khatm.dart';
 import '../quran/presentation/quran_cabinet.dart';
 import '../quran/presentation/quran_style.dart' show urduText;
 import '../welcome/welcome_page.dart';
@@ -166,6 +168,11 @@ class _StatsCard extends ConsumerWidget {
     final week = lastDays(stats, today);
     final weekMax = week.fold(1, (a, b) => b > a ? b : a);
     final weekTime = secondsInLast(stats, today);
+    // the Quran: pages read today, next to the khatm goal
+    ref.watch(quranTodayProvider);
+    final quranPages = ref.read(quranTodayProvider.notifier).countOn(DateTime.now());
+    final khatm = ref.watch(khatmProvider);
+    final quranRow = quranPages == 0 && khatm == null ? null : _QuranReadRow(pages: quranPages, khatm: khatm);
     return _Card(
       title: 'Reading',
       trailing: TextButton(
@@ -180,6 +187,7 @@ class _StatsCard extends ConsumerWidget {
         child: Text('Goal: $goal pages a day'),
       ),
       children: [
+        if (quranRow != null) ...[quranRow, const SizedBox(height: Space.s12)],
         if (stats.isEmpty)
           Text('Open a book and read: your pages, streak and daily goal show up here.', key: const Key('stats-empty'), style: t.bodySmall)
         else ...[
@@ -245,6 +253,72 @@ class _StatsCard extends ConsumerWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// "Quran: N pages today", and the khatm goal: today's portion and how far through it is.
+class _QuranReadRow extends StatelessWidget {
+  const _QuranReadRow({required this.pages, required this.khatm});
+  final int pages;
+  final KhatmPlan? khatm;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final c = context.colors;
+    final k = khatm;
+    final today = k == null ? null : khatmToday(k, DateTime.now());
+    final portion = today == null
+        ? null
+        : switch (today.status) {
+            KhatmStatus.finished => 'Khatm complete',
+            KhatmStatus.doneToday => "Today's portion done ✓",
+            KhatmStatus.behind => 'Today: p. ${today.from}–${today.to} (${today.behindBy} behind)',
+            KhatmStatus.onTrack => 'Today: p. ${today.from}–${today.to}',
+          };
+    return InkWell(
+      key: const Key('stats-quran'),
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => context.go(Routes.quran),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.menu_book_outlined, size: 20),
+                const SizedBox(width: Space.s8),
+                Expanded(
+                  child: Text(
+                    'Quran: $pages ${pages == 1 ? 'page' : 'pages'} today',
+                    key: const Key('stats-quran-today'),
+                    style: t.titleSmall,
+                  ),
+                ),
+                if (k != null)
+                  Text(
+                    'Khatm ${k.donePage.clamp(0, QuranData.pageCount)} of ${QuranData.pageCount}',
+                    key: const Key('stats-khatm'),
+                    style: t.bodySmall?.copyWith(color: c.textMuted),
+                  ),
+              ],
+            ),
+            if (k != null) ...[
+              const SizedBox(height: 6),
+              LinearProgressIndicator(
+                key: const Key('stats-khatm-bar'),
+                value: k.donePage.clamp(0, QuranData.pageCount) / QuranData.pageCount,
+                minHeight: 6,
+                borderRadius: BorderRadius.circular(3),
+              ),
+              const SizedBox(height: 4),
+              Text('${portion!} · day ${today!.day} of ${k.days}', style: t.bodySmall),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

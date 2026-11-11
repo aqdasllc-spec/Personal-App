@@ -413,7 +413,10 @@ class _SurahPageState extends ConsumerState<SurahPage> {
     _saveTimer = Timer(const Duration(milliseconds: 600), () {
       if (!mounted) return;
       final ayah = _firstVisibleAyah();
-      if (ayah != null) ref.read(quranLastReadProvider.notifier).set((widget.surah, ayah));
+      if (ayah == null) return;
+      ref.read(quranLastReadProvider.notifier).set((widget.surah, ayah));
+      final q = ref.read(quranDataProvider).value;
+      if (q != null && q.valid(widget.surah, ayah)) ref.read(quranTodayProvider.notifier).saw(q.pageOf(q.indexOf(widget.surah, ayah)));
     });
   }
 

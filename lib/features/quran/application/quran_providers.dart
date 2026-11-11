@@ -232,6 +232,62 @@ class KhatmController extends Notifier<KhatmPlan?> {
 
 final khatmProvider = NotifierProvider<KhatmController, KhatmPlan?>(KhatmController.new);
 
+/// The Quran pages (of the 604-page Madinah mushaf, as the khatm counts them) read on this device on [day].
+typedef QuranToday = ({String day, Set<int> pages});
+
+String _quranDay(DateTime d) => '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+/// Counts the pages read today: the reader and Tilawat report each page that comes to the top of the screen, and
+/// reading on through a few pages at once (a fast scroll) counts the pages passed. Starts again each day. Device-only.
+class QuranTodayController extends Notifier<QuranToday> {
+  static const key = 'quran_today';
+  int? _lastPage;
+
+  @override
+  QuranToday build() {
+    Future<void> load() async {
+      try {
+        final raw = await ref.read(syncedStoreProvider).state(key);
+        final parts = (raw ?? '').split('|');
+        if (parts.length != 2) return;
+        final pages = parts[1].split(',').map(int.tryParse).whereType<int>().where((p) => p >= 1 && p <= QuranData.pageCount).toSet();
+        // something seen before the load finished stays counted
+        state = parts[0] == state.day ? (day: state.day, pages: {...pages, ...state.pages}) : (state.pages.isEmpty ? (day: parts[0], pages: pages) : state);
+      } catch (_) {}
+    }
+
+    Future.microtask(load);
+    return (day: '', pages: const <int>{});
+  }
+
+  /// Pages read on the day of [now] (0 on a new day).
+  int countOn(DateTime now) => state.day == _quranDay(now) ? state.pages.length : 0;
+
+  /// [page] is being read (at the top of the screen).
+  void saw(int page, {DateTime? now}) {
+    if (page < 1 || page > QuranData.pageCount) return;
+    final d = _quranDay(now ?? DateTime.now());
+    final same = state.day == d;
+    final pages = same ? {...state.pages} : <int>{};
+    final last = same ? _lastPage : null;
+    if (last != null && page > last && page - last <= 5) {
+      for (var p = last; p <= page; p++) {
+        pages.add(p);
+      }
+    } else {
+      pages.add(page);
+    }
+    _lastPage = page;
+    if (same && pages.length == state.pages.length) return;
+    state = (day: d, pages: pages);
+    try {
+      ref.read(syncedStoreProvider).setState(key, '$d|${(pages.toList()..sort()).join(',')}');
+    } catch (_) {}
+  }
+}
+
+final quranTodayProvider = NotifierProvider<QuranTodayController, QuranToday>(QuranTodayController.new);
+
 /// Hifz (memorising) settings: how to repeat, and whether the Arabic is hidden until tapped. Remembered.
 class HifzSettings {
   const HifzSettings({this.eachAyah = 3, this.rounds = 1, this.pauseSeconds = 0, this.hideArabic = false});
